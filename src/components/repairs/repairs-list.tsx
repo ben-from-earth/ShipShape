@@ -7,29 +7,20 @@ import { formatFindingDate } from "@/features/findings/display";
 import {
   REPAIR_STATUS_LABEL,
   REPAIR_STATUS_OPTIONS,
+  repairAssetLabel,
 } from "@/features/repairs/display";
-import type { RepairView } from "@/features/repairs/view";
-import type { RepairListFilters } from "@/schemas";
+import type { Repair, RepairListFilters } from "@/schemas";
 
 import { RepairStatusPill } from "./status-pill";
 
 const selectClass =
   "min-h-11 w-full border border-line-strong bg-surface px-3 py-2 text-base text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
 
-function assetLine(record: RepairView): string {
-  if (!record.assetIdentifier) {
-    return "—";
-  }
-  return record.assetName
-    ? `${record.assetIdentifier} · ${record.assetName}`
-    : record.assetIdentifier;
-}
-
 export function RepairsList({
   records,
   filters,
 }: {
-  records: readonly RepairView[];
+  records: readonly Repair[];
   filters: RepairListFilters;
 }) {
   const filtered =
@@ -106,10 +97,10 @@ export function RepairsList({
                     {record.title}
                   </span>
                 </span>
-                <span className="font-mono text-ui">
-                  {record.findingCode ?? "—"}
+                <span className="font-mono text-ui">{record.finding.code}</span>
+                <span className="truncate text-ui">
+                  {repairAssetLabel(record.asset)}
                 </span>
-                <span className="truncate text-ui">{assetLine(record)}</span>
                 <RepairStatusPill status={record.status} />
                 <time
                   dateTime={record.createdAt}
