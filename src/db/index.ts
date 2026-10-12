@@ -2,7 +2,11 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import "server-only";
 
+import * as relations from "./relations";
 import * as schema from "./schema";
+
+/** Tables plus relations, so `getDb().query` can follow foreign keys. */
+const databaseSchema = { ...schema, ...relations };
 
 function createDb() {
   const databaseUrl = process.env.DATABASE_URL;
@@ -13,7 +17,7 @@ function createDb() {
     );
   }
 
-  return drizzle({ client: neon(databaseUrl), schema });
+  return drizzle({ client: neon(databaseUrl), schema: databaseSchema });
 }
 
 export type Database = ReturnType<typeof createDb>;

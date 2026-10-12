@@ -7,7 +7,7 @@ ShipShape is the foundation for a damage-repair workflow used by field technicia
 3. Engineering records a stress and strength analysis.
 4. A reviewer approves the analysis, asks for changes, or rejects it.
 
-The database tables are left for the people building them. This repository is the shared TypeScript app, validation, database connection, and the first application shell.
+This repository is the shared TypeScript app, validation, database schema, and the first application shell.
 
 ## Prerequisites
 
@@ -22,7 +22,7 @@ pnpm install
 cp .env.example .env.local
 ```
 
-Put the pooled Neon connection string in `DATABASE_URL` inside `.env.local`. That is the only environment variable. `pnpm dev`, `pnpm build`, and `GET /api/health` work before it is set. `getDb()` and the Drizzle Kit scripts need it.
+Put a Neon connection string in `DATABASE_URL` inside `.env.local`. That is the only environment variable. `pnpm dev`, `pnpm build`, and `GET /api/health` work before it is set. `getDb()` connects on first use. The pooled string works for the app and `pnpm db:seed`. `pnpm db:migrate` needs the direct string. See [docs/database.md](docs/database.md).
 
 ```bash
 pnpm dev
@@ -44,7 +44,9 @@ The app is at [http://localhost:3000](http://localhost:3000). The health check i
 | `pnpm test`         | Run Vitest once                               |
 | `pnpm test:watch`   | Run Vitest in watch mode                      |
 | `pnpm db:generate`  | Write a SQL migration from `src/db/schema.ts` |
-| `pnpm db:migrate`   | Apply migrations in `drizzle/`                |
+| `pnpm db:migrate`   | Apply migrations in `migrations/`             |
+| `pnpm db:check`     | Check the migration history is consistent     |
+| `pnpm db:seed`      | Insert the demo rows                          |
 | `pnpm db:studio`    | Open Drizzle Studio                           |
 
 ## Project structure
@@ -59,9 +61,13 @@ src/schemas/              Zod schemas shared by the UI and the server
 src/schemas/documents.ts  Chunk and search shapes for reference documents
 src/server/<domain>/      Server-side parsing for one workflow step
 src/server/documents/     Extract, chunk, and embed uploaded documents
-src/db/schema.ts          Drizzle tables (placeholder today)
+src/db/schema.ts          Drizzle tables
+src/db/relations.ts       Drizzle relations for db.query
 src/db/index.ts           Neon client. Call getDb() when you need it.
+src/db/seed.ts            Demo data. One T-45 asset group.
+migrations/               SQL migrations, including pgvector
 drizzle.config.ts         Drizzle Kit config. Reads DATABASE_URL.
+docs/database.md          Tables, migrations, and restore
 ```
 
 Server domains:
@@ -92,9 +98,9 @@ import { parseDamageReportCreate } from "@/server/damage-reports";
 
 **The database client connects on first use.** `getDb()` in `src/db/index.ts` reads `DATABASE_URL` when it is called. Importing the module is enough for a build that has no database. `drizzle.config.ts` loads `.env`, `.env.local`, and the other Next.js env files through `@next/env`.
 
-**Tables are a placeholder.** `src/db/schema.ts` exports `schemaPlaceholder` so Drizzle Kit has a schema file to read. Replace that table with damage reports, repairs, analyses, reviews, and documents before storing product data.
+**Tables cover the repair workflow.** `src/db/schema.ts` holds organizations, people, generic assets, issues, repairs, analyses, reviews, and documents. Assets are not aircraft-specific: `asset_type` is a free label and type-specific fields live in JSON. The table list, migration rules, and restore steps are in [docs/database.md](docs/database.md).
 
-**Document search runs locally and does not touch the database yet.** `extractText()` reads PDF with unpdf, DOCX with mammoth, and plain text or Markdown as UTF-8. `chunkText()` splits that text into overlapping chunks of about 500 tokens, keeping page numbers and character offsets when the format has them. `embed()` and `embedText()` are the only functions that load `Xenova/all-MiniLM-L6-v2` through Transformers.js. They mean-pool and L2-normalize to the 384-dimension vectors named by `DOCUMENT_EMBEDDING_DIMENSIONS`. Chunk and search payloads live in `src/schemas/documents.ts`. Storing vectors in pgvector and serving search over HTTP come later; this change does not write to the database or add a route. `pnpm test` mocks the model. Set `RUN_EMBEDDING_MODEL=1` to run the optional test that downloads it.
+**Document search embeds locally and stores chunks in Postgres.** `extractText()` reads PDF with unpdf, DOCX with mammoth, and plain text or Markdown as UTF-8. `chunkText()` splits that text into overlapping chunks of about 500 tokens, keeping a page span and character offsets. `embed()` and `embedText()` are the only functions that load `Xenova/all-MiniLM-L6-v2` through Transformers.js. They mean-pool and L2-normalize to the 384-dimension vectors named by `DOCUMENT_EMBEDDING_DIMENSIONS`. `document_chunks` stores that `DocumentChunk` shape (`index`, `text`, `startOffset`, `endOffset`, `pageStart`, `pageEnd`) plus the embedding, with a cosine HNSW index. Serving search over HTTP comes later. `pnpm test` mocks the model. Set `RUN_EMBEDDING_MODEL=1` to run the optional test that downloads it.
 
 **Low margins use one cutoff until organizations store their own.** `LOW_MARGIN_THRESHOLD` in `src/config/analysis.ts` is `0.10`. A later setting, `organizations.low_margin_threshold`, replaces it per organization. Negative margins stay red either way.
 
@@ -104,6 +110,6 @@ import { parseDamageReportCreate } from "@/server/damage-reports";
 
 ## Contributing
 
-Branch from `main`, use [Conventional Commits](https://www.conventionalcommits.org/), and open a pull request. CI runs lint, format check, typecheck, test, and build on pull requests and on pushes to `main`. It does not need secrets.
+Branch from `main`, use [Conventional Commits](https://www.conventionalcommits.org/), and open a pull request. CI runs lint, format check, typecheck, test, and build, and applies migrations to a throwaway Postgres database. It does not need secrets. A separate workflow dumps Neon and migrates it after a migration change reaches `main`.
 
 The full workflow, commit types, and where to put code are in [CONTRIBUTING.md](CONTRIBUTING.md).

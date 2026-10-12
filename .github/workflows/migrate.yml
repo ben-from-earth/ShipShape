@@ -1,0 +1,86 @@
+name: Migrate database
+
+# Dump Neon, keep the dump, then apply migrations. Pull requests never run
+# this workflow and do not receive DATABASE_URL.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "migrations/**"
+      - "drizzle.config.ts"
+      - ".github/workflows/migrate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One production migration at a time. A later run waits; it does not start a
+# second dump or migrate while one is in progress.
+concurrency:
+  group: migrate-neon
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Back up Neon and migrate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # postgres:17 matches Neon Postgres 17. An older pg_dump refuses the server.
+      - name: Check pg_dump matches Neon Postgres 17
+        run: |
+          set -euo pipefail
+          version="$(docker run --rm --entrypoint pg_dump postgres:17 --version)"
+          echo "$version"
+          major="$(printf '%s\n' "$version" | awk '{print $3}' | cut -d. -f1)"
+          test "$major" = "17"
+
+      - name: Dump Neon database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL}" ]; then
+            echo "DATABASE_URL secret is not set. Migrations were not applied."
+            exit 1
+          fi
+          docker run --rm --entrypoint sh \
+            -e DATABASE_URL \
+            -v "$PWD:/backup" \
+            -u "$(id -u):$(id -g)" \
+            postgres:17 \
+            -c 'pg_dump --dbname="$DATABASE_URL" --format=custom --no-owner --no-privileges --file=/backup/neon-pre-migrate.dump'
+          test -s neon-pre-migrate.dump
+          header="$(head -c 5 neon-pre-migrate.dump)"
+          test "$header" = "PGDMP"
+
+      - name: Upload pre-migration dump
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: neon-pre-migrate-${{ github.sha }}
+          path: neon-pre-migrate.dump
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Apply migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm db:migrate
