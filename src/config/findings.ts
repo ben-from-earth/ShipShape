@@ -15,21 +15,6 @@ export const MIN_FINDING_PHOTOS = 1;
 
 export const MAX_FINDING_PHOTOS = 10;
 
-/**
- * Severity of a finding. The only list of these labels.
- * `issues` has no severity column yet. Database Manager adds a Postgres
- * enum with these labels, in this order, in the sequence migration.
- * Nothing else in the schema defines severity.
- */
-export const FINDING_SEVERITIES = [
-  "low",
-  "medium",
-  "high",
-  "critical",
-] as const;
-
-export type FindingSeverity = (typeof FINDING_SEVERITIES)[number];
-
 /** Matches `longTextSchema` in src/schemas/common.ts. `issues.description`. */
 export const MAX_FINDING_DESCRIPTION_LENGTH = 5_000;
 
@@ -46,8 +31,8 @@ export const MAX_FINDING_LOCATION_JSON_LENGTH = 2_000;
 export const MAX_FINDING_CAPTION_LENGTH = 500;
 
 /**
- * Cap on `issues.code` in the 201 body. The value is `nextval` of a
- * Postgres sequence, stored as text. Clients do not send it.
+ * Cap on `issues.code` in the 201 body. The value comes from
+ * `nextIssueCodeSql()`, stored as text. Clients do not send it.
  */
 export const MAX_FINDING_CODE_LENGTH = 64;
 

@@ -5,12 +5,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   FINDING_ERROR_HTTP_STATUS,
-  FINDING_SEVERITIES,
   MAX_FINDING_DESCRIPTION_LENGTH,
   MAX_FINDING_LOCATION_JSON_LENGTH,
   MAX_FINDING_PHOTOS,
   MAX_FINDING_ZONE_LENGTH,
 } from "@/config/findings";
+import { SEVERITIES } from "@/config/severity";
 import {
   apiErrorSchema,
   createFindingFieldsSchema,
@@ -141,7 +141,7 @@ describe("createFindingFieldsSchema", () => {
         description: "Cracked cover.",
       }).success,
     ).toBe(false);
-    for (const severity of FINDING_SEVERITIES) {
+    for (const severity of SEVERITIES) {
       expect(findingSeveritySchema.parse(severity)).toBe(severity);
     }
     expect(findingSeveritySchema.safeParse("urgent").success).toBe(false);
@@ -262,7 +262,7 @@ describe("findingPhotoSchema", () => {
 describe("createFindingResultSchema", () => {
   const created = {
     id: findingId,
-    code: "1002",
+    code: "ISS-1002",
     stage: "discovered" as const,
     severity: "high" as const,
     createdAt: storedAt,
@@ -274,7 +274,7 @@ describe("createFindingResultSchema", () => {
 
     expect(parsed.stage).toBe("discovered");
     expect(parsed.severity).toBe("high");
-    expect(parsed.code).toBe("1002");
+    expect(parsed.code).toBe("ISS-1002");
     expect(parsed.photos).toHaveLength(1);
     expect(parsed.photos[0]?.issueId).toBe(findingId);
     expect(findingStageSchema.parse("discovered")).toBe("discovered");

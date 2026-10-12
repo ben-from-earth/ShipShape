@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import {
   FINDING_PHOTO_STORED_MEDIA_TYPES,
-  FINDING_SEVERITIES,
   MAX_FINDING_CAPTION_LENGTH,
   MAX_FINDING_CODE_LENGTH,
   MAX_FINDING_DESCRIPTION_LENGTH,
@@ -12,6 +11,7 @@ import {
   MAX_FINDING_ZONE_LENGTH,
   MIN_FINDING_PHOTOS,
 } from "@/config/findings";
+import { SEVERITIES } from "@/config/severity";
 
 import { idSchema, timestampSchema } from "./common";
 
@@ -40,16 +40,16 @@ export const findingStageSchema = z.enum([
  */
 export const findingLocationSchema = z.record(z.string(), z.json());
 
-/** Required on create. Values are `FINDING_SEVERITIES` in src/config/findings.ts. */
-export const findingSeveritySchema = z.enum(FINDING_SEVERITIES);
+/** Required on create. Labels are `SEVERITIES` in src/config/severity.ts. */
+export const findingSeveritySchema = z.enum(SEVERITIES);
 
 /**
  * Multipart text fields for POST /api/findings. Names match the intake
  * form where `issues` already has a column: `assetId`, `description`,
  * `zone`, and `locationLabel` (the form's location text). `severity` is
- * required too. `issues` has no severity column yet; Database Manager
- * adds a Postgres enum that matches `FINDING_SEVERITIES` in the sequence
- * migration. The server assigns id, stage, createdAt, and updatedAt.
+ * required and uses `SEVERITIES` from `src/config/severity.ts`, the same
+ * list as the `issue_severity` enum on `issues.severity`. The server
+ * assigns id, stage, createdAt, and updatedAt.
  * Photos travel in the repeated `photos` file field and are not part of
  * this object.
  *
@@ -58,9 +58,9 @@ export const findingSeveritySchema = z.enum(FINDING_SEVERITIES);
  * The asset group is not a field. The handler derives `assets.group_id`
  * from `assetId`. `groupId`, `assetGroup`, and `assetGroupId` are rejected.
  *
- * `code` is not a field. `issues.code` is the text form of `nextval` on a
- * Postgres sequence, added in a separate migration. The handler does not
- * accept a client code and does not use `MAX(code) + 1`.
+ * `code` is not a field. The handler sets `issues.code` with
+ * `nextIssueCodeSql()` inside the insert batch. It does not accept a
+ * client code and does not use `MAX(code) + 1`.
  *
  * `issues` has no title or summary column. Those keys are rejected. A
  * short title (what `damageReportCreateSchema` calls `summary`) would
@@ -113,7 +113,7 @@ export const initialFindingStageTransitionSchema = z.object({
 /**
  * Body of the 201 response from POST /api/findings.
  *
- * `code` is the text stored from `nextval`. The client cannot send it.
+ * `code` is the text from `nextIssueCodeSql()`. The client cannot send it.
  * `stage` is `discovered` because the same `db.batch` inserts the issue,
  * its `issue_media` rows, and the initial `stage_transitions` row.
  */

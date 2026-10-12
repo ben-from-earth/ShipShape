@@ -9,7 +9,6 @@ import {
   FINDING_PHOTO_MEDIA_TYPES,
   FINDING_PHOTO_STORED_MEDIA_TYPES,
   FINDING_PHOTO_TYPES,
-  FINDING_SEVERITIES,
   MAX_FINDING_CAPTION_LENGTH,
   MAX_FINDING_CODE_LENGTH,
   MAX_FINDING_DESCRIPTION_LENGTH,
@@ -64,7 +63,6 @@ describe("finding photo config", () => {
     expect(MAX_FINDING_LOCATION_JSON_LENGTH).toBe(2_000);
     expect(MAX_FINDING_CAPTION_LENGTH).toBe(500);
     expect(MAX_FINDING_CODE_LENGTH).toBe(64);
-    expect(FINDING_SEVERITIES).toEqual(["low", "medium", "high", "critical"]);
   });
 
   it("stores JPEG aliases as image/jpeg and keeps HEIC", () => {
