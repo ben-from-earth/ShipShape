@@ -88,6 +88,8 @@ export type {
 } from "./documents";
 
 export {
+  advanceFindingStageFieldsSchema,
+  advanceFindingStageResultSchema,
   createFindingFieldsSchema,
   createFindingResultSchema,
   findingAssetGroupSummarySchema,
@@ -103,6 +105,8 @@ export {
   initialFindingStageTransitionSchema,
 } from "./findings";
 export type {
+  AdvanceFindingStageFields,
+  AdvanceFindingStageResult,
   CreateFindingFields,
   CreateFindingResult,
   FindingAssetGroupSummary,

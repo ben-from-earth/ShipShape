@@ -13,6 +13,8 @@ import {
 import { SEVERITIES } from "@/config/severity";
 import { workStage } from "@/db/schema";
 import {
+  advanceFindingStageFieldsSchema,
+  advanceFindingStageResultSchema,
   apiErrorSchema,
   createFindingFieldsSchema,
   createFindingResultSchema,
@@ -506,6 +508,35 @@ describe("findingRecordSchema", () => {
     expect(findingListFiltersSchema.safeParse({ stage: "nope" }).success).toBe(
       false,
     );
+  });
+});
+
+describe("advanceFindingStage schemas", () => {
+  it("accepts a work_stage and the 200 body", () => {
+    expect(
+      advanceFindingStageFieldsSchema.parse({ toStage: "repair_defined" }),
+    ).toEqual({ toStage: "repair_defined" });
+    expect(
+      advanceFindingStageFieldsSchema.safeParse({ toStage: "published" })
+        .success,
+    ).toBe(false);
+    expect(
+      advanceFindingStageFieldsSchema.safeParse({
+        toStage: "closed",
+        actorId: "550e8400-e29b-41d4-a716-446655440011",
+      }).success,
+    ).toBe(false);
+    expect(
+      advanceFindingStageResultSchema.parse({
+        id: "550e8400-e29b-41d4-a716-446655440031",
+        stage: "repair_defined",
+        transitionedAt: "2026-10-12T21:04:00.000Z",
+      }),
+    ).toEqual({
+      id: "550e8400-e29b-41d4-a716-446655440031",
+      stage: "repair_defined",
+      transitionedAt: "2026-10-12T21:04:00.000Z",
+    });
   });
 });
 
