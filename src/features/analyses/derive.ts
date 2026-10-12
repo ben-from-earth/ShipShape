@@ -1,4 +1,3 @@
-import { DEMO_AS_OF } from "@/config/demo";
 import { formatShortDate } from "@/lib/dates";
 
 import { personById, UNASSIGNED_COLOR } from "./fixtures";
@@ -65,11 +64,11 @@ export function marginBarPercent(margin: number): number {
   return Math.max(4, Math.min(100, ((margin + 0.1) / 0.8) * 100));
 }
 
-export function isOverdue(record: AnalysisRecord, asOf = DEMO_AS_OF): boolean {
+export function isOverdue(record: AnalysisRecord, asOf: string): boolean {
   return record.status !== "done" && record.dueOn < asOf;
 }
 
-export function dueLabel(record: AnalysisRecord, asOf = DEMO_AS_OF): string {
+export function dueLabel(record: AnalysisRecord, asOf: string): string {
   const date = formatShortDate(record.dueOn);
 
   if (record.status === "done") {
@@ -129,7 +128,7 @@ export function filterAnalyses(
 export function sortAnalyses(
   records: readonly AnalysisRecord[],
   sort: AnalysisSort,
-  asOf = DEMO_AS_OF,
+  asOf: string,
 ): AnalysisRecord[] {
   const copy = [...records];
 

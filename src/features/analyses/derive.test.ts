@@ -9,6 +9,7 @@ import { classifyMargin } from "@/lib/margin";
 import {
   dueLabel,
   filterAnalyses,
+  isOverdue,
   lifecycleSteps,
   minMargin,
   ownerLine,
@@ -79,19 +80,19 @@ describe("filterAnalyses", () => {
 
 describe("sortAnalyses", () => {
   it("sorts by lowest margin, with missing margins last", () => {
-    expect(sortAnalyses(ANALYSES, "margin").map((record) => record.id)).toEqual(
-      [
-        "SA-26-109",
-        "SA-26-117",
-        "SA-26-105",
-        "SA-26-111",
-        "SA-26-118",
-        "SA-26-114",
-        "SA-26-102",
-        "SA-26-098",
-        "SA-26-120",
-      ],
-    );
+    expect(
+      sortAnalyses(ANALYSES, "margin", DEMO_AS_OF).map((record) => record.id),
+    ).toEqual([
+      "SA-26-109",
+      "SA-26-117",
+      "SA-26-105",
+      "SA-26-111",
+      "SA-26-118",
+      "SA-26-114",
+      "SA-26-102",
+      "SA-26-098",
+      "SA-26-120",
+    ]);
   });
 
   it("puts overdue work ahead of later due dates", () => {
@@ -99,8 +100,54 @@ describe("sortAnalyses", () => {
     expect(sorted[0]?.id).toBe("SA-26-109");
     expect(dueLabel(sorted[0]!, DEMO_AS_OF)).toBe("Overdue");
     expect(
-      dueLabel(ANALYSES.find((record) => record.id === "SA-26-098")!),
+      dueLabel(
+        ANALYSES.find((record) => record.id === "SA-26-098")!,
+        DEMO_AS_OF,
+      ),
     ).toBe("Closed Sep 24");
+  });
+});
+
+describe("due dates follow the passed as-of day", () => {
+  const dueOct8 = ANALYSES.find((record) => record.id === "SA-26-114");
+
+  it("keeps Oct 8 upcoming on the fixture day and overdue on a later day", () => {
+    expect(dueOct8).toBeDefined();
+    if (!dueOct8) {
+      return;
+    }
+
+    expect(isOverdue(dueOct8, DEMO_AS_OF)).toBe(false);
+    expect(dueLabel(dueOct8, DEMO_AS_OF)).toBe("Due Oct 8");
+
+    const later = "2026-10-12";
+    expect(isOverdue(dueOct8, later)).toBe(true);
+    expect(dueLabel(dueOct8, later)).toBe("Overdue");
+
+    const onFixtureDay = sortAnalyses(ANALYSES, "due", DEMO_AS_OF).map(
+      (record) => record.id,
+    );
+    const onLaterDay = sortAnalyses(ANALYSES, "due", later).map(
+      (record) => record.id,
+    );
+    expect(onFixtureDay[0]).toBe("SA-26-109");
+    expect(onFixtureDay.indexOf("SA-26-114")).toBeGreaterThan(
+      onFixtureDay.indexOf("SA-26-098"),
+    );
+    expect(onLaterDay.indexOf("SA-26-114")).toBeLessThan(
+      onLaterDay.indexOf("SA-26-098"),
+    );
+    expect(onLaterDay.indexOf("SA-26-114")).toBeLessThan(
+      onLaterDay.indexOf("SA-26-117"),
+    );
+
+    type RequiresDay<T extends string> = T;
+    const overdueDay: RequiresDay<Parameters<typeof isOverdue>[1]> = DEMO_AS_OF;
+    const labelDay: RequiresDay<Parameters<typeof dueLabel>[1]> = overdueDay;
+    const sortDay: RequiresDay<Parameters<typeof sortAnalyses>[2]> = labelDay;
+    expect(isOverdue(dueOct8, overdueDay)).toBe(false);
+    expect(dueLabel(dueOct8, labelDay)).toBe("Due Oct 8");
+    expect(sortAnalyses([dueOct8], "due", sortDay)[0]?.id).toBe("SA-26-114");
   });
 });
 

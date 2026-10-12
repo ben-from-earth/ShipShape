@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { readAnalyses } from "@/features/analyses/db";
+import { dueLabel, isOverdue, sortAnalyses } from "@/features/analyses/derive";
 import { readDashboard } from "@/features/dashboard/db";
 import { readLowMarginThreshold } from "@/lib/org-threshold";
 
@@ -10,6 +11,7 @@ import {
   isLoopbackDatabaseUrl,
   openIntegrationDatabase,
 } from "./integration";
+import { loadTenantSnapshot } from "./tenant";
 import {
   activityLog,
   analyses,
@@ -72,6 +74,31 @@ describe.skipIf(!enabled)("database-backed readers", () => {
       dashboard.kpis.find((kpi) => kpi.label === "Open items")?.value,
     ).toBe("0");
     expect(await readAnalyses(db, at(AS_OF))).toEqual([]);
+    expect(dashboard.marginThreshold).toBe(0.1);
+  });
+
+  it("breaks an oldest-organization tie with the lower id", async () => {
+    const sameDay = at("2024-01-01");
+    await db.insert(organizations).values([
+      {
+        id: uid(2),
+        name: "Higher id",
+        lowMarginThreshold: "0.40",
+        createdAt: sameDay,
+      },
+      {
+        id: uid(1),
+        name: "Lower id",
+        lowMarginThreshold: "0.15",
+        createdAt: sameDay,
+      },
+    ]);
+
+    expect(await readLowMarginThreshold(db)).toBe(0.15);
+    const snapshot = await loadTenantSnapshot(db);
+    expect(snapshot?.orgName).toBe("Lower id");
+    expect(snapshot?.threshold).toBe(0.15);
+    expect((await readDashboard(db, "30D", AS_OF)).marginThreshold).toBe(0.15);
   });
 
   it("scopes pipeline, age, zones, throughput, and analyses through assets.org_id", async () => {
@@ -605,5 +632,16 @@ describe.skipIf(!enabled)("database-backed readers", () => {
     expect(records[0]?.roster?.analyst.name).toBe("Blake Ortiz");
     expect(records[1]?.checker).toBe("CN");
     expect(records[1]?.approver).toBe("DP");
+
+    const dueOct7 = records.find((record) => record.id === "AN-4");
+    expect(dueOct7).toBeDefined();
+    if (dueOct7) {
+      expect(isOverdue(dueOct7, AS_OF)).toBe(false);
+      expect(dueLabel(dueOct7, AS_OF)).toBe("Due Oct 7");
+      expect(isOverdue(dueOct7, "2026-10-08")).toBe(true);
+      expect(dueLabel(dueOct7, "2026-10-08")).toBe("Overdue");
+      expect(sortAnalyses(records, "due", "2026-10-08")[0]?.id).toBe("AN-3");
+      expect(sortAnalyses(records, "due", "2026-10-08")[1]?.id).toBe("AN-4");
+    }
   });
 });

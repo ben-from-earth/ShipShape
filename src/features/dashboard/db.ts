@@ -1,10 +1,8 @@
 import "server-only";
 
-import { io } from "next/cache";
-
 import { getDb, type Database } from "@/db";
 import { loadOrEmpty } from "@/db/tenant";
-import { isoDateUtc } from "@/lib/dates";
+import { readRequestClock } from "@/lib/request-day";
 
 import {
   dashboardPeriods,
@@ -36,30 +34,29 @@ export async function readDashboard(
 export async function getDashboard(
   period: DashboardPeriod,
 ): Promise<DashboardModel> {
-  await io();
+  const clock = await readRequestClock();
 
   if (!process.env.DATABASE_URL) {
     return getDemoDashboard(period);
   }
 
-  return readDashboard(getDb(), period, isoDateUtc(new Date()));
+  return readDashboard(getDb(), period, clock.asOf);
 }
 
 export async function getDashboards(): Promise<
   Record<DashboardPeriod, DashboardModel>
 > {
-  await io();
+  const clock = await readRequestClock();
 
   if (!process.env.DATABASE_URL) {
     return getDemoDashboards();
   }
 
-  const asOf = isoDateUtc(new Date());
   const snapshot = await loadOrEmpty(getDb());
 
   return {
-    "30D": buildDashboardModel(snapshot, "30D", asOf),
-    "90D": buildDashboardModel(snapshot, "90D", asOf),
-    "12M": buildDashboardModel(snapshot, "12M", asOf),
+    "30D": buildDashboardModel(snapshot, "30D", clock.asOf),
+    "90D": buildDashboardModel(snapshot, "90D", clock.asOf),
+    "12M": buildDashboardModel(snapshot, "12M", clock.asOf),
   };
 }

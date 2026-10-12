@@ -804,6 +804,7 @@ export function buildDashboardModel(
     period,
     asOf,
     asOfLabel: formatAsOfLabel(asOf),
+    marginThreshold: snapshot.threshold,
     assetGroupName: snapshot.assetGroupName,
     kpis: kpis(snapshot, period, asOf, items),
     pipeline: buildPipeline(items, pipeline(snapshot, asOf)),

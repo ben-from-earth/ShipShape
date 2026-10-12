@@ -1,11 +1,11 @@
 import "server-only";
 
-import { asc } from "drizzle-orm";
-
 import type { Database } from "@/db";
-import { thresholdFromColumn } from "@/lib/org-threshold";
+import {
+  oldestOrganizationOrder,
+  thresholdFromColumn,
+} from "@/lib/org-threshold";
 
-import { organizations } from "./schema";
 import {
   emptySnapshot,
   type DbAnalysisStatus,
@@ -61,35 +61,92 @@ function asMargin(value: string | number): number | null {
 }
 
 /**
- * One organization and every issue that belongs to it through `assets.org_id`.
- * The oldest organization is the tenant until a session picks one.
+ * One organization and the issue tree that belongs to it through
+ * `assets.org_id`. The oldest organization is the tenant until a session
+ * picks one. Columns are limited to what the view models read.
  * Returns null when the database has no organizations.
  */
 export async function loadTenantSnapshot(
   db: Reader,
 ): Promise<TenantSnapshot | null> {
-  const orgs = await db.query.organizations.findMany({
-    orderBy: [asc(organizations.createdAt)],
-    limit: 1,
+  const org = await db.query.organizations.findFirst({
+    orderBy: oldestOrganizationOrder(),
+    columns: {
+      name: true,
+      lowMarginThreshold: true,
+    },
     with: {
-      users: true,
-      assetGroups: true,
+      users: {
+        columns: { id: true, name: true, initials: true, role: true },
+      },
+      assetGroups: {
+        columns: { id: true, name: true },
+      },
       assets: {
+        columns: {
+          id: true,
+          groupId: true,
+          identifier: true,
+          outOfService: true,
+        },
         with: {
           issues: {
+            columns: {
+              id: true,
+              code: true,
+              zone: true,
+              description: true,
+              stage: true,
+              discoveredAt: true,
+              locationLabel: true,
+            },
             with: {
-              reporter: true,
-              stageTransitions: true,
+              reporter: { columns: { name: true } },
+              stageTransitions: {
+                columns: { changedAt: true, toStage: true },
+              },
               repairs: {
+                columns: {
+                  id: true,
+                  code: true,
+                  title: true,
+                  type: true,
+                  createdAt: true,
+                },
                 with: {
                   revisions: {
+                    columns: { rev: true, detail: true, createdAt: true },
                     with: {
                       analyses: {
+                        columns: {
+                          id: true,
+                          code: true,
+                          title: true,
+                          method: true,
+                          status: true,
+                          dueDate: true,
+                          createdAt: true,
+                          updatedAt: true,
+                        },
                         with: {
-                          owner: true,
-                          cases: true,
-                          people: { with: { user: true } },
-                          reviews: { with: { reviewer: true } },
+                          owner: { columns: { name: true, initials: true } },
+                          cases: { columns: { name: true, margin: true } },
+                          people: {
+                            columns: { role: true },
+                            with: {
+                              user: {
+                                columns: {
+                                  id: true,
+                                  name: true,
+                                  initials: true,
+                                },
+                              },
+                            },
+                          },
+                          reviews: {
+                            columns: { decision: true, decidedAt: true },
+                            with: { reviewer: { columns: { role: true } } },
+                          },
                         },
                       },
                     },
@@ -100,11 +157,12 @@ export async function loadTenantSnapshot(
           },
         },
       },
-      activity: true,
+      activity: {
+        columns: { createdAt: true, message: true, entityId: true },
+      },
     },
   });
 
-  const org = orgs[0];
   if (!org) {
     return null;
   }

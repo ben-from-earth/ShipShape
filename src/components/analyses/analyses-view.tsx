@@ -82,11 +82,14 @@ export function AnalysesView({
   records,
   defaultSelectedId,
   marginThreshold = LOW_MARGIN_THRESHOLD,
+  asOf,
 }: {
   records: readonly AnalysisRecord[];
   defaultSelectedId: string;
   /** Organization cutoff. Defaults to `LOW_MARGIN_THRESHOLD`. */
   marginThreshold?: number;
+  /** UTC day for overdue, due labels, and due-date sort. */
+  asOf: string;
 }) {
   const [filter, setFilter] = useState<AnalysisFilter>("all");
   const [query, setQuery] = useState("");
@@ -98,7 +101,11 @@ export function AnalysesView({
     : defaultSelectedId;
 
   const counts = statusCounts(records);
-  const visible = sortAnalyses(filterAnalyses(records, filter, query), sort);
+  const visible = sortAnalyses(
+    filterAnalyses(records, filter, query),
+    sort,
+    asOf,
+  );
   const selected =
     records.find((record) => record.id === selectedId) ?? records[0];
 
@@ -196,6 +203,7 @@ export function AnalysesView({
                     selected={record.id === selected?.id}
                     onSelect={selectAnalysis}
                     marginThreshold={marginThreshold}
+                    asOf={asOf}
                   />
                 </li>
               ))}
@@ -208,6 +216,7 @@ export function AnalysesView({
               onSort={setSort}
               onSelect={selectAnalysis}
               marginThreshold={marginThreshold}
+              asOf={asOf}
             />
           )}
         </div>
@@ -224,13 +233,15 @@ function AnalysisCard({
   selected,
   onSelect,
   marginThreshold,
+  asOf,
 }: {
   record: AnalysisRecord;
   selected: boolean;
   onSelect: (id: string) => void;
   marginThreshold: number;
+  asOf: string;
 }) {
-  const overdue = isOverdue(record);
+  const overdue = isOverdue(record, asOf);
   const analyst = PEOPLE[record.analyst];
 
   return (
@@ -296,7 +307,7 @@ function AnalysisCard({
             overdue ? "text-accent uppercase" : "text-ink-muted",
           )}
         >
-          {dueLabel(record)}
+          {dueLabel(record, asOf)}
         </span>
       </span>
     </button>
@@ -310,6 +321,7 @@ function AnalysisTable({
   onSort,
   onSelect,
   marginThreshold,
+  asOf,
 }: {
   records: readonly AnalysisRecord[];
   selectedId: string | undefined;
@@ -317,6 +329,7 @@ function AnalysisTable({
   onSort: (sort: AnalysisSort) => void;
   onSelect: (id: string) => void;
   marginThreshold: number;
+  asOf: string;
 }) {
   return (
     <div className="overflow-x-auto border border-line bg-surface">
@@ -365,7 +378,7 @@ function AnalysisTable({
         <tbody>
           {records.map((record) => {
             const selected = record.id === selectedId;
-            const overdue = isOverdue(record);
+            const overdue = isOverdue(record, asOf);
 
             return (
               <tr
@@ -414,7 +427,7 @@ function AnalysisTable({
                     overdue ? "text-accent uppercase" : "text-ink-muted",
                   )}
                 >
-                  {dueLabel(record)}
+                  {dueLabel(record, asOf)}
                 </td>
               </tr>
             );

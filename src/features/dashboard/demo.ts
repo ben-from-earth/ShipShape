@@ -1,5 +1,6 @@
 import "server-only";
 
+import { LOW_MARGIN_THRESHOLD } from "@/config/analysis";
 import {
   DEMO_AS_OF,
   DEMO_AS_OF_LABEL,
@@ -39,6 +40,7 @@ export async function getDashboard(
     period,
     asOf: DEMO_AS_OF,
     asOfLabel: DEMO_AS_OF_LABEL,
+    marginThreshold: LOW_MARGIN_THRESHOLD,
     assetGroupName: DEMO_ASSET_GROUP_NAME,
     kpis: [...PERIOD_KPIS[period]],
     pipeline: buildPipeline(OPEN_ITEMS, STAGE_META),

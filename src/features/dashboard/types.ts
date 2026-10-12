@@ -105,6 +105,8 @@ export type DashboardModel = {
   period: DashboardPeriod;
   asOf: string;
   asOfLabel: string;
+  /** Cutoff from the tenant snapshot. Pages pass this to `MarginValue`. */
+  marginThreshold: number;
   assetGroupName: string;
   kpis: Kpi[];
   pipeline: PipelineStage[];

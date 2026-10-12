@@ -3,7 +3,6 @@ import { Suspense } from "react";
 
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 import { getDashboards } from "@/features/dashboard/data";
-import { getLowMarginThreshold } from "@/lib/org-threshold";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -20,10 +19,12 @@ export default function DashboardPage() {
 }
 
 async function DashboardLoader() {
-  const [periods, marginThreshold] = await Promise.all([
-    getDashboards(),
-    getLowMarginThreshold(),
-  ]);
+  const periods = await getDashboards();
 
-  return <DashboardView periods={periods} marginThreshold={marginThreshold} />;
+  return (
+    <DashboardView
+      periods={periods}
+      marginThreshold={periods["30D"].marginThreshold}
+    />
+  );
 }

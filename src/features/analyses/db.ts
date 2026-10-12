@@ -1,9 +1,9 @@
 import "server-only";
 
-import { io } from "next/cache";
-
+import { LOW_MARGIN_THRESHOLD } from "@/config/analysis";
 import { getDb, type Database } from "@/db";
 import { loadOrEmpty } from "@/db/tenant";
+import { readRequestClock } from "@/lib/request-day";
 
 import { buildAnalysisRecords } from "./map";
 import { listAnalyses as listDemoAnalyses } from "./demo";
@@ -17,16 +17,41 @@ export async function readAnalyses(
   return buildAnalysisRecords(await loadOrEmpty(db), now);
 }
 
+export type AnalysesPage = {
+  records: AnalysisRecord[];
+  /** UTC day from `readRequestClock`. Fixture mode is `DEMO_AS_OF`. */
+  asOf: string;
+  /** Cutoff from the same tenant snapshot as `records`. */
+  marginThreshold: number;
+};
+
 /**
- * Live analysis list. With no `DATABASE_URL` this returns the demo rows.
- * `io()` keeps the read out of the static shell.
+ * One clock read and one tenant lookup for the engineering page.
+ * With no `DATABASE_URL` this returns the demo rows and the fixture day.
  */
-export async function listAnalyses(): Promise<AnalysisRecord[]> {
-  await io();
+export async function getAnalysesPage(): Promise<AnalysesPage> {
+  const clock = await readRequestClock();
 
   if (!process.env.DATABASE_URL) {
-    return listDemoAnalyses();
+    return {
+      records: await listDemoAnalyses(),
+      asOf: clock.asOf,
+      marginThreshold: LOW_MARGIN_THRESHOLD,
+    };
   }
 
-  return readAnalyses(getDb(), new Date());
+  const snapshot = await loadOrEmpty(getDb());
+  return {
+    records: buildAnalysisRecords(snapshot, clock.now),
+    asOf: clock.asOf,
+    marginThreshold: snapshot.threshold,
+  };
+}
+
+/**
+ * Live analysis list. With no `DATABASE_URL` this returns the demo rows.
+ * `readRequestClock` keeps the read out of the static shell.
+ */
+export async function listAnalyses(): Promise<AnalysisRecord[]> {
+  return (await getAnalysesPage()).records;
 }

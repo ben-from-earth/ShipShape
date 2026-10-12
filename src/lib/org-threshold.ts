@@ -20,6 +20,14 @@ export function thresholdFromColumn(value: string | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : LOW_MARGIN_THRESHOLD;
 }
 
+/**
+ * Oldest organization, then the lowest id when `created_at` ties.
+ * Shared by the threshold lookup and the tenant snapshot.
+ */
+export function oldestOrganizationOrder() {
+  return [asc(organizations.createdAt), asc(organizations.id)];
+}
+
 /** Oldest organization's cutoff. An empty database uses the fallback. */
 export async function readLowMarginThreshold(
   db: Pick<Database, "select">,
@@ -27,17 +35,16 @@ export async function readLowMarginThreshold(
   const rows = await db
     .select({ value: organizations.lowMarginThreshold })
     .from(organizations)
-    .orderBy(asc(organizations.createdAt))
+    .orderBy(...oldestOrganizationOrder())
     .limit(1);
 
   return thresholdFromColumn(rows[0]?.value);
 }
 
 /**
- * Organization cutoff for the pages that paint margins.
- * Skips the database when `DATABASE_URL` is unset so build and local
- * dev keep the shared 0.10 fallback. `io()` keeps the read out of the
- * static shell when a database is configured.
+ * Standalone cutoff lookup. The dashboard and analyses pages do not
+ * call this: they use `TenantSnapshot.threshold` from the one tenant
+ * read. Skips the database when `DATABASE_URL` is unset.
  */
 export async function getLowMarginThreshold(): Promise<number> {
   await io();
