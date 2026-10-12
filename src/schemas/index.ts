@@ -46,9 +46,16 @@ export type { CreateRepairFields, CreateRepairResult } from "./repairs";
 export {
   analysisConclusionSchema,
   analysisCreateSchema,
+  analysisDbStatusSchema,
+  analysisMarginSchema,
   analysisSchema,
 } from "./analysis";
-export type { Analysis, AnalysisConclusion, AnalysisCreate } from "./analysis";
+export type {
+  Analysis,
+  AnalysisConclusion,
+  AnalysisCreate,
+  AnalysisDbStatus,
+} from "./analysis";
 
 export {
   reviewCreateSchema,

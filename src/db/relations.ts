@@ -42,7 +42,8 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   uploadedMedia: many(issueMedia),
   repairRevisions: many(repairRevisions),
   createdRepairs: many(repairs),
-  ownedAnalyses: many(analyses),
+  ownedAnalyses: many(analyses, { relationName: "analysisOwner" }),
+  createdAnalyses: many(analyses, { relationName: "analysisCreator" }),
   analysisAssignments: many(analysisPeople),
   toolRuns: many(toolRuns),
   reviews: many(reviews),
@@ -131,6 +132,12 @@ export const analysesRelations = relations(analyses, ({ one, many }) => ({
   owner: one(users, {
     fields: [analyses.ownerId],
     references: [users.id],
+    relationName: "analysisOwner",
+  }),
+  creator: one(users, {
+    fields: [analyses.createdBy],
+    references: [users.id],
+    relationName: "analysisCreator",
   }),
   people: many(analysisPeople),
   cases: many(analysisCases),

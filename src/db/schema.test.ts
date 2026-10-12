@@ -16,8 +16,10 @@ import * as relations from "./relations";
 import {
   DOCUMENT_CHUNK_EMBEDDING_DIMENSIONS,
   ISSUE_CODE_SEQUENCE_START,
+  ANALYSIS_CODE_SEQUENCE_START,
   REPAIR_CODE_SEQUENCE_START,
   analyses,
+  analysisCodeSeq,
   assets,
   documentChunks,
   issueCodeSeq,
@@ -136,6 +138,37 @@ describe("database schema", () => {
     expect([...repairStatus.enumValues]).toEqual([...REPAIR_STATUSES]);
     expect(repairCodeSeq.seqName).toBe("repair_code_seq");
     expect(REPAIR_CODE_SEQUENCE_START).toBe(1002);
+  });
+
+  it("indexes analyses by repair revision and allocates AN- codes", () => {
+    const config = getTableConfig(analyses);
+    const byRevision = config.indexes.find(
+      (entry) => entry.config.name === "analyses_revision_idx",
+    );
+    expect(byRevision?.config.unique).toBe(false);
+    const indexed = byRevision?.config.columns[0];
+    expect(indexed && "name" in indexed ? indexed.name : undefined).toBe(
+      "repair_revision_id",
+    );
+    expect(analysisCodeSeq.seqName).toBe("analysis_code_seq");
+    expect(ANALYSIS_CODE_SEQUENCE_START).toBe(1002);
+
+    const sqlText = readFileSync(
+      path.join(process.cwd(), "migrations", "0004_analysis_codes.sql"),
+      "utf8",
+    );
+    expect(sqlText).toContain(
+      'CREATE SEQUENCE "public"."analysis_code_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1002 CACHE 1;',
+    );
+    expect(sqlText).toContain('ADD COLUMN "created_by" uuid;');
+    expect(sqlText).toContain(
+      'CREATE INDEX "analyses_revision_idx" ON "analyses" USING btree ("repair_revision_id");',
+    );
+    expect(sqlText).toContain("SELECT setval(");
+    expect(sqlText).toContain("1001::bigint");
+    expect(sqlText).toContain("'^[A-Za-z]+-([0-9]+)$'");
+    expect(sqlText).toContain('FROM "analyses"');
+    expect(sqlText).not.toMatch(/DROP\s+(TABLE|COLUMN|TYPE)\b/i);
   });
 
   it("keeps issue, repair, and analysis codes unique", () => {

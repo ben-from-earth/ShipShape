@@ -17,6 +17,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 
+import { ANALYSIS_DB_STATUSES } from "../config/analysis";
 import { REPAIR_STATUSES } from "../config/repairs";
 import { SEVERITIES } from "../config/severity";
 
@@ -82,13 +83,8 @@ export const workStage = pgEnum("work_stage", [
   "closed",
 ]);
 
-export const analysisStatus = pgEnum("analysis_status", [
-  "draft",
-  "in_progress",
-  "in_review",
-  "changes_requested",
-  "approved",
-]);
+/** Same list as `ANALYSIS_DB_STATUSES` in src/config/analysis.ts. */
+export const analysisStatus = pgEnum("analysis_status", ANALYSIS_DB_STATUSES);
 
 export const reviewDecision = pgEnum("review_decision", [
   "pending",
@@ -307,6 +303,25 @@ export const repairRevisions = pgTable(
   (table) => [uniqueIndex("repair_rev_uq").on(table.repairId, table.rev)],
 );
 
+/**
+ * Allocates `analyses.code`. The demo seed uses `AN-1001`, so the first
+ * `nextval` is 1002 (`AN-1002`). Migration 0004 `setval`s the sequence to
+ * the highest existing prefixed code so a database that already has rows
+ * cannot collide.
+ */
+export const ANALYSIS_CODE_SEQUENCE_START = 1002;
+
+export const analysisCodeSeq = pgSequence("analysis_code_seq", {
+  startWith: ANALYSIS_CODE_SEQUENCE_START,
+  increment: 1,
+});
+
+/**
+ * Engineering analysis of one repair revision. `code` is a global human id
+ * (`AN-1002`). Allocate new values with `nextAnalysisCodeSql`.
+ * Margin of safety is stored on `analysis_cases`, which is what the
+ * dashboard classifies against `organizations.low_margin_threshold`.
+ */
 export const analyses = pgTable(
   "analyses",
   {
@@ -317,14 +332,17 @@ export const analyses = pgTable(
       .notNull()
       .references(() => repairRevisions.id),
     title: text("title").notNull(),
+    /** Free label for how the margin was produced, for example "hand calc". */
     method: text("method"),
     status: analysisStatus("status").notNull().default("draft"),
     ownerId: uuid("owner_id").references(() => users.id),
+    createdBy: uuid("created_by").references(() => users.id),
     dueDate: date("due_date"),
     ...timestamps(),
   },
   (table) => [
     uniqueIndex("analyses_code_uq").on(table.code),
+    index("analyses_revision_idx").on(table.repairRevisionId),
     index("analyses_status_idx").on(table.status),
     index("analyses_owner_idx").on(table.ownerId),
   ],
