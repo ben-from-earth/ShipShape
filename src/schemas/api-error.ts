@@ -3,23 +3,19 @@ import { z } from "zod";
 /**
  * Stable codes for HTTP API failures. The route picks HTTP status from the code.
  *
- * Document routes use `validation_error`, `payload_too_large`, and
- * `unsupported_media_type`. Finding routes use `validation_failed`,
- * `asset_not_found`, `too_many_photos`, `photo_too_large`, and
- * `unsupported_photo_type`. Both use `invalid_org_id`,
- * `unknown_organization`, and `internal_error`.
+ * Document and finding routes share `validation_error`, `payload_too_large`,
+ * `unsupported_media_type`, `invalid_org_id`, `unknown_organization`, and
+ * `internal_error`. Finding routes also use `asset_not_found` and
+ * `too_many_photos`.
  */
 export const apiErrorCodeSchema = z.enum([
   "validation_error",
-  "validation_failed",
   "invalid_org_id",
   "unknown_organization",
   "asset_not_found",
   "too_many_photos",
   "payload_too_large",
-  "photo_too_large",
   "unsupported_media_type",
-  "unsupported_photo_type",
   "internal_error",
 ]);
 

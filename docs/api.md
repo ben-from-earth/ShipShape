@@ -161,17 +161,17 @@ The extension and the media type have to agree, and both have to be on the list.
 
 The intake form (PR #15) uses these names for the columns that exist. Its asset-group control is only a filter: the request has `assetId`, and the handler reads `assets.group_id` from that asset. Do not send `groupId`, `assetGroup`, or `assetGroupId`.
 
-| Field           | Required | Column                  | Meaning                                                                                                                                                           |
-| --------------- | -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `assetId`       | yes      | `issues.asset_id`       | Asset UUID in the organization. The form calls this the asset                                                                                                     |
-| `description`   | yes      | `issues.description`    | What was found, 1–5000 characters. This is the write-up; there is no notes field                                                                                  |
-| `severity`      | yes      | `issues.severity`       | `low`, `medium`, `high`, or `critical`. `findingSeveritySchema` is `z.enum(SEVERITIES)` from `src/config/severity.ts`, the same list as the `issue_severity` enum |
-| `zone`          | no       | `issues.zone`           | The form's zone, 1–200 characters. Meaning depends on the asset type                                                                                              |
-| `locationLabel` | no       | `issues.location_label` | The form's location text, 1–200 characters                                                                                                                        |
-| `location`      | no       | `issues.location`       | JSON object, at most 2000 characters of text. The form does not send this. An array or other value fails                                                          |
-| `reportedBy`    | no       | `issues.reported_by`    | User UUID in the organization. The form does not send this                                                                                                        |
-| `discoveredAt`  | no       | `issues.discovered_at`  | ISO-8601 timestamp with an offset. The form does not send this                                                                                                    |
-| `photos`        | yes      | `issue_media`           | 1–10 files, the same field name repeated                                                                                                                          |
+| Field           | Required | Column                  | Meaning                                                                                                                                                                                                 |
+| --------------- | -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `assetId`       | yes      | `issues.asset_id`       | Asset UUID in the organization. The form calls this the asset                                                                                                                                           |
+| `description`   | yes      | `issues.description`    | What was found, 1–5000 characters. This is the write-up; there is no notes field                                                                                                                        |
+| `severity`      | yes      | `issues.severity`       | `low`, `medium`, `high`, or `critical`. `findingSeveritySchema` is `z.enum(SEVERITIES)` from `src/config/severity.ts`, the same list as the `issue_severity` enum                                       |
+| `zone`          | no       | `issues.zone`           | The form's zone, 1–200 characters. Meaning depends on the asset type                                                                                                                                    |
+| `locationLabel` | no       | `issues.location_label` | The form's location text, 1–200 characters                                                                                                                                                              |
+| `location`      | no       | `issues.location`       | JSON object. `JSON.stringify` of the parsed object is at most 2000 characters. A multipart string longer than that is rejected before parse. The form does not send this. An array or other value fails |
+| `reportedBy`    | no       | `issues.reported_by`    | User UUID in the organization. The form does not send this                                                                                                                                              |
+| `discoveredAt`  | no       | `issues.discovered_at`  | ISO-8601 timestamp with an offset. The form does not send this                                                                                                                                          |
+| `photos`        | yes      | `issue_media`           | 1–10 files, the same field name repeated                                                                                                                                                                |
 
 `createFindingFieldsSchema` is those text fields. `severity` is required and is `findingSeveritySchema`, `z.enum(SEVERITIES)`. `SEVERITIES` lives in `src/config/severity.ts` and is the label list for the `issue_severity` Postgres enum on `issues.severity`. This contract does not define those labels.
 
@@ -179,7 +179,7 @@ A blank optional field is omitted. Omitted `zone` and `locationLabel` are stored
 
 The client does not send `code`. `createFindingFieldsSchema` rejects it. The handler does not assign `MAX(code) + 1`. It sets `issues.code` with `nextIssueCodeSql()` in the insert batch (`src/db/issue-code.ts`): `ISS-` plus the sequence integer, padded to at least four digits. The first allocated code is `ISS-1002`. The 201 body returns that text, at most 64 characters. `created_at` and `updated_at` come from the database.
 
-Each photo is checked the way a document file is checked: non-empty, at most 15 MB, extension and media type present and in agreement. An empty photo or a missing media type is `validation_failed`. A photo over the cap is `photo_too_large`. An extension or media type that is missing from the list, or that disagrees with the other, is `unsupported_photo_type`. More than 10 photos is `too_many_photos`. Zero photos is `validation_failed`.
+Each photo is checked the way a document file is checked: non-empty, at most 15 MB, extension and media type present and in agreement. An empty photo or a missing media type is `validation_error`. A photo over the cap is `payload_too_large`. An extension or media type that is missing from the list, or that disagrees with the other, is `unsupported_media_type`. More than 10 photos is `too_many_photos`. Zero photos is `validation_error`.
 
 `findingPhotoSchema` is one `issue_media` row, and only columns that table already has: `id`, `issueId`, `storageKey`, `mimeType`, `caption`, `uploadedBy`, `createdAt`, `updatedAt`. `storageKey` is the key `ObjectStorage.put` returns. The client does not choose it. There is no column for the original file name or the byte length, and this contract does not add one. This request has no caption field, so `caption` is null. `uploadedBy` is null until sessions exist (#13).
 
@@ -189,7 +189,7 @@ The handler then inserts three things in one Neon `db.batch` transaction: the `i
 
 If validation fails, nothing is stored. If a later `put` fails, photos already stored for this request are deleted. If the insert fails, every stored photo is deleted.
 
-Local development can use `createLocalDiskStorage()`. Replacing that with another `ObjectStorage` (`put`, `get`, `delete`) does not change this contract. `Content-Length` larger than 10 photos of 15 MB each, plus multipart framing, is `photo_too_large`.
+Local development can use `createLocalDiskStorage()`. Replacing that with another `ObjectStorage` (`put`, `get`, `delete`) does not change this contract. `Content-Length` larger than 10 photos of 15 MB each, plus multipart framing, is `payload_too_large`.
 
 `201` body (`createFindingResultSchema`):
 
@@ -222,7 +222,7 @@ Failures use `apiErrorSchema`:
 ```json
 {
   "error": {
-    "code": "validation_failed",
+    "code": "validation_error",
     "message": "Request validation failed.",
     "details": [
       {
@@ -240,14 +240,14 @@ Failures use `apiErrorSchema`:
 | ---- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 400  | `invalid_org_id`         | `x-org-id` is missing or not a UUID                                                                                                                                                                    |
 | 400  | `unknown_organization`   | `x-org-id` is a UUID and no organization has that id                                                                                                                                                   |
-| 400  | `validation_failed`      | Not multipart, bad text fields, a missing or unknown severity, an unknown field such as `title`, `notes`, or `groupId`, bad location JSON, no photos, empty photo, missing media type, or unknown user |
+| 400  | `validation_error`       | Not multipart, bad text fields, a missing or unknown severity, an unknown field such as `title`, `notes`, or `groupId`, bad location JSON, no photos, empty photo, missing media type, or unknown user |
 | 404  | `asset_not_found`        | `assetId` is not an asset in that organization                                                                                                                                                         |
 | 400  | `too_many_photos`        | More than 10 photos                                                                                                                                                                                    |
-| 413  | `photo_too_large`        | A photo is over 15 MB, or `Content-Length` cannot fit 10 photos of that size plus multipart framing                                                                                                    |
-| 415  | `unsupported_photo_type` | Extension or media type is not in the photo list, or they disagree                                                                                                                                     |
+| 413  | `payload_too_large`      | A photo is over 15 MB, or `Content-Length` cannot fit 10 photos of that size plus multipart framing                                                                                                    |
+| 415  | `unsupported_media_type` | Extension or media type is not in the photo list, or they disagree                                                                                                                                     |
 | 500  | `internal_error`         | Anything else. `message` is `Something went wrong.` The response does not include the underlying error                                                                                                 |
 
-Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findings.ts`. `internal_error` stays 500, as it does for documents.
+Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findings.ts`. Findings add only `asset_not_found` and `too_many_photos`. `validation_error`, `payload_too_large`, and `unsupported_media_type` are the codes document routes already use. `internal_error` stays 500.
 
 ## Fields the intake form collects that this request does not accept
 

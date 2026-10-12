@@ -84,11 +84,11 @@ describe("finding photo config", () => {
     expect(FINDING_ERROR_HTTP_STATUS).toEqual({
       invalid_org_id: 400,
       unknown_organization: 400,
-      validation_failed: 400,
+      validation_error: 400,
       asset_not_found: 404,
       too_many_photos: 400,
-      photo_too_large: 413,
-      unsupported_photo_type: 415,
+      payload_too_large: 413,
+      unsupported_media_type: 415,
     });
   });
 

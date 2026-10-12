@@ -24,7 +24,10 @@ export const MAX_FINDING_ZONE_LENGTH = 200;
 /** Matches `shortTextSchema`. `issues.location_label`. */
 export const MAX_FINDING_LOCATION_LABEL_LENGTH = 200;
 
-/** Character cap on the `location` form field before it is parsed as JSON. */
+/**
+ * Cap on `JSON.stringify` of the parsed `location` object. A multipart
+ * string longer than this is rejected before it is parsed.
+ */
 export const MAX_FINDING_LOCATION_JSON_LENGTH = 2_000;
 
 /** `issue_media.caption`. Create does not send one; the stored value may. */
@@ -37,18 +40,19 @@ export const MAX_FINDING_CAPTION_LENGTH = 500;
 export const MAX_FINDING_CODE_LENGTH = 64;
 
 /**
- * HTTP status for each finding error code. Document routes keep their own
- * codes (`validation_error`, `payload_too_large`, `unsupported_media_type`).
- * `internal_error` is shared and stays 500.
+ * HTTP status for finding failures. Shared codes (`validation_error`,
+ * `payload_too_large`, `unsupported_media_type`, `invalid_org_id`,
+ * `unknown_organization`) match document routes. Finding-only codes are
+ * `asset_not_found` and `too_many_photos`. `internal_error` stays 500.
  */
 export const FINDING_ERROR_HTTP_STATUS = {
   invalid_org_id: 400,
   unknown_organization: 400,
-  validation_failed: 400,
+  validation_error: 400,
   asset_not_found: 404,
   too_many_photos: 400,
-  photo_too_large: 413,
-  unsupported_photo_type: 415,
+  payload_too_large: 413,
+  unsupported_media_type: 415,
 } as const;
 
 export type FindingErrorCode = keyof typeof FINDING_ERROR_HTTP_STATUS;
@@ -100,7 +104,7 @@ export type FindingPhotoMediaType =
 /** Stored media type for an extension such as ".jpg", or null. */
 export function findingPhotoMediaTypeForExtension(
   extension: string,
-): string | null {
+): FindingPhotoMediaType | null {
   const normalized = extension.toLowerCase();
   const match = FINDING_PHOTO_TYPES.find((type) =>
     type.extensions.some((item) => item === normalized),
@@ -114,7 +118,7 @@ export function findingPhotoMediaTypeForExtension(
  */
 export function canonicalFindingPhotoMediaType(
   mimeType: string,
-): string | null {
+): FindingPhotoMediaType | null {
   const [base] = mimeType.split(";");
   const normalized = base?.trim().toLowerCase() ?? "";
   const match = FINDING_PHOTO_TYPES.find((type) =>

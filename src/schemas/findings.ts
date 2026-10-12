@@ -166,6 +166,10 @@ function optionalTimestamp() {
  * `location` is a multipart text field. A JSON object string is parsed.
  * An object is accepted too, for a handler that parsed it already.
  * Blank is omitted, and the server stores `{}`.
+ *
+ * The 2000-character cap is the length of `JSON.stringify` of the parsed
+ * object, so a string and an already-parsed object share one limit. A
+ * multipart string longer than that is rejected before it is parsed.
  */
 function optionalLocation() {
   return z
@@ -205,6 +209,15 @@ function optionalLocation() {
         ctx.addIssue({
           code: "custom",
           message: "location must be a JSON object",
+        });
+        return z.NEVER;
+      }
+      if (
+        JSON.stringify(parsed.data).length > MAX_FINDING_LOCATION_JSON_LENGTH
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message: `location must be at most ${MAX_FINDING_LOCATION_JSON_LENGTH} characters`,
         });
         return z.NEVER;
       }

@@ -11,6 +11,7 @@ import {
   MAX_FINDING_ZONE_LENGTH,
 } from "@/config/findings";
 import { SEVERITIES } from "@/config/severity";
+import { workStage } from "@/db/schema";
 import {
   apiErrorSchema,
   createFindingFieldsSchema,
@@ -22,6 +23,7 @@ import {
   initialFindingStageTransitionSchema,
 } from "@/schemas";
 
+const orgId = "550e8400-e29b-41d4-a716-446655440000";
 const assetId = "550e8400-e29b-41d4-a716-446655440022";
 const reporterId = "550e8400-e29b-41d4-a716-446655440011";
 const findingId = "550e8400-e29b-41d4-a716-446655440031";
@@ -43,7 +45,7 @@ const storedAt = "2026-10-12T20:15:00.000Z";
 const photo = {
   id: photoId,
   issueId: findingId,
-  storageKey: `${assetId}/issues/${findingId}/${photoId}`,
+  storageKey: `${orgId}/issues/${findingId}/${photoId}`,
   mimeType: "image/jpeg" as const,
   caption: null,
   uploadedBy: null,
@@ -209,6 +211,47 @@ describe("createFindingFieldsSchema", () => {
     });
     expect(empty.location).toEqual({});
   });
+
+  it("caps a location object by JSON.stringify length", () => {
+    const wrapper = JSON.stringify({ note: "" });
+    const atCap = {
+      note: "n".repeat(MAX_FINDING_LOCATION_JSON_LENGTH - wrapper.length),
+    };
+    const over = {
+      note: "n".repeat(MAX_FINDING_LOCATION_JSON_LENGTH - wrapper.length + 1),
+    };
+
+    expect(JSON.stringify(atCap)).toHaveLength(
+      MAX_FINDING_LOCATION_JSON_LENGTH,
+    );
+    expect(JSON.stringify(over)).toHaveLength(
+      MAX_FINDING_LOCATION_JSON_LENGTH + 1,
+    );
+
+    const parsed = createFindingFieldsSchema.parse({
+      assetId,
+      description: "Cracked cover.",
+      severity: "high",
+      location: atCap,
+    });
+    expect(parsed.location).toEqual(atCap);
+    expect(
+      createFindingFieldsSchema.safeParse({
+        assetId,
+        description: "Cracked cover.",
+        severity: "high",
+        location: JSON.stringify(atCap),
+      }).success,
+    ).toBe(true);
+    expect(
+      createFindingFieldsSchema.safeParse({
+        assetId,
+        description: "Cracked cover.",
+        severity: "high",
+        location: over,
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe("findingPhotoSchema", () => {
@@ -345,7 +388,7 @@ describe("finding API errors", () => {
         error: {
           code,
           message: "Request validation failed.",
-          ...(code === "validation_failed"
+          ...(code === "validation_error"
             ? {
                 details: [
                   {
@@ -361,13 +404,19 @@ describe("finding API errors", () => {
       expect(parsed.error.code).toBe(code);
     }
 
-    expect(FINDING_ERROR_HTTP_STATUS.photo_too_large).toBe(413);
-    expect(FINDING_ERROR_HTTP_STATUS.unsupported_photo_type).toBe(415);
+    expect(FINDING_ERROR_HTTP_STATUS.payload_too_large).toBe(413);
+    expect(FINDING_ERROR_HTTP_STATUS.unsupported_media_type).toBe(415);
     expect(
       apiErrorSchema.safeParse({
         error: { code: "not_a_code", message: "nope" },
       }).success,
     ).toBe(false);
+  });
+});
+
+describe("findingStageSchema", () => {
+  it("matches the work_stage enum", () => {
+    expect(findingStageSchema.options).toEqual([...workStage.enumValues]);
   });
 });
 
