@@ -14,6 +14,7 @@ import {
 } from "@/features/findings/place";
 import type { FindingRecord } from "@/schemas";
 
+import { CreateRepair } from "./create-repair";
 import { FindingPhoto } from "./finding-photo";
 import { SeverityPill } from "./severity-pill";
 import { StageActions } from "./stage-actions";
@@ -72,7 +73,7 @@ export function FindingDetail({
       </Card>
 
       <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">
-        <h2 className="text-card-title font-semibold">Repairs</h2>
+        <CreateRepair findingId={record.id} />
         {repairs.length === 0 ? (
           <p className="text-body text-ink-muted">No repairs yet.</p>
         ) : (
