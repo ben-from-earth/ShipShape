@@ -141,10 +141,11 @@ export const demoIssueMedia: InferInsertModel<typeof issueMedia> = {
 
 export const demoRepair: InferInsertModel<typeof repairs> = {
   id: demoIds.repair,
-  code: "RPR-1001",
+  code: "REP-1001",
   issueId: demoIds.issue,
   title: "Canopy sill doubler",
   type: "doubler",
+  status: "open",
 };
 
 export const demoRepairRevision: InferInsertModel<typeof repairRevisions> = {

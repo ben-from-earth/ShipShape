@@ -128,6 +128,11 @@ jobs:
         env:
           RUN_DB_INTEGRATION: "1"
 
+      - name: Test repair writes
+        run: pnpm exec vitest run src/features/repairs/data.integration.test.ts
+        env:
+          RUN_DB_INTEGRATION: "1"
+
       - name: Prove concurrent issue codes are distinct
         run: pnpm exec vitest run src/db/issue-code.integration.test.ts
         env:

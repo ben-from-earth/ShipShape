@@ -16,7 +16,7 @@ Seventeen tables. Drizzle relations in `src/db/relations.ts` back `getDb().query
 | `assets`            | One repairable thing. Identifier is unique per organization. `attributes` holds type-specific fields. `out_of_service` is a boolean.                                                                                     |
 | `issues`            | Field damage report. `stage` moves from `discovered` through `closed`. `severity` is required (`low`, `medium`, `high`, `critical`). `location` is structured JSON; `location_label` is the human text.                  |
 | `issue_media`       | File pointer for a photo or other attachment. Bytes stay in object storage.                                                                                                                                              |
-| `repairs`           | Repair opened from an issue.                                                                                                                                                                                             |
+| `repairs`           | Repair opened from an issue. `code` is `REP-` plus a sequence number. `status` is `open`, `in_review`, or `completed`. Creating a repair does not change the issue's stage.                                              |
 | `repair_revisions`  | One revision of a repair (`A`, `B`, …). Unique per repair.                                                                                                                                                               |
 | `analyses`          | Engineering analysis of one repair revision, with status and owner.                                                                                                                                                      |
 | `analysis_people`   | Analyst, checker, and approver assignments. One person can hold more than one role.                                                                                                                                      |
@@ -69,6 +69,34 @@ await db.batch([
 `issues.severity` is required. The values live in `src/config/severity.ts` as `SEVERITIES`: `low`, `medium`, `high`, `critical`. That file imports nothing, so client code can use it. `issueSeverity` in `src/db/schema.ts` is `pgEnum("issue_severity", SEVERITIES)`. The database module does not export a second copy of the list.
 
 Migration `0002_issue_severity` adds the column as `NOT NULL DEFAULT 'medium'`, which backfills every existing row, then drops the default. Inserts after that must set `severity`. The demo seed sets the canopy-sill crack to `high`. A row that already existed when the migration ran stays `medium`; seeding again does not overwrite it.
+
+## Repair codes
+
+`repairs.code` is unique across every organization. The demo seed uses `REP-1001`. New codes come from the Postgres sequence `repair_code_seq` in `src/db/schema.ts`.
+
+`nextRepairCodeSql()` is the allocation as a scalar SQL expression. `createRepair` puts that expression in the `INSERT ... SELECT`, so `nextval` runs only when the finding's asset belongs to the organization. The format is the prefix `REP-`, then the decimal integer padded to at least four digits. A longer integer is not truncated.
+
+| Sequence value | Code        |
+| -------------- | ----------- |
+| 1001 (seed)    | `REP-1001`  |
+| 1002           | `REP-1002`  |
+| 10000          | `REP-10000` |
+
+The sequence is created with `START WITH 1002`. Migration `0003_repair_codes` then runs `setval` to the greater of `1001` and the highest existing repair code whose text is a letter prefix, a hyphen, and digits (`REP-4242`, and older `RPR-1001` rows). The next `nextval` is that value plus one. Overlapping calls receive different values. A rolled-back transaction does not put its value back.
+
+## Repairs
+
+`createRepair`, `getRepair`, and `listRepairs` live in `src/features/repairs/data.ts`. Repairs have no `org_id`. Every query joins `issues` to `assets` and keeps `assets.org_id` in the filter.
+
+`createRepair({ orgId, findingId, actorId, title, type?, status? })` inserts one row. `type` is an optional free label. `status` defaults to `open`. `actorId` is `string | null` and is stored as `created_by`. Null is written as NULL. That is the stand-in until a session exists (#13): there is no signed-in user yet, so the caller passes null. A non-null value that is not a UUID throws. A UUID that is not a user fails the foreign key and rolls the insert back. The finding check is the insert's `SELECT`: a missing finding or a finding in another organization returns `{ kind: "not_found" }` and writes nothing. A successful result is `{ kind: "ok", repair }`. The repair record is `id`, `code`, `findingId` (`issue_id`), `title`, `type`, `status`, `createdBy`, `createdAt`, and `updatedAt`. It has no storage key.
+
+Creating a repair does not change `issues.stage` and does not write `stage_transitions`. The finding stays where it is until something calls `advanceStage`.
+
+`getRepair(orgId, id)` returns the record or null. `listRepairs(orgId, filters?)` takes optional `findingId` and `status`. Rows are ordered by `repairs.created_at` descending, then `repairs.id` descending. A repair whose finding is in another organization is absent from both.
+
+`src/features/repairs/data.integration.test.ts` runs in CI against the loopback `pgvector/pgvector:pg17` service after migrations.
+
+Migration `0003_repair_codes` adds `repairs.status` as `NOT NULL DEFAULT 'open'`, which backfills every existing row and stays the default for inserts that omit it. It adds nullable `created_by`, an index on `issue_id`, and `repair_code_seq`. It does not drop or rename a column.
 
 ## Finding readers
 

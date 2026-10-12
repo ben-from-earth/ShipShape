@@ -41,6 +41,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   reportedIssues: many(issues),
   uploadedMedia: many(issueMedia),
   repairRevisions: many(repairRevisions),
+  createdRepairs: many(repairs),
   ownedAnalyses: many(analyses),
   analysisAssignments: many(analysisPeople),
   toolRuns: many(toolRuns),
@@ -99,6 +100,10 @@ export const repairsRelations = relations(repairs, ({ one, many }) => ({
   issue: one(issues, {
     fields: [repairs.issueId],
     references: [issues.id],
+  }),
+  creator: one(users, {
+    fields: [repairs.createdBy],
+    references: [users.id],
   }),
   revisions: many(repairRevisions),
 }));

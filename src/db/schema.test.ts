@@ -8,6 +8,7 @@ import {
 } from "drizzle-orm/relations";
 import { describe, expect, it } from "vitest";
 
+import { REPAIR_STATUSES } from "@/config/repairs";
 import { SEVERITIES } from "@/config/severity";
 import { DOCUMENT_EMBEDDING_DIMENSIONS } from "@/schemas";
 
@@ -15,12 +16,15 @@ import * as relations from "./relations";
 import {
   DOCUMENT_CHUNK_EMBEDDING_DIMENSIONS,
   ISSUE_CODE_SEQUENCE_START,
+  REPAIR_CODE_SEQUENCE_START,
   analyses,
   assets,
   documentChunks,
   issueCodeSeq,
   issueSeverity,
   issues,
+  repairCodeSeq,
+  repairStatus,
   repairs,
 } from "./schema";
 import * as schema from "./schema";
@@ -117,6 +121,21 @@ describe("database schema", () => {
       'ALTER TABLE "issues" ALTER COLUMN "severity" DROP DEFAULT;',
     );
     expect(sqlText).not.toMatch(/DROP\s+(TABLE|COLUMN|TYPE)\b/i);
+  });
+
+  it("indexes repairs by issue and shares the status list", () => {
+    const config = getTableConfig(repairs);
+    const byIssue = config.indexes.find(
+      (entry) => entry.config.name === "repairs_issue_idx",
+    );
+    expect(byIssue?.config.unique).toBe(false);
+    const indexed = byIssue?.config.columns[0];
+    expect(indexed && "name" in indexed ? indexed.name : undefined).toBe(
+      "issue_id",
+    );
+    expect([...repairStatus.enumValues]).toEqual([...REPAIR_STATUSES]);
+    expect(repairCodeSeq.seqName).toBe("repair_code_seq");
+    expect(REPAIR_CODE_SEQUENCE_START).toBe(1002);
   });
 
   it("keeps issue, repair, and analysis codes unique", () => {

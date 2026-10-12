@@ -25,8 +25,18 @@ export type {
   DamageReportStatus,
 } from "./damage-report";
 
-export { repairCreateSchema, repairSchema, repairStatusSchema } from "./repair";
-export type { Repair, RepairCreate, RepairStatus } from "./repair";
+export {
+  repairCreateSchema,
+  repairListFiltersSchema,
+  repairSchema,
+  repairStatusSchema,
+} from "./repair";
+export type {
+  Repair,
+  RepairCreate,
+  RepairListFilters,
+  RepairStatus,
+} from "./repair";
 
 export {
   analysisConclusionSchema,

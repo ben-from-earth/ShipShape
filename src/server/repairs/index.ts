@@ -3,9 +3,9 @@ import "server-only";
 import { repairCreateSchema, type RepairCreate } from "@/schemas";
 
 /**
- * A repair is opened from an existing damage report.
- * Callers pass untrusted input; this parses it and returns the typed payload.
- * Persistence is added with the database schema.
+ * Generic fields for opening a repair. Callers pass untrusted input.
+ * `createRepair` in `src/features/repairs/data.ts` persists the row and
+ * checks that the finding belongs to the organization.
  */
 export function parseRepairCreate(input: unknown): RepairCreate {
   return repairCreateSchema.parse(input);
