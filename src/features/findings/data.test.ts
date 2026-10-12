@@ -32,12 +32,13 @@ describe("finding readers", () => {
     });
     expect(records[0]).not.toHaveProperty("title");
     expect(records[0]).not.toHaveProperty("notes");
-    expect(records[0]?.photos[0]).toMatchObject({
+    expect(records[0]?.photos[0]).toEqual({
       mediaId: DEMO_MEDIA_ID,
       contentType: "image/jpeg",
       size: null,
-      storageKey: "demo/issues/ISS-1001/sill.jpg",
+      createdAt: records[0]?.createdAt,
     });
+    expect(records[0]?.photos[0]).not.toHaveProperty("storageKey");
     expect(records[0]?.photos[0]).not.toHaveProperty("url");
 
     expect(await getFinding(DEMO_FINDING_ID)).toEqual(records[0]);

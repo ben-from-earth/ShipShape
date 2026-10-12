@@ -55,7 +55,6 @@ type FindingRow = {
 type MediaRow = {
   id: string;
   issueId: string;
-  storageKey: string;
   mimeType: string;
   createdAt: Date | string;
 };
@@ -143,7 +142,6 @@ async function loadPhotoMeta(
     .select({
       id: issueMedia.id,
       issueId: issueMedia.issueId,
-      storageKey: issueMedia.storageKey,
       mimeType: issueMedia.mimeType,
       createdAt: issueMedia.createdAt,
     })
@@ -161,7 +159,6 @@ async function loadPhotoMeta(
   for (const row of rows) {
     const photo = findingPhotoMetaSchema.parse({
       mediaId: row.id,
-      storageKey: row.storageKey,
       contentType: row.mimeType,
       size: null,
       createdAt: asTimestamp(row.createdAt),

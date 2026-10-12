@@ -80,7 +80,7 @@ The organization is the oldest row in `organizations` (lowest id when `created_a
 
 A finding record is the `issues` columns the product stores: `id`, `code`, `assetId`, `description`, `severity`, `stage`, `zone`, `locationLabel`, `location`, and `createdAt`. There is no title column and no notes column, so the record does not invent them. `stage` is the `issues.stage` column. The dashboard pipeline counts that column. `stage_transitions` is the history used for age and throughput. A transition that was not copied onto the column does not replace it. The asset summary is `id`, `identifier`, `name`, and the asset group (`id` and `name`, or null when the asset has no group in this organization).
 
-Each photo is `issue_media` metadata: `mediaId` (the row `id`), `storageKey`, `contentType` (`mime_type`), `createdAt`, and `size`. The table has no byte-length column, so `size` is null. The reader does not load file bytes and does not build a public URL.
+Each photo on a finding record is `mediaId` (the `issue_media` row `id`), `contentType` (`mime_type`), `createdAt`, and `size`. The table has no byte-length column, so `size` is null. The storage key is not on that record, because finding records are read by pages and client components. The reader does not load file bytes and does not build a public URL.
 
 `getFinding` returns null when the id is missing or the issue's asset belongs to another organization. `getFindingMedia(findingId, mediaId)` returns `{ storageKey, contentType, size }` or null when that media row is not on that finding, or the finding is outside the organization.
 

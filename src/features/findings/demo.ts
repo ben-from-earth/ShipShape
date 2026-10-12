@@ -17,6 +17,7 @@ import {
  */
 const DEMO_FINDING_ID = "10000000-0000-4000-8000-000000000031";
 const DEMO_MEDIA_ID = "10000000-0000-4000-8000-000000000032";
+const DEMO_STORAGE_KEY = "demo/issues/ISS-1001/sill.jpg";
 const DEMO_CREATED_AT = `${DEMO_AS_OF}T12:00:00.000Z`;
 
 const DEMO_FINDINGS: readonly FindingRecord[] = [
@@ -43,7 +44,6 @@ const DEMO_FINDINGS: readonly FindingRecord[] = [
     photos: [
       {
         mediaId: DEMO_MEDIA_ID,
-        storageKey: "demo/issues/ISS-1001/sill.jpg",
         contentType: "image/jpeg",
         size: null,
         createdAt: DEMO_CREATED_AT,
@@ -103,7 +103,7 @@ export async function getFindingMedia(
     return null;
   }
   return {
-    storageKey: photo.storageKey,
+    storageKey: DEMO_STORAGE_KEY,
     contentType: photo.contentType,
     size: photo.size,
   };

@@ -288,9 +288,9 @@ describe.skipIf(!enabled)("finding readers", () => {
     ]);
     expect(lateRecord?.photos.every((photo) => photo.size === null)).toBe(true);
     for (const photo of lateRecord?.photos ?? []) {
+      expect(photo).not.toHaveProperty("storageKey");
       expect(photo).not.toHaveProperty("url");
       expect(photo).not.toHaveProperty("publicUrl");
-      expect(photo.storageKey.startsWith("http")).toBe(false);
       expect(JSON.stringify(photo)).not.toMatch(/https?:/);
     }
 
@@ -307,7 +307,6 @@ describe.skipIf(!enabled)("finding readers", () => {
     expect(findings.find((record) => record.id === early)?.photos).toEqual([
       {
         mediaId: photoEarlyFinding,
-        storageKey: `${orgA}/issues/${early}/${photoEarlyFinding}`,
         contentType: "image/heic",
         size: null,
         createdAt: "2026-10-01T09:00:00.000Z",
@@ -485,12 +484,12 @@ describe.skipIf(!enabled)("finding readers", () => {
     expect(record?.photos).toEqual([
       {
         mediaId: photoId,
-        storageKey: `${orgA}/issues/${findingId}/${photoId}`,
         contentType: "image/jpeg",
         size: null,
         createdAt: record?.photos[0]?.createdAt,
       },
     ]);
+    expect(record?.photos[0]).not.toHaveProperty("storageKey");
     expect(record).not.toHaveProperty("title");
     expect(await readFinding(db, findingId)).toEqual(record);
     expect(await readFinding(db, otherFindingId)).toBeNull();

@@ -158,14 +158,15 @@ export const findingAssetSummarySchema = z.strictObject({
 });
 
 /**
- * Photo metadata for a reader. `mediaId` is `issue_media.id` (the `id`
- * on `findingPhotoSchema`). `contentType` is `issue_media.mime_type`
+ * Photo metadata on a finding record. `mediaId` is `issue_media.id` (the
+ * `id` on `findingPhotoSchema`). `contentType` is `issue_media.mime_type`
  * (`findingPhotoSchema`'s `mimeType`). `issue_media` has no byte-length
- * column, so `size` is null. This record has no public URL and no bytes.
+ * column, so `size` is null. The storage key stays off this object:
+ * pages and client components read finding records, and the key is only
+ * returned by `getFindingMedia`. No public URL and no bytes.
  */
 export const findingPhotoMetaSchema = z.strictObject({
   mediaId: idSchema,
-  storageKey: findingPhotoSchema.shape.storageKey,
   contentType: findingPhotoSchema.shape.mimeType,
   size: z.number().int().nonnegative().nullable(),
   createdAt: timestampSchema,
@@ -173,8 +174,9 @@ export const findingPhotoMetaSchema = z.strictObject({
 
 /**
  * What `getFindingMedia` returns for `GET /api/findings/[id]/photos/[mediaId]`.
- * Same storage key and content type as `findingPhotoMetaSchema`. `size`
- * is null because the length is not stored. No public URL.
+ * `storageKey` is the object-storage key. `contentType` matches
+ * `findingPhotoMetaSchema`. `size` is null because the length is not
+ * stored. No public URL. Server-side only.
  */
 export const findingMediaContentSchema = z.strictObject({
   storageKey: findingPhotoSchema.shape.storageKey,
