@@ -1,6 +1,6 @@
 import {
   FINDING_PHOTO_MEDIA_TYPES,
-  FINDING_SEVERITIES,
+  SEVERITIES,
   MAX_FINDING_PHOTO_BYTES,
   MAX_FINDING_PHOTOS,
   findingFormSchema,
@@ -21,7 +21,6 @@ export type FindingDraft = {
   severity: string;
   zone: string;
   locationLabel: string;
-  notes: string;
   photos: readonly FindingPhotoInput[];
 };
 
@@ -41,7 +40,6 @@ export function findingErrors(
     severity: draft.severity,
     zone: draft.zone,
     locationLabel: draft.locationLabel,
-    notes: draft.notes,
   });
 
   if (!parsed.success) {
@@ -94,7 +92,7 @@ export function photoProblem(
 }
 
 export function isFindingSeverity(value: string): value is FindingSeverity {
-  return FINDING_SEVERITIES.some((severity) => severity === value);
+  return SEVERITIES.some((severity) => severity === value);
 }
 
 export function toFindingForm(draft: FindingDraft): FindingForm {
@@ -105,6 +103,5 @@ export function toFindingForm(draft: FindingDraft): FindingForm {
     severity: draft.severity,
     zone: draft.zone,
     locationLabel: draft.locationLabel,
-    notes: draft.notes,
   });
 }

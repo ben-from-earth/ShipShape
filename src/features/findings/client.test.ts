@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { DEMO_ORGANIZATION_ID, ORG_ID_HEADER } from "@/config/org";
 
 import { createFinding, FindingRequestError } from "./client";
+import { MAX_FINDING_PHOTOS } from "./contract";
 import type { FindingDraft } from "./validate";
 
 const draft: FindingDraft = {
@@ -12,7 +13,6 @@ const draft: FindingDraft = {
   severity: "high",
   zone: "bay 2",
   locationLabel: "",
-  notes: "See the close photo.",
   photos: [{ name: "crack.jpg", type: "image/jpeg", size: 40 }],
 };
 
@@ -52,9 +52,12 @@ describe("createFinding", () => {
       const body = init.body as FormData;
       expect(body.get("assetId")).toBe(draft.assetId);
       expect(body.get("title")).toBe(draft.title);
-      expect(body.get("notes")).toBe(draft.notes);
+      expect(body.get("severity")).toBe("high");
       expect(body.get("zone")).toBe("bay 2");
       expect(body.get("locationLabel")).toBeNull();
+      expect(body.get("notes")).toBeNull();
+      expect(body.get("groupId")).toBeNull();
+      expect(body.get("assetGroup")).toBeNull();
       const photos = body.getAll("photos");
       expect(photos).toHaveLength(1);
       expect(photos[0]).toBeInstanceOf(File);
@@ -74,8 +77,13 @@ describe("createFinding", () => {
     ["invalid_org_id", 400, "raw", "Organization error."],
     ["unknown_organization", 400, "raw", "Organization error."],
     ["validation_error", 400, "raw", "Validation error."],
+    ["validation_failed", 400, "raw", "Validation error."],
     ["payload_too_large", 413, "raw", "Photo too large."],
+    ["photo_too_large", 413, "raw", "Photo too large."],
     ["unsupported_media_type", 415, "raw", "Photo type not supported."],
+    ["unsupported_photo_type", 415, "raw", "Photo type not supported."],
+    ["asset_not_found", 404, "raw", "Asset error."],
+    ["too_many_photos", 400, "raw", `Add up to ${MAX_FINDING_PHOTOS} photos.`],
   ] as const)(
     "maps %s to a readable message",
     async (code, status, serverText, message) => {

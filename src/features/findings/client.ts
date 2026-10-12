@@ -1,8 +1,14 @@
+import { z } from "zod";
+
 import { isDemoData } from "@/config/demo";
 import { ORG_ID_HEADER, orgId } from "@/config/org";
-import { apiErrorSchema, type ApiErrorCode } from "@/schemas";
+import { apiErrorDetailSchema, apiErrorSchema } from "@/schemas";
 
-import { findingCreatedSchema, type FindingCreated } from "./contract";
+import {
+  MAX_FINDING_PHOTOS,
+  findingCreatedSchema,
+  type FindingCreated,
+} from "./contract";
 import { photoProblem, toFindingForm, type FindingDraft } from "./validate";
 
 const FINDINGS_PATH = "/api/findings";
@@ -17,14 +23,14 @@ export type FindingRequestKind = "network" | "http" | "parse";
 export class FindingRequestError extends Error {
   readonly kind: FindingRequestKind;
   readonly status: number | null;
-  readonly code: ApiErrorCode | null;
+  readonly code: string | null;
 
   constructor(
     message: string,
     options: {
       kind: FindingRequestKind;
       status?: number | null;
-      code?: ApiErrorCode | null;
+      code?: string | null;
       cause?: unknown;
     },
   ) {
@@ -39,18 +45,43 @@ export class FindingRequestError extends Error {
   }
 }
 
+/**
+ * PR #16's finding codes are not on `apiErrorCodeSchema` until that
+ * contract merges. Accept the same body with a string code so
+ * `asset_not_found` and `too_many_photos` still map.
+ */
+const findingErrorBodySchema = z.object({
+  error: z.object({
+    code: z.string().min(1),
+    message: z.string().min(1),
+    details: z.array(apiErrorDetailSchema).optional(),
+  }),
+});
+
 function messageFor(
   status: number,
-  code: ApiErrorCode | null,
+  code: string | null,
   apiMessage: string | null,
   detailPaths: readonly string[],
 ): string {
-  if (code === "payload_too_large" || status === 413) {
+  if (
+    code === "payload_too_large" ||
+    code === "photo_too_large" ||
+    status === 413
+  ) {
     return "Photo too large.";
   }
 
-  if (code === "unsupported_media_type" || status === 415) {
+  if (
+    code === "unsupported_media_type" ||
+    code === "unsupported_photo_type" ||
+    status === 415
+  ) {
     return "Photo type not supported.";
+  }
+
+  if (code === "too_many_photos") {
+    return `Add up to ${MAX_FINDING_PHOTOS} photos.`;
   }
 
   if (
@@ -62,13 +93,18 @@ function messageFor(
   }
 
   if (
+    code === "asset_not_found" ||
     detailPaths.some((path) => path.toLowerCase().includes("asset")) ||
     (apiMessage !== null && /asset/i.test(apiMessage))
   ) {
     return "Asset error.";
   }
 
-  if (status === 400 || code === "validation_error") {
+  if (
+    status === 400 ||
+    code === "validation_error" ||
+    code === "validation_failed"
+  ) {
     return "Validation error.";
   }
 
@@ -81,7 +117,7 @@ function messageFor(
 
 function httpFailure(
   status: number,
-  code: ApiErrorCode | null = null,
+  code: string | null = null,
   apiMessage: string | null = null,
   detailPaths: readonly string[] = [],
 ): FindingRequestError {
@@ -103,15 +139,25 @@ async function errorFromResponse(
   }
 
   const parsed = apiErrorSchema.safeParse(payload);
-  if (!parsed.success) {
+  if (parsed.success) {
+    return httpFailure(
+      response.status,
+      parsed.data.error.code,
+      parsed.data.error.message,
+      parsed.data.error.details?.map((detail) => detail.path) ?? [],
+    );
+  }
+
+  const findingError = findingErrorBodySchema.safeParse(payload);
+  if (!findingError.success) {
     return httpFailure(response.status);
   }
 
   return httpFailure(
     response.status,
-    parsed.data.error.code,
-    parsed.data.error.message,
-    parsed.data.error.details?.map((detail) => detail.path) ?? [],
+    findingError.data.error.code,
+    findingError.data.error.message,
+    findingError.data.error.details?.map((detail) => detail.path) ?? [],
   );
 }
 
@@ -160,9 +206,6 @@ export async function createFinding(
   }
   if (form.locationLabel) {
     body.append("locationLabel", form.locationLabel);
-  }
-  if (form.notes) {
-    body.append("notes", form.notes);
   }
   for (const file of files) {
     body.append("photos", file, file.name);

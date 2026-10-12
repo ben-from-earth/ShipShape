@@ -15,7 +15,7 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { createFinding, FindingRequestError } from "@/features/findings/client";
 import {
   FINDING_PHOTO_MEDIA_TYPES,
-  FINDING_SEVERITIES,
+  SEVERITIES,
   MAX_FINDING_PHOTOS,
   type FindingCreated,
   type FindingSeverity,
@@ -53,7 +53,6 @@ export function NewFindingForm() {
   const [severity, setSeverity] = useState<FindingSeverity | "">("");
   const [zone, setZone] = useState("");
   const [locationLabel, setLocationLabel] = useState("");
-  const [notes, setNotes] = useState("");
   const [photos, setPhotos] = useState<Preview[]>([]);
   const [errors, setErrors] = useState<Partial<Record<FindingField, string>>>(
     {},
@@ -101,7 +100,6 @@ export function NewFindingForm() {
       severity,
       zone,
       locationLabel,
-      notes,
       photos: photos.map((photo) => ({
         name: photo.file.name,
         type: photo.file.type,
@@ -278,8 +276,8 @@ export function NewFindingForm() {
         </Field>
         <fieldset className="flex flex-col gap-2">
           <legend className="text-ui font-medium">Severity</legend>
-          <div className="grid grid-cols-3 gap-2">
-            {FINDING_SEVERITIES.map((level) => (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {SEVERITIES.map((level) => (
               <button
                 key={level}
                 type="button"
@@ -325,17 +323,6 @@ export function NewFindingForm() {
           </Field>
         </div>
         <FieldError message={errors.place} />
-        <Field label="Notes" htmlFor="finding-notes">
-          <textarea
-            id="finding-notes"
-            className={cn(inputClass, "min-h-20 resize-y")}
-            value={notes}
-            maxLength={5000}
-            onChange={(event) => {
-              setNotes(event.target.value);
-            }}
-          />
-        </Field>
       </Card>
 
       <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">

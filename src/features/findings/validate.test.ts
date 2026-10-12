@@ -12,7 +12,6 @@ const valid: FindingDraft = {
   severity: "high",
   zone: "bay 2",
   locationLabel: "Frame 12",
-  notes: "",
   photos: [],
 };
 
@@ -36,6 +35,13 @@ describe("findingErrors", () => {
       description: "Describe the finding.",
       severity: "Choose a severity.",
     });
+  });
+
+  it("requires one of low, medium, high, or critical", () => {
+    expect(findingErrors({ ...valid, severity: "critical" })).toEqual({});
+    expect(findingErrors({ ...valid, severity: "urgent" }).severity).toBe(
+      "Choose a severity.",
+    );
   });
 
   it("requires a location or a zone", () => {
