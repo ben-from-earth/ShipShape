@@ -136,4 +136,23 @@ describe("uploadDocument", () => {
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );
   });
+
+  it("treats Next's missing server-action response as an unavailable route", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response("Server Action unavailable.", {
+            status: 409,
+            headers: { "content-type": "text/plain" },
+          }),
+      ),
+    );
+
+    const document = await uploadDocument(
+      new File(["# seal"], "Seal check.md", { type: "text/markdown" }),
+    );
+
+    expect(document.title).toBe("Seal check");
+  });
 });

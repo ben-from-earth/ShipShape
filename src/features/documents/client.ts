@@ -13,6 +13,23 @@ const SEARCH_PATH = "/api/documents/search";
 const UPLOAD_PATH = "/api/documents";
 
 /**
+ * A missing App Router POST is a 404. A multipart POST with no route is
+ * answered as 409 "Server Action unavailable" instead.
+ */
+async function routeIsMissing(response: Response): Promise<boolean> {
+  if (response.status === 404) {
+    return true;
+  }
+
+  if (response.status !== 409) {
+    return false;
+  }
+
+  const text = await response.clone().text();
+  return text.includes("Server Action unavailable");
+}
+
+/**
  * POST /api/documents/search. The body is `documentSearchQuerySchema`
  * and a successful response is `documentSearchResultSchema`.
  * A missing route falls back to ranked demo hits.
@@ -34,7 +51,7 @@ export async function searchDocuments(input: {
       return documentSearchResultSchema.parse(await response.json());
     }
 
-    if (response.status !== 404) {
+    if (!(await routeIsMissing(response))) {
       throw new Error(`Search failed (${response.status})`);
     }
   } catch (error) {
@@ -76,7 +93,7 @@ export async function uploadDocument(
       return documentSchema.parse(await response.json());
     }
 
-    if (response.status !== 404) {
+    if (!(await routeIsMissing(response))) {
       throw new Error(`Upload failed (${response.status})`);
     }
   } catch (error) {

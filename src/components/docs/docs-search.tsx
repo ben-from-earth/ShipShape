@@ -53,11 +53,12 @@ export function DocsSearch({ map }: { map: ReactNode }) {
   }
 
   async function takeFiles(files: FileList | File[]) {
+    const list = Array.from(files);
     setUploadError(null);
     const accepted: Document[] = [];
     let rejected = 0;
 
-    for (const file of files) {
+    for (const file of list) {
       if (!mediaTypeForFile(file.name, file.type)) {
         rejected += 1;
         continue;
@@ -221,9 +222,12 @@ function DropZone({
           multiple
           accept={ACCEPTED_DOCUMENT_TYPES.join(",")}
           onChange={(event) => {
-            if (event.target.files) {
-              onFiles(event.target.files);
-              event.target.value = "";
+            const selected = event.target.files
+              ? Array.from(event.target.files)
+              : [];
+            event.target.value = "";
+            if (selected.length > 0) {
+              onFiles(selected);
             }
           }}
         />
