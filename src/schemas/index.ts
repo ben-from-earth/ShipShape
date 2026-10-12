@@ -49,3 +49,18 @@ export {
   documentSchema,
 } from "./document";
 export type { Document, DocumentCreate } from "./document";
+
+export {
+  documentChunkSchema,
+  documentEmbeddingSchema,
+  documentSearchHitSchema,
+  documentSearchQuerySchema,
+  documentSearchResultSchema,
+} from "./documents";
+export type {
+  DocumentChunk,
+  DocumentEmbedding,
+  DocumentSearchHit,
+  DocumentSearchQuery,
+  DocumentSearchResult,
+} from "./documents";

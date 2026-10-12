@@ -3,10 +3,9 @@ import { z } from "zod";
 import { idSchema, shortTextSchema, timestampSchema } from "./common";
 
 /**
- * Local embedding contract for contextual document search.
- * A later change adds a single embed() function that runs
- * all-MiniLM-L6-v2 through Transformers.js. Vectors are 384-dimensional
- * and will be stored with pgvector on Neon. This module does not embed.
+ * Storage contract for contextual document search.
+ * embed() in src/server/documents produces these vectors. That module is
+ * the only place that loads the model. pgvector storage is separate.
  */
 export const DOCUMENT_EMBEDDING_MODEL = "all-MiniLM-L6-v2";
 export const DOCUMENT_EMBEDDING_DIMENSIONS = 384;
