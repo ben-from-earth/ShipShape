@@ -125,6 +125,7 @@ export const demoIssue: InferInsertModel<typeof issues> = {
   locationLabel: "LH canopy sill",
   location: { side: "LH", station: "FS 171" },
   description: "Sill shows a visible crack at the fastener line.",
+  severity: "high",
   stage: "discovered",
   reportedBy: demoIds.fieldTech,
 };
