@@ -1,15 +1,14 @@
 import "server-only";
 
 import { FINDING_ERROR_HTTP_STATUS } from "@/config/findings";
-import { apiErrorSchema, idSchema } from "@/schemas";
+import { getFindingMedia } from "@/features/findings/data";
+import { apiErrorSchema, idSchema, type FindingMediaContent } from "@/schemas";
 import {
   detailsFromZod,
   DocumentRequestError,
 } from "@/server/documents/errors";
 import { INTERNAL_ERROR_MESSAGE } from "@/server/http/api";
 import { createLocalDiskStorage, type ObjectStorage } from "@/server/storage";
-
-import { getFindingMedia, type FindingMediaContent } from "./media";
 
 export const FINDING_PHOTO_NOT_FOUND_MESSAGE = "That photo was not found.";
 

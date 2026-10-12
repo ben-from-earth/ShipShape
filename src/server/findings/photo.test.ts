@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { getFindingMedia } from "@/features/findings/data";
+import type { FindingMediaContent } from "@/schemas";
 import type { ObjectStorage } from "@/server/storage";
 
-import { getFindingMedia, type FindingMediaContent } from "./media";
 import {
   FINDING_PHOTO_NOT_FOUND_MESSAGE,
   FindingPhotoNotFoundError,
   openFindingPhoto,
 } from "./photo";
 
-vi.mock("./media", () => ({
+vi.mock("@/features/findings/data", () => ({
   getFindingMedia: vi.fn(),
 }));
 
