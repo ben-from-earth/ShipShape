@@ -17,6 +17,7 @@ import {
   findingLocationSchema,
   findingPhotoSchema,
   findingStageSchema,
+  initialFindingStageTransitionSchema,
 } from "@/schemas";
 
 const assetId = "550e8400-e29b-41d4-a716-446655440022";
@@ -34,11 +35,17 @@ const fields = {
   discoveredAt: "2026-10-12T18:04:00.000Z",
 };
 
+const storedAt = "2026-10-12T20:15:00.000Z";
+
 const photo = {
   id: photoId,
+  issueId: findingId,
   storageKey: `${assetId}/issues/${findingId}/${photoId}`,
   mimeType: "image/jpeg" as const,
   caption: null,
+  uploadedBy: null,
+  createdAt: storedAt,
+  updatedAt: storedAt,
 };
 
 describe("createFindingFieldsSchema", () => {
@@ -144,6 +151,8 @@ describe("createFindingFieldsSchema", () => {
       { summary: "Cracked cover" },
       { title: "Cracked cover" },
       { severity: "high" },
+      { code: "ISS-1002" },
+      { code: "42" },
     ]) {
       expect(
         createFindingFieldsSchema.safeParse({ ...fields, ...extra }).success,
@@ -180,17 +189,31 @@ describe("createFindingFieldsSchema", () => {
 });
 
 describe("findingPhotoSchema", () => {
-  it("describes a stored issue_media photo", () => {
+  it("maps an issue_media row, including the key ObjectStorage returned", () => {
     const parsed = findingPhotoSchema.parse({
       ...photo,
       storageKey: `  ${photo.storageKey}  `,
       caption: "  Fastener line  ",
     });
 
+    expect(parsed.issueId).toBe(findingId);
     expect(parsed.mimeType).toBe("image/jpeg");
     expect(parsed.storageKey).toBe(photo.storageKey);
     expect(parsed.caption).toBe("Fastener line");
+    expect(parsed.uploadedBy).toBeNull();
     expect(findingPhotoSchema.parse(photo).caption).toBeNull();
+  });
+
+  it("rejects a column issue_media does not have", () => {
+    expect(
+      findingPhotoSchema.safeParse({ ...photo, fileName: "bay.jpg" }).success,
+    ).toBe(false);
+    expect(
+      findingPhotoSchema.safeParse({ ...photo, byteLength: 12 }).success,
+    ).toBe(false);
+    expect(
+      findingPhotoSchema.safeParse({ ...photo, issueId: undefined }).success,
+    ).toBe(false);
   });
 
   it("rejects an alias or a non-image as the stored media type", () => {
@@ -216,9 +239,9 @@ describe("findingPhotoSchema", () => {
 describe("createFindingResultSchema", () => {
   const created = {
     id: findingId,
-    code: "ISS-1002",
+    code: "1002",
     stage: "discovered" as const,
-    createdAt: "2026-10-12T20:15:00.000Z",
+    createdAt: storedAt,
     photos: [photo],
   };
 
@@ -226,10 +249,41 @@ describe("createFindingResultSchema", () => {
     const parsed = createFindingResultSchema.parse(created);
 
     expect(parsed.stage).toBe("discovered");
-    expect(parsed.code).toBe("ISS-1002");
+    expect(parsed.code).toBe("1002");
     expect(parsed.photos).toHaveLength(1);
+    expect(parsed.photos[0]?.issueId).toBe(findingId);
     expect(findingStageSchema.parse("discovered")).toBe("discovered");
     expect(findingStageSchema.safeParse("submitted").success).toBe(false);
+    expect(
+      createFindingResultSchema.safeParse({ ...created, code: "ISS-1001" })
+        .success,
+    ).toBe(true);
+  });
+
+  it("records the opening transition as discovered with no previous stage", () => {
+    const parsed = initialFindingStageTransitionSchema.parse({
+      id: "550e8400-e29b-41d4-a716-446655440055",
+      issueId: findingId,
+      fromStage: null,
+      toStage: "discovered",
+      changedBy: null,
+      changedAt: storedAt,
+    });
+
+    expect(parsed.fromStage).toBeNull();
+    expect(parsed.toStage).toBe("discovered");
+    expect(
+      initialFindingStageTransitionSchema.safeParse({
+        ...parsed,
+        fromStage: "discovered",
+      }).success,
+    ).toBe(false);
+    expect(
+      initialFindingStageTransitionSchema.safeParse({
+        ...parsed,
+        toStage: "analysis",
+      }).success,
+    ).toBe(false);
   });
 
   it("requires discovered and between 1 and 10 photos", () => {

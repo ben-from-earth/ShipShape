@@ -41,9 +41,13 @@ export const findingLocationSchema = z.record(z.string(), z.json());
 
 /**
  * Multipart text fields for POST /api/findings. Names are the `issues`
- * columns a field technician can send. The server assigns id, code, stage,
+ * columns a field technician can send. The server assigns id, stage,
  * createdAt, and updatedAt. Photos travel in the repeated `photos` file
  * field and are not part of this object.
+ *
+ * `code` is not a field. `issues.code` is the text form of `nextval` on a
+ * Postgres sequence, added in a separate migration. The handler does not
+ * accept a client code and does not use `MAX(code) + 1`.
  *
  * `issues` has no title, summary, or severity column. Those keys are
  * rejected here. Adding either one needs a migration first: a short title
@@ -62,18 +66,45 @@ export const createFindingFieldsSchema = z.strictObject({
 });
 
 /**
- * One stored photo: an `issue_media` row. Bytes stay in object storage.
- * `issueId` is the parent finding and is not repeated here. `caption` is
- * null when the create request did not send one.
+ * One `issue_media` row. Every key is a column that already exists.
+ * This contract does not add a file name, byte length, or other column.
+ *
+ * `storageKey` is the key `ObjectStorage.put` returns, not a path the
+ * client chooses. `caption` is null when the create request did not send
+ * one. `uploadedBy` is null until requests carry a session.
  */
-export const findingPhotoSchema = z.object({
+export const findingPhotoSchema = z.strictObject({
   id: idSchema,
+  issueId: idSchema,
   storageKey: z.string().trim().min(1).max(STORAGE_KEY_MAX_LENGTH),
   mimeType: z.enum(FINDING_PHOTO_STORED_MEDIA_TYPES),
   caption: z.string().trim().min(1).max(MAX_FINDING_CAPTION_LENGTH).nullable(),
+  uploadedBy: idSchema.nullable(),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
 });
 
-/** Body of the 201 response from POST /api/findings. */
+/**
+ * The `stage_transitions` row written with the issue. The first transition
+ * has a null `from_stage`. `toStage` is `discovered`, which is why the 201
+ * body reports that stage. Not part of the request or the 201 body.
+ */
+export const initialFindingStageTransitionSchema = z.object({
+  id: idSchema,
+  issueId: idSchema,
+  fromStage: z.null(),
+  toStage: z.literal("discovered"),
+  changedBy: idSchema.nullable(),
+  changedAt: timestampSchema,
+});
+
+/**
+ * Body of the 201 response from POST /api/findings.
+ *
+ * `code` is the text stored from `nextval`. The client cannot send it.
+ * `stage` is `discovered` because the same `db.batch` inserts the issue,
+ * its `issue_media` rows, and the initial `stage_transitions` row.
+ */
 export const createFindingResultSchema = z.object({
   id: idSchema,
   code: z.string().trim().min(1).max(MAX_FINDING_CODE_LENGTH),
@@ -89,6 +120,9 @@ export type FindingStage = z.infer<typeof findingStageSchema>;
 export type FindingLocation = z.infer<typeof findingLocationSchema>;
 export type CreateFindingFields = z.infer<typeof createFindingFieldsSchema>;
 export type FindingPhoto = z.infer<typeof findingPhotoSchema>;
+export type InitialFindingStageTransition = z.infer<
+  typeof initialFindingStageTransitionSchema
+>;
 export type CreateFindingResult = z.infer<typeof createFindingResultSchema>;
 
 function trimmed<T extends z.ZodType>(schema: T) {

@@ -172,13 +172,15 @@ The extension and the media type have to agree, and both have to be on the list.
 
 `createFindingFieldsSchema` is those text fields. A blank optional field is omitted. Omitted `zone` and `locationLabel` are stored as null. Omitted `location` is stored as `{}` (the column default). Omitted `discoveredAt` is stored as the current time. Omitted `reportedBy` is stored as null. When `reportedBy` is set, that user must belong to the organization.
 
-The server assigns `id`, `code`, and `stage`. A new finding is `discovered` (`work_stage`). `code` is unique across organizations. The demo seed uses values such as `ISS-1001`; the schema allows 1–64 characters and does not lock that prefix. `created_at` and `updated_at` come from the database.
+The client does not send `code`. `createFindingFieldsSchema` rejects it. The handler does not assign `MAX(code) + 1`. `issues.code` is the text form of `nextval` on a Postgres sequence. Database Manager adds that sequence in a separate migration. This contract does not add it. The 201 body returns the text that `nextval` stored, at most 64 characters. The sample below uses `"1002"`. A value such as the demo seed's `ISS-1001` is still valid text if that migration formats the sequence that way. `created_at` and `updated_at` come from the database.
 
 Each photo is checked the way a document file is checked: non-empty, at most 15 MB, extension and media type present and in agreement. An empty photo or a missing media type is `validation_failed`. A photo over the cap is `photo_too_large`. An extension or media type that is missing from the list, or that disagrees with the other, is `unsupported_photo_type`. More than 10 photos is `too_many_photos`. Zero photos is `validation_failed`.
 
-The stored `issue_media` row keeps `storage_key`, `mime_type`, and a null `caption`. This request has no caption field. `uploaded_by` stays null until sessions exist (#13). `findingPhotoSchema` is the photo object returned to the client: `id`, `storageKey`, `mimeType`, `caption`.
+`findingPhotoSchema` is one `issue_media` row, and only columns that table already has: `id`, `issueId`, `storageKey`, `mimeType`, `caption`, `uploadedBy`, `createdAt`, `updatedAt`. `storageKey` is the key `ObjectStorage.put` returns. The client does not choose it. There is no column for the original file name or the byte length, and this contract does not add one. This request has no caption field, so `caption` is null. `uploadedBy` is null until sessions exist (#13).
 
-The handler validates the organization, the asset, the text fields, the photo count, and each photo **before** writing. It then stores each photo through `ObjectStorage.put` and inserts the `issues` row and its `issue_media` rows in one Neon `db.batch` transaction. neon-http cannot open an interactive transaction, which is the same constraint as document upload. Each row's `storage_key` is the key `put` returns. The key requested from the adapter is `{orgId}/issues/{issueId}/{photoId}`. That stays inside the adapter's 500-character key limit and does not collide with a document key `{orgId}/{documentId}`.
+The handler validates the organization, the asset, the text fields, the photo count, and each photo **before** writing. It then stores each photo through `ObjectStorage.put`. The key requested from the adapter is `{orgId}/issues/{issueId}/{photoId}`. That stays inside the adapter's 500-character key limit and does not collide with a document key `{orgId}/{documentId}`. The row stores the key `put` returns.
+
+The handler then inserts three things in one Neon `db.batch` transaction: the `issues` row, its `issue_media` rows, and one `stage_transitions` row with `from_stage` null and `to_stage` `discovered` (`initialFindingStageTransitionSchema`). A new finding therefore starts at `discovered`, which is the `stage` on the 201 body. neon-http cannot open an interactive transaction, which is the same constraint as document upload. `changed_by` on that transition is null until sessions exist (#13).
 
 If validation fails, nothing is stored. If a later `put` fails, photos already stored for this request are deleted. If the insert fails, every stored photo is deleted.
 
@@ -189,15 +191,19 @@ Local development can use `createLocalDiskStorage()`. Replacing that with anothe
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440031",
-  "code": "ISS-1002",
+  "code": "1002",
   "stage": "discovered",
   "createdAt": "2026-10-12T20:15:00.000Z",
   "photos": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440032",
+      "issueId": "550e8400-e29b-41d4-a716-446655440031",
       "storageKey": "550e8400-e29b-41d4-a716-446655440000/issues/550e8400-e29b-41d4-a716-446655440031/550e8400-e29b-41d4-a716-446655440032",
       "mimeType": "image/jpeg",
-      "caption": null
+      "caption": null,
+      "uploadedBy": null,
+      "createdAt": "2026-10-12T20:15:00.000Z",
+      "updatedAt": "2026-10-12T20:15:00.000Z"
     }
   ]
 }
@@ -245,3 +251,5 @@ Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findi
 - A severity needs a new column such as `issues.severity` and a migration.
 
 Do not accept either field until that migration exists.
+
+`issues.code` already exists. The sequence behind `nextval` does not. That sequence is a separate migration from Database Manager, not part of this contract, and not a `MAX(code) + 1` write.

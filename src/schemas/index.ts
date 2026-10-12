@@ -83,6 +83,7 @@ export {
   findingLocationSchema,
   findingPhotoSchema,
   findingStageSchema,
+  initialFindingStageTransitionSchema,
 } from "./findings";
 export type {
   CreateFindingFields,
@@ -90,4 +91,5 @@ export type {
   FindingLocation,
   FindingPhoto,
   FindingStage,
+  InitialFindingStageTransition,
 } from "./findings";

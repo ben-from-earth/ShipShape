@@ -30,7 +30,10 @@ export const MAX_FINDING_LOCATION_JSON_LENGTH = 2_000;
 /** `issue_media.caption`. Create does not send one; the stored value may. */
 export const MAX_FINDING_CAPTION_LENGTH = 500;
 
-/** `issues.code`, assigned by the server. */
+/**
+ * Cap on `issues.code` in the 201 body. The value is `nextval` of a
+ * Postgres sequence, stored as text. Clients do not send it.
+ */
 export const MAX_FINDING_CODE_LENGTH = 64;
 
 /**
