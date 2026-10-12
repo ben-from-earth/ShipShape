@@ -5,7 +5,11 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { uploadDocument, searchDocuments } from "@/features/documents/client";
+import {
+  DocsRequestError,
+  searchDocuments,
+  uploadDocument,
+} from "@/features/documents/client";
 import {
   ACCEPTED_DOCUMENT_TYPES,
   formatPageRange,
@@ -17,6 +21,18 @@ import type { Document, DocumentSearchResult } from "@/schemas";
 import { cn } from "@/lib/utils";
 
 type Phase = "idle" | "loading" | "done" | "error";
+
+function visibleError(caught: unknown, fallback: string): string {
+  if (caught instanceof DocsRequestError) {
+    return caught.message;
+  }
+
+  if (caught instanceof Error && caught.message.length > 0) {
+    return caught.message;
+  }
+
+  return fallback;
+}
 
 export function DocsSearch({ map }: { map: ReactNode }) {
   const [query, setQuery] = useState("");
@@ -42,8 +58,9 @@ export function DocsSearch({ map }: { map: ReactNode }) {
       setResult(found);
       setPhase("done");
     } catch (caught) {
+      setResult(null);
       setPhase("error");
-      setError(caught instanceof Error ? caught.message : "Search failed");
+      setError(visibleError(caught, "Search failed"));
     }
   }
 
@@ -57,6 +74,7 @@ export function DocsSearch({ map }: { map: ReactNode }) {
     setUploadError(null);
     const accepted: Document[] = [];
     let rejected = 0;
+    let requestError: string | null = null;
 
     for (const file of list) {
       if (!mediaTypeForFile(file.name, file.type)) {
@@ -67,9 +85,7 @@ export function DocsSearch({ map }: { map: ReactNode }) {
       try {
         accepted.push(await uploadDocument(file));
       } catch (caught) {
-        setUploadError(
-          caught instanceof Error ? caught.message : "Upload failed",
-        );
+        requestError = visibleError(caught, "Upload failed");
       }
     }
 
@@ -77,7 +93,9 @@ export function DocsSearch({ map }: { map: ReactNode }) {
       setUploads((current) => [...accepted, ...current]);
     }
 
-    if (rejected > 0) {
+    if (requestError) {
+      setUploadError(requestError);
+    } else if (rejected > 0) {
       setUploadError("Use a PDF, Word, plain text, or Markdown file.");
     }
   }

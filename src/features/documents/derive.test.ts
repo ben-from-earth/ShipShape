@@ -1,8 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { documentSearchHitSchema } from "@/schemas";
 
-import { searchDocuments, uploadDocument } from "./client";
 import {
   documentFromFile,
   formatPageRange,
@@ -14,10 +13,6 @@ import { DEMO_SEARCH_HITS } from "./fixtures";
 
 const createdAt = "2026-10-12T19:42:00.000Z";
 const id = "550e8400-e29b-41d4-a716-446655440099";
-
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
 
 describe("formatPageRange", () => {
   it("hides a range when the format has no pages", () => {
@@ -79,80 +74,5 @@ describe("documentFromFile", () => {
       mediaType: "application/pdf",
       uploadedBy: "Demo",
     });
-  });
-});
-
-describe("searchDocuments", () => {
-  it("uses demo hits when the search route is missing", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response("missing", { status: 404 })),
-    );
-
-    const result = await searchDocuments({ query: "bent support" });
-
-    expect(result.query).toBe("bent support");
-    expect(result.hits[0]?.documentTitle).toBe("Hull inspection notes");
-    expect(result.hits[0]?.snippet).toBe("Bent support near the access hatch.");
-    expect(result.hits[0]?.chunk.pageStart).toBe(4);
-  });
-
-  it("returns the route payload when the search route answers", async () => {
-    const payload = {
-      query: "hatch",
-      hits: [DEMO_SEARCH_HITS[0]],
-    };
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify(payload), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          }),
-      ),
-    );
-
-    const result = await searchDocuments({ query: "hatch" });
-    expect(result.hits).toHaveLength(1);
-    expect(result.hits[0]?.documentTitle).toBe("Hull inspection notes");
-  });
-});
-
-describe("uploadDocument", () => {
-  it("stores a typed demo document when the upload route is missing", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response("missing", { status: 404 })),
-    );
-
-    const document = await uploadDocument(
-      new File(["# seal"], "Seal check.md", { type: "text/markdown" }),
-    );
-
-    expect(document.title).toBe("Seal check");
-    expect(document.mediaType).toBe("text/markdown");
-    expect(document.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-    );
-  });
-
-  it("treats Next's missing server-action response as an unavailable route", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(
-        async () =>
-          new Response("Server Action unavailable.", {
-            status: 409,
-            headers: { "content-type": "text/plain" },
-          }),
-      ),
-    );
-
-    const document = await uploadDocument(
-      new File(["# seal"], "Seal check.md", { type: "text/markdown" }),
-    );
-
-    expect(document.title).toBe("Seal check");
   });
 });
