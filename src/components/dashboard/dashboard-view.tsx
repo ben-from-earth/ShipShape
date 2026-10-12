@@ -105,6 +105,9 @@ export function DashboardView({
             <Button href="/findings" variant="outline" size="sm">
               Findings
             </Button>
+            <Button href="/repairs" variant="outline" size="sm">
+              Repairs
+            </Button>
             <Button href="/findings/new" variant="dark" size="sm">
               New finding
             </Button>
