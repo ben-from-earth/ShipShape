@@ -7,7 +7,7 @@ ShipShape is the foundation for a damage-repair workflow used by field technicia
 3. Engineering records a stress and strength analysis.
 4. A reviewer approves the analysis, asks for changes, or rejects it.
 
-The interface and the database tables are left for the people building them. This repository is the shared TypeScript app, validation, and database connection they build on.
+The database tables are left for the people building them. This repository is the shared TypeScript app, validation, database connection, and the first application shell.
 
 ## Prerequisites
 
@@ -52,6 +52,9 @@ The app is at [http://localhost:3000](http://localhost:3000). The health check i
 ```text
 src/app/                  Next.js App Router pages and route handlers
 src/app/api/health/       Liveness check
+src/app/(app)/            Shell: dashboard, engineering, docs, tools
+src/components/           Shared UI and the application header
+src/config/               Shared constants (margin threshold, navigation)
 src/schemas/              Zod schemas shared by the UI and the server
 src/server/<domain>/      Server-side parsing for one workflow step
 src/db/schema.ts          Drizzle tables (placeholder today)
@@ -91,9 +94,11 @@ import { parseDamageReportCreate } from "@/server/damage-reports";
 
 **Document search comes later.** Embeddings run locally. A later change adds one `embed()` function that loads `all-MiniLM-L6-v2` with Transformers.js and returns 384-dimension vectors for pgvector on Neon. `DOCUMENT_EMBEDDING_MODEL` and `DOCUMENT_EMBEDDING_DIMENSIONS` in `src/schemas/document.ts` record that contract for the table that will store the vectors.
 
-**The tools marketplace comes later.** The frontend will add a page that says the tools marketplace is coming soon.
+**Low margins use one cutoff until organizations store their own.** `LOW_MARGIN_THRESHOLD` in `src/config/analysis.ts` is `0.10`. A later setting, `organizations.low_margin_threshold`, replaces it per organization. Negative margins stay red either way.
 
-**Tailwind is ready for shadcn/ui.** Tailwind 4 is installed. The component library itself is left for the frontend.
+**The tools marketplace is a coming-soon page.** `/tools` lists the planned catalog. Licensing and publishing are not wired up.
+
+**shadcn/ui sits on the ShipShape theme.** Tailwind 4 tokens live in `src/app/globals.css`. IBM Plex Sans and IBM Plex Mono load through `next/font`. Corners are square. Warning amber is `#b07d0e` only.
 
 ## Contributing
 

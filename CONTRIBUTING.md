@@ -58,5 +58,7 @@ Put `DATABASE_URL` in `.env.local`. That file is gitignored. `.env.example` is t
 | Server behavior for one workflow step | `src/server/<domain>` |
 | Tables or the database client         | `src/db`              |
 | A page or a route handler             | `src/app`             |
+| A shared component                    | `src/components`      |
+| An app-wide constant                  | `src/config`          |
 
 Domains already in the tree: `damage-reports`, `repairs`, `analyses`, `reviews`, `documents`.
