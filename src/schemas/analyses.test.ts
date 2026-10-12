@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  analysisCreateBodySchema,
   analysisCreateSchema,
   analysisSchema,
   createAnalysisResultSchema,
@@ -55,6 +56,25 @@ describe("analyses schemas", () => {
     ).toBe(false);
     expect(analysisSchema.parse(record)).toEqual(record);
     expect(createAnalysisResultSchema).toBe(analysisSchema);
+  });
+
+  it("accepts a create body without repairId", () => {
+    expect(
+      analysisCreateBodySchema.parse({
+        title: "  Limit check  ",
+        margin: 0.05,
+      }),
+    ).toEqual({
+      title: "Limit check",
+      margin: 0.05,
+    });
+    expect(
+      analysisCreateBodySchema.safeParse({
+        title: "Limit check",
+        margin: 0.05,
+        repairId,
+      }).success,
+    ).toBe(false);
   });
 
   it("lives only in the client-safe analyses module", () => {

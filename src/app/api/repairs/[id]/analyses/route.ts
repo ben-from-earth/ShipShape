@@ -1,10 +1,18 @@
 import { unstable_rethrow } from "next/navigation";
 
-import { createAnalysisResultSchema } from "@/schemas";
+import {
+  analysisCreateBodySchema,
+  createAnalysisResultSchema,
+  type AnalysisCreateBody,
+} from "@/schemas";
 import { createRepairAnalysis } from "@/server/analyses/create";
+import { detailsFromZod } from "@/server/documents/errors";
 import { assertOrganizationExists } from "@/server/documents/org";
 import { temporaryActorId } from "@/server/findings/actor";
-import { findingErrorResponse } from "@/server/findings/errors";
+import {
+  FindingRequestError,
+  findingErrorResponse,
+} from "@/server/findings/errors";
 import { readJsonBody, readOrgId } from "@/server/http/api";
 
 /**
@@ -25,11 +33,11 @@ export async function POST(
     const orgId = readOrgId(request);
     await assertOrganizationExists(orgId);
     const { id } = await context.params;
-    const body = await readJsonBody(request);
+    const body = requireAnalysisBody(await readJsonBody(request));
     const result = await createRepairAnalysis({
       orgId,
       repairId: id,
-      body,
+      fields: body,
       actorId: temporaryActorId(),
     });
     return Response.json(createAnalysisResultSchema.parse(result), {
@@ -39,4 +47,19 @@ export async function POST(
     unstable_rethrow(error);
     return findingErrorResponse(error);
   }
+}
+
+function requireAnalysisBody(body: unknown): AnalysisCreateBody {
+  const parsed = analysisCreateBodySchema.safeParse(body);
+  if (!parsed.success) {
+    throw new FindingRequestError(
+      "validation_error",
+      "Analysis fields are invalid.",
+      detailsFromZod(parsed.error).map((detail) => ({
+        path: detail.path || "body",
+        message: detail.message,
+      })),
+    );
+  }
+  return parsed.data;
 }

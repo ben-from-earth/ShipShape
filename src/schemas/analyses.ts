@@ -77,6 +77,11 @@ export const analysisCreateSchema = z.strictObject({
   revision: analysisRevisionSchema.optional(),
 });
 
+/** JSON body for POST /api/repairs/{id}/analyses. `repairId` comes from the path. */
+export const analysisCreateBodySchema = analysisCreateSchema.omit({
+  repairId: true,
+});
+
 /**
  * One stored analysis plus the load case used for margin classification.
  * `createAnalysis` returns this record. `repairId` is the repair the
@@ -106,5 +111,6 @@ export const createAnalysisResultSchema = analysisSchema;
 export type AnalysisConclusion = z.infer<typeof analysisConclusionSchema>;
 export type AnalysisDbStatus = z.infer<typeof analysisDbStatusSchema>;
 export type AnalysisCreate = z.infer<typeof analysisCreateSchema>;
+export type AnalysisCreateBody = z.infer<typeof analysisCreateBodySchema>;
 export type Analysis = z.infer<typeof analysisSchema>;
 export type CreateAnalysisResult = z.infer<typeof createAnalysisResultSchema>;

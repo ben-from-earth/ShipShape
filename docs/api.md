@@ -390,7 +390,7 @@ Opens one analysis on a repair. `application/json` body. The handler does not ac
 }
 ```
 
-`title` and `margin` are required. `method`, `loadCase`, `status`, `dueDate`, and `revision` may be omitted. `method` and `dueDate` may be null. `status` is a stored analysis status, and `createAnalysis` stores `draft` when it is omitted. `loadCase` is stored as `Primary` when it is omitted. `revision` is stored as `A` when it is omitted. `method` and `dueDate` are stored as null when they are omitted. `margin` is a finite number from `-99999.999` through `99999.999`. An unknown field such as `repairId`, `actorId`, or `code` is `validation_error` with path `body`, and `createAnalysis` is not called. The body is `analysisCreateSchema` without `repairId`.
+`title` and `margin` are required. `method`, `loadCase`, `status`, `dueDate`, and `revision` may be omitted. `method` and `dueDate` may be null. `status` is a stored analysis status, and `createAnalysis` stores `draft` when it is omitted. `loadCase` is stored as `Primary` when it is omitted. `revision` is stored as `A` when it is omitted. `method` and `dueDate` are stored as null when they are omitted. `margin` is a finite number from `-99999.999` through `99999.999`. An unknown field such as `repairId`, `actorId`, or `code` is `validation_error` with path `body`, and `createAnalysis` is not called. The body is `analysisCreateBodySchema`, the single `analysisCreateSchema.omit({ repairId: true })` export.
 
 `id` is `repairs.id` and must be a UUID. A non-UUID is `validation_error`. `x-org-id` is the same temporary organization header as the other finding routes. That id is passed to `createAnalysis` as `repairId`.
 
