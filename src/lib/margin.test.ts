@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { LOW_MARGIN_THRESHOLD } from "@/config/analysis";
+import { marginToneClass } from "@/components/ui/margin-value";
 import { classifyMargin, formatMargin, marginColor } from "@/lib/margin";
 
 describe("LOW_MARGIN_THRESHOLD", () => {
@@ -53,6 +54,15 @@ describe("formatMargin", () => {
     expect(formatMargin(null)).toBe("\u2014");
     expect(formatMargin(undefined)).toBe("\u2014");
     expect(formatMargin(Number.NaN)).toBe("\u2014");
+  });
+});
+
+describe("marginToneClass", () => {
+  it("defaults to the shared threshold and accepts an organization cutoff", () => {
+    expect(marginToneClass(0.12)).toBe("text-ok");
+    expect(marginToneClass(0.12, 0.25)).toBe("text-warn");
+    expect(marginToneClass(-0.02, 0.25)).toBe("text-accent");
+    expect(marginToneClass(null, 0.25)).toBe("text-ink-faint");
   });
 });
 
