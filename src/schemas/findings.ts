@@ -200,7 +200,8 @@ export const findingRecordSchema = z.strictObject({
   stage: findingStageSchema,
   zone: z.string().nullable(),
   locationLabel: z.string().nullable(),
-  location: findingLocationSchema,
+  /** Null when the stored jsonb value is not an object. */
+  location: findingLocationSchema.nullable(),
   createdAt: timestampSchema,
   asset: findingAssetSummarySchema,
   photos: z.array(findingPhotoMetaSchema),
@@ -208,7 +209,12 @@ export const findingRecordSchema = z.strictObject({
 
 export type FindingStage = z.infer<typeof findingStageSchema>;
 export type FindingSeverity = z.infer<typeof findingSeveritySchema>;
-export type FindingLocation = z.infer<typeof findingLocationSchema>;
+/**
+ * A location object, or null when a stored value cannot be parsed as one.
+ * Writers still store an object (`findingLocationSchema`); the null is
+ * only for readers.
+ */
+export type FindingLocation = z.infer<typeof findingLocationSchema> | null;
 export type CreateFindingFields = z.infer<typeof createFindingFieldsSchema>;
 export type FindingPhoto = z.infer<typeof findingPhotoSchema>;
 export type InitialFindingStageTransition = z.infer<
