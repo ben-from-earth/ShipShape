@@ -27,14 +27,23 @@ describe("crumbsForPath", () => {
     expect(
       crumbsForPath("/tools/layer-loads").map((crumb) => crumb.label),
     ).toEqual(["Asset group", DEMO_ASSET_GROUP_NAME, "Tools"]);
+    expect(crumbsForPath("/findings/new").map((crumb) => crumb.label)).toEqual([
+      "Asset group",
+      DEMO_ASSET_GROUP_NAME,
+      "New finding",
+    ]);
   });
 
   it("does not hard-code aircraft terms", () => {
     const labels = [
       ...APP_NAV.map((item) => item.label),
-      ...["/dashboard", "/engineering", "/docs", "/tools"].flatMap((path) =>
-        crumbsForPath(path).map((crumb) => crumb.label),
-      ),
+      ...[
+        "/dashboard",
+        "/engineering",
+        "/docs",
+        "/tools",
+        "/findings/new",
+      ].flatMap((path) => crumbsForPath(path).map((crumb) => crumb.label)),
     ];
 
     for (const label of labels) {

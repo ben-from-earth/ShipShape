@@ -39,6 +39,10 @@ export function crumbsForPath(pathname: string): Crumb[] {
     return [assetGroup, currentGroup, { label: "Tools" }];
   }
 
+  if (pathname === "/findings" || pathname.startsWith("/findings/")) {
+    return [assetGroup, currentGroup, { label: "New finding" }];
+  }
+
   return [assetGroup, { label: DEMO_ASSET_GROUP_NAME }];
 }
 
