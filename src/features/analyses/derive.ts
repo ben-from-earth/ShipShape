@@ -1,7 +1,7 @@
 import { DEMO_AS_OF } from "@/config/demo";
 import { formatShortDate } from "@/lib/dates";
 
-import { PEOPLE, UNASSIGNED_COLOR } from "./fixtures";
+import { personById, UNASSIGNED_COLOR } from "./fixtures";
 import type {
   AnalysisFilter,
   AnalysisRecord,
@@ -193,10 +193,13 @@ export function lifecycleSteps(status: AnalysisStatus): LifecycleStep[] {
 }
 
 export function ownerLine(record: AnalysisRecord): string {
-  const analyst = PEOPLE[record.analyst].name;
+  const analyst =
+    record.roster?.analyst.name ?? personById(record.analyst).name;
 
   if (record.status === "check" && record.checker) {
-    return `${analyst} → ${PEOPLE[record.checker].name}`;
+    const checker =
+      record.roster?.checker?.name ?? personById(record.checker).name;
+    return `${analyst} → ${checker}`;
   }
 
   return analyst;
@@ -207,6 +210,7 @@ function assigned(
   role: string,
   state: string,
   tone: AssignedPerson["tone"],
+  roster?: { name: string; color: string } | null,
 ): AssignedPerson {
   if (!id) {
     return {
@@ -219,11 +223,11 @@ function assigned(
     };
   }
 
-  const person = PEOPLE[id];
+  const person = personById(id);
   return {
-    name: person.name,
-    initials: person.id,
-    color: person.color,
+    name: roster?.name ?? person.name,
+    initials: id,
+    color: roster?.color ?? person.color,
     role,
     state,
     tone,
@@ -234,32 +238,93 @@ export function peopleFor(record: AnalysisRecord): AssignedPerson[] {
   const status = record.status;
   const analyst =
     status === "draft" || status === "work"
-      ? assigned(record.analyst, "Analyst", "Working", "navy")
+      ? assigned(
+          record.analyst,
+          "Analyst",
+          "Working",
+          "navy",
+          record.roster?.analyst,
+        )
       : status === "check"
-        ? assigned(record.analyst, "Analyst", "Standby", "faint")
+        ? assigned(
+            record.analyst,
+            "Analyst",
+            "Standby",
+            "faint",
+            record.roster?.analyst,
+          )
         : status === "rework"
-          ? assigned(record.analyst, "Analyst", "Revising", "navy")
-          : assigned(record.analyst, "Analyst", "Signed", "ok");
+          ? assigned(
+              record.analyst,
+              "Analyst",
+              "Revising",
+              "navy",
+              record.roster?.analyst,
+            )
+          : assigned(
+              record.analyst,
+              "Analyst",
+              "Signed",
+              "ok",
+              record.roster?.analyst,
+            );
 
   const checker =
     status === "check"
-      ? assigned(record.checker, "Checker", "Working", "navy")
+      ? assigned(
+          record.checker,
+          "Checker",
+          "Working",
+          "navy",
+          record.roster?.checker,
+        )
       : status === "ready" || status === "done"
-        ? assigned(record.checker, "Checker", "Signed", "ok")
+        ? assigned(
+            record.checker,
+            "Checker",
+            "Signed",
+            "ok",
+            record.roster?.checker,
+          )
         : status === "rework"
-          ? assigned(record.checker, "Checker", "Flagged", "accent")
-          : assigned(record.checker, "Checker", "Waiting", "faint");
+          ? assigned(
+              record.checker,
+              "Checker",
+              "Flagged",
+              "accent",
+              record.roster?.checker,
+            )
+          : assigned(
+              record.checker,
+              "Checker",
+              "Waiting",
+              "faint",
+              record.roster?.checker,
+            );
 
   const approver =
     status === "ready"
-      ? assigned(record.approver, "Engineering authority", "To sign", "warn")
+      ? assigned(
+          record.approver,
+          "Engineering authority",
+          "To sign",
+          "warn",
+          record.roster?.approver,
+        )
       : status === "done"
-        ? assigned(record.approver, "Engineering authority", "Approved", "ok")
+        ? assigned(
+            record.approver,
+            "Engineering authority",
+            "Approved",
+            "ok",
+            record.roster?.approver,
+          )
         : assigned(
             record.approver,
             "Engineering authority",
             "Waiting",
             "faint",
+            record.roster?.approver,
           );
 
   return [analyst, checker, approver];

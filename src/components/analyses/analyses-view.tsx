@@ -5,6 +5,7 @@ import { useState, useSyncExternalStore } from "react";
 import { PageHeading } from "@/components/shell/page-heading";
 import { Button } from "@/components/ui/button";
 import { MarginValue } from "@/components/ui/margin-value";
+import { LOW_MARGIN_THRESHOLD } from "@/config/analysis";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
@@ -80,9 +81,12 @@ function sortValue(
 export function AnalysesView({
   records,
   defaultSelectedId,
+  marginThreshold = LOW_MARGIN_THRESHOLD,
 }: {
   records: readonly AnalysisRecord[];
   defaultSelectedId: string;
+  /** Organization cutoff. Defaults to `LOW_MARGIN_THRESHOLD`. */
+  marginThreshold?: number;
 }) {
   const [filter, setFilter] = useState<AnalysisFilter>("all");
   const [query, setQuery] = useState("");
@@ -191,6 +195,7 @@ export function AnalysesView({
                     record={record}
                     selected={record.id === selected?.id}
                     onSelect={selectAnalysis}
+                    marginThreshold={marginThreshold}
                   />
                 </li>
               ))}
@@ -202,10 +207,13 @@ export function AnalysesView({
               sort={sort}
               onSort={setSort}
               onSelect={selectAnalysis}
+              marginThreshold={marginThreshold}
             />
           )}
         </div>
-        {selected ? <AnalysisDetail record={selected} /> : null}
+        {selected ? (
+          <AnalysisDetail record={selected} marginThreshold={marginThreshold} />
+        ) : null}
       </div>
     </div>
   );
@@ -215,10 +223,12 @@ function AnalysisCard({
   record,
   selected,
   onSelect,
+  marginThreshold,
 }: {
   record: AnalysisRecord;
   selected: boolean;
   onSelect: (id: string) => void;
+  marginThreshold: number;
 }) {
   const overdue = isOverdue(record);
   const analyst = PEOPLE[record.analyst];
@@ -256,6 +266,7 @@ function AnalysisCard({
           </span>
           <MarginValue
             margin={minMargin(record.cases)}
+            threshold={marginThreshold}
             className="text-ms font-semibold"
           />
         </span>
@@ -298,12 +309,14 @@ function AnalysisTable({
   sort,
   onSort,
   onSelect,
+  marginThreshold,
 }: {
   records: readonly AnalysisRecord[];
   selectedId: string | undefined;
   sort: AnalysisSort;
   onSort: (sort: AnalysisSort) => void;
   onSelect: (id: string) => void;
+  marginThreshold: number;
 }) {
   return (
     <div className="overflow-x-auto border border-line bg-surface">
@@ -390,7 +403,10 @@ function AnalysisTable({
                   />
                 </td>
                 <td className="px-3 py-2.5 text-xs">
-                  <MarginValue margin={minMargin(record.cases)} />
+                  <MarginValue
+                    margin={minMargin(record.cases)}
+                    threshold={marginThreshold}
+                  />
                 </td>
                 <td
                   className={cn(

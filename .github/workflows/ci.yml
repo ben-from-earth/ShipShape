@@ -113,6 +113,11 @@ jobs:
           SHIPSHAPE_INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shipshape
           REQUIRE_PGVECTOR_INTEGRATION: "1"
 
+      - name: Test database-backed readers
+        run: pnpm exec vitest run src/db/readers.integration.test.ts
+        env:
+          RUN_DB_INTEGRATION: "1"
+
       - name: Prove pgvector and the cosine HNSW index
         run: |
           set -euo pipefail

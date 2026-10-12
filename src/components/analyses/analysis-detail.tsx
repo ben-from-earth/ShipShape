@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { MarginValue } from "@/components/ui/margin-value";
+import { LOW_MARGIN_THRESHOLD } from "@/config/analysis";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
   lifecycleSteps,
@@ -43,7 +44,14 @@ const PERSON_TONE: Record<PersonTone, string> = {
   warn: "border-warn text-warn",
 };
 
-export function AnalysisDetail({ record }: { record: AnalysisRecord }) {
+export function AnalysisDetail({
+  record,
+  marginThreshold = LOW_MARGIN_THRESHOLD,
+}: {
+  record: AnalysisRecord;
+  /** Organization cutoff. Defaults to `LOW_MARGIN_THRESHOLD`. */
+  marginThreshold?: number;
+}) {
   const steps = lifecycleSteps(record.status);
   const people = peopleFor(record);
   const margin = minMargin(record.cases);
@@ -162,7 +170,11 @@ export function AnalysisDetail({ record }: { record: AnalysisRecord }) {
         {record.cases.length === 0 ? (
           <p className="text-[12.5px] text-ink-2">
             Awaiting first run{" "}
-            <MarginValue margin={margin} className="font-semibold" />
+            <MarginValue
+              margin={margin}
+              threshold={marginThreshold}
+              className="font-semibold"
+            />
           </p>
         ) : (
           <ul className="flex flex-col gap-2.5">
@@ -174,6 +186,7 @@ export function AnalysisDetail({ record }: { record: AnalysisRecord }) {
                 <span className="text-[12.5px] text-ink-2">{entry.name}</span>
                 <MarginValue
                   margin={entry.margin}
+                  threshold={marginThreshold}
                   className="text-[12.5px] font-semibold"
                 />
                 <span className="col-span-2 h-[3px] bg-line-faint" aria-hidden>
@@ -181,7 +194,10 @@ export function AnalysisDetail({ record }: { record: AnalysisRecord }) {
                     className="block h-[3px]"
                     style={{
                       width: `${marginBarPercent(entry.margin)}%`,
-                      backgroundColor: marginColor(entry.margin),
+                      backgroundColor: marginColor(
+                        entry.margin,
+                        marginThreshold,
+                      ),
                     }}
                   />
                 </span>

@@ -6,6 +6,7 @@ import { useState, type ReactNode } from "react";
 import { PageHeading } from "@/components/shell/page-heading";
 import { Card } from "@/components/ui/card";
 import { MarginValue } from "@/components/ui/margin-value";
+import { LOW_MARGIN_THRESHOLD } from "@/config/analysis";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StatusPill } from "@/components/ui/status-pill";
 import type {
@@ -80,8 +81,11 @@ function PanelTitle({
 
 export function DashboardView({
   periods,
+  marginThreshold = LOW_MARGIN_THRESHOLD,
 }: {
   periods: Record<DashboardPeriod, DashboardModel>;
+  /** Organization cutoff. Defaults to `LOW_MARGIN_THRESHOLD`. */
+  marginThreshold?: number;
 }) {
   const [period, setPeriod] = useState<DashboardPeriod>("30D");
   const model = periods[period] ?? periods["30D"];
@@ -486,7 +490,10 @@ export function DashboardView({
                   </td>
                   <td className="px-3 py-[11px] text-ink-3">{row.owner}</td>
                   <td className="px-3 py-[11px] text-xs">
-                    <MarginValue margin={row.margin} />
+                    <MarginValue
+                      margin={row.margin}
+                      threshold={marginThreshold}
+                    />
                   </td>
                   <td className="px-5 py-[11px]">
                     <StatusPill
