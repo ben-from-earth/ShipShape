@@ -18,7 +18,7 @@ Seventeen tables. Drizzle relations in `src/db/relations.ts` back `getDb().query
 | `issue_media`       | File pointer for a photo or other attachment. Bytes stay in object storage.                                                                                                                                              |
 | `repairs`           | Repair opened from an issue. `code` is `REP-` plus a sequence number. `status` is `open`, `in_review`, or `completed`. Creating a repair does not change the issue's stage.                                              |
 | `repair_revisions`  | One revision of a repair (`A`, `B`, …). Unique per repair.                                                                                                                                                               |
-| `analyses`          | Engineering analysis of one repair revision, with status and owner.                                                                                                                                                      |
+| `analyses`          | Engineering analysis of one repair revision. `code` is `AN-` plus a sequence number. Margin of safety is on `analysis_cases`, which the dashboard classifies against `low_margin_threshold`.                             |
 | `analysis_people`   | Analyst, checker, and approver assignments. One person can hold more than one role.                                                                                                                                      |
 | `analysis_cases`    | One margin-of-safety case. The dashboard minimum is `MIN(margin)` per analysis.                                                                                                                                          |
 | `tool_runs`         | Saved tool run (for example layer loads). Inputs and outputs are JSON tied to `tool_version`.                                                                                                                            |
@@ -97,6 +97,44 @@ Creating a repair does not change `issues.stage` and does not write `stage_trans
 `src/features/repairs/data.integration.test.ts` runs in CI against the loopback `pgvector/pgvector:pg17` service after migrations.
 
 Migration `0003_repair_codes` adds `repairs.status` as `NOT NULL DEFAULT 'open'`, which backfills every existing row and stays the default for inserts that omit it. It adds nullable `created_by`, an index on `issue_id`, and `repair_code_seq`. It does not drop or rename a column.
+
+## Analysis codes
+
+`analyses.code` is unique across every organization. The demo seed uses `AN-1001`. New codes come from the Postgres sequence `analysis_code_seq` in `src/db/schema.ts`.
+
+`nextAnalysisCodeSql()` is the allocation as a scalar SQL expression. `createAnalysis` puts that expression in the analysis `INSERT ... SELECT`, after the repair has been limited to the organization, so `nextval` runs only when that repair's asset belongs to the organization. A missing repair and a repair in another organization both write nothing and consume no code. The format matches the seed: the prefix `AN-`, then the decimal integer padded to at least four digits. A longer integer is not truncated.
+
+| Sequence value | Code       |
+| -------------- | ---------- |
+| 1001 (seed)    | `AN-1001`  |
+| 1002           | `AN-1002`  |
+| 10000          | `AN-10000` |
+
+The sequence is created with `START WITH 1002`. Migration `0004_analysis_codes` then runs `setval` to the greater of `1001` and the highest existing analysis code whose text is a letter prefix, a hyphen, and digits (`AN-4242`, and an older prefix such as `XYZ-1001`). The next `nextval` is that value plus one. Overlapping calls receive different values. A rolled-back transaction does not put its value back.
+
+## Analyses
+
+`createAnalysis` and `getAnalysis` live in `src/features/analyses/write.ts` and are re-exported from `src/features/analyses/data.ts`. `listAnalyses` and `getAnalysesPage` stay the readers from `src/features/analyses/db.ts` (the demo switch). Analyses have no `org_id`. Every query joins `repair_revisions` to `repairs` to `issues` to `assets` and keeps `assets.org_id` in the filter.
+
+`createAnalysis({ orgId, repairId, actorId, title, method?, loadCase?, margin, status?, dueDate?, revision? }, db?)` inserts one analysis and one `analysis_cases` row. The analysis hangs off `repair_revision_id`. The revision letter is stored in `repair_revisions.rev` (default `A`). The repair check, the revision, the analysis, and the case are one statement, because Neon HTTP has no interactive transaction. A missing repair or a repair in another organization returns `{ kind: "not_found" }`.
+
+The revision insert is `ON CONFLICT (repair_id, rev) DO UPDATE SET rev = EXCLUDED.rev`, matching the unique index `repair_rev_uq`. `DO UPDATE` returns the existing row, so two first creates that race on the same repair and letter both succeed and share that one revision. The `SET` clause names only `rev`, and sets it to the same value. `updated_at`, `created_by`, `detail`, and `created_at` stay as they were. `repair_revisions` has no trigger. `updated_at` changes when Drizzle's `$onUpdate` hook runs, and this statement is raw SQL, so the hook does not run.
+
+Postgres uses one snapshot for the whole statement, so a row inserted here is not visible to a later join of that table. The analysis insert takes the revision id from the revision command's `RETURNING`, and the final select takes `repair_id` from that same `RETURNING`. It does not read `repair_revisions`, `analyses`, or `analysis_cases` again. `nextval` stays in the analysis insert, so an empty repair check consumes no code.
+
+`margin` is a number stored on `analysis_cases.margin` (`numeric(8, 3)`). `readAnalyses` and `readDashboard` already classify that column with `classifyMargin` against `organizations.low_margin_threshold` (`getLowMarginThreshold`, default `0.10`). `loadCase` is the case name and defaults to `Primary`. `method` is an optional free label. `status` defaults to `draft` (`draft`, `in_progress`, `in_review`, `changes_requested`, `approved`). `dueDate` is an optional calendar day.
+
+`actorId` is `string | null` and is stored as `analyses.created_by`. Null is written as NULL. That is the stand-in until a session exists (#13): there is no signed-in user yet, so the caller passes null. A non-null value that is not a UUID throws. A UUID that is not a user fails the foreign key and rolls the insert back. `owner_id` stays a separate assignment.
+
+A successful result is `{ kind: "ok", analysis }`. The analysis record is `id`, `code`, `repairId`, `revisionId`, `revision`, `title`, `method`, `loadCase`, `margin`, `status`, `createdBy`, `dueDate`, `createdAt`, and `updatedAt`. It has no storage key.
+
+Creating an analysis does not change `issues.stage` and does not write `stage_transitions`. The finding stays where it is until something calls `advanceStage`.
+
+`getAnalysis(orgId, id, db?)` returns the record or null. The margin and load case are the lowest `analysis_cases.margin` for that analysis, the same minimum the dashboard uses. An analysis whose repair belongs to another organization is null.
+
+`src/features/analyses/write.integration.test.ts` runs in CI against the loopback `pgvector/pgvector:pg17` service after migrations.
+
+Migration `0004_analysis_codes` adds nullable `analyses.created_by`, the index `analyses_revision_idx` on `repair_revision_id` (analyses reference a repair through that foreign key), and `analysis_code_seq`. It backfills the sequence with `setval` past existing prefix-digit codes, with a floor of `1001`. `analyses.status` and `analyses.code` already existed. The migration does not drop or rename a column.
 
 ## Finding readers
 
