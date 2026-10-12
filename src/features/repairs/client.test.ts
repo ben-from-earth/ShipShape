@@ -28,6 +28,12 @@ const created = {
   createdBy: null,
   createdAt,
   updatedAt: createdAt,
+  finding: { id: findingId, code: "FND-1002" },
+  asset: {
+    id: "550e8400-e29b-41d4-a716-446655440022",
+    identifier: "A-0022",
+    name: "Fitting",
+  },
 };
 
 afterEach(() => {
