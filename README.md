@@ -22,7 +22,9 @@ pnpm install
 cp .env.example .env.local
 ```
 
-Put a Neon connection string in `DATABASE_URL` inside `.env.local`. That is the only environment variable. `pnpm dev`, `pnpm build`, and `GET /api/health` work before it is set. `getDb()` connects on first use. The pooled string works for the app and `pnpm db:seed`. `pnpm db:migrate` needs the direct string. See [docs/database.md](docs/database.md).
+Put a Neon connection string in `DATABASE_URL` inside `.env.local`. `pnpm dev`, `pnpm build`, and `GET /api/health` work before it is set. `getDb()` connects on first use. The pooled string works for the app and `pnpm db:seed`. `pnpm db:migrate` needs the direct string. See [docs/database.md](docs/database.md).
+
+Uploaded files are written under `.data/documents`. Set `DOCUMENT_STORAGE_DIR` to use a different directory. Both variables are listed in `.env.example`.
 
 ```bash
 pnpm dev

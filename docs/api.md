@@ -6,7 +6,7 @@ Upload a reference file and search its chunks. Both routes run on the Node.js ru
 x-org-id: <organization uuid>
 ```
 
-Documents belong to that organization. Search never returns another organization's chunks, including when `documentId` is set.
+`x-org-id` is a temporary stand-in until requests carry a session. It must be a UUID for an organization that already exists. Documents belong to that organization. Search never returns another organization's chunks, including when `documentId` is set.
 
 Allowed types and the size cap live in `src/config/documents.ts` (`DOCUMENT_UPLOAD_TYPES`, `DOCUMENT_UPLOAD_EXTENSIONS`, `DOCUMENT_UPLOAD_MEDIA_TYPES`, `MAX_DOCUMENT_UPLOAD_BYTES`). The server imports those constants. A client can import them too.
 
@@ -61,7 +61,7 @@ Local development writes files under `.data/documents`, or `DOCUMENT_STORAGE_DIR
 
 `query` is required (1–2000 characters). `limit` defaults to 10 and cannot exceed 50. `documentId` is optional.
 
-The handler embeds the query, orders chunks by pgvector cosine distance (`<=>`), and sets `score` to `1 - distance`. `snippet` is `chunk.text` trimmed to about 300 characters on a word boundary. `documentTitle` comes from the parent document.
+The handler embeds the query and ranks chunks by pgvector cosine distance (`<=>`). `score` is `1 - distance`. The organization filter is that organization's document ids, applied on `document_chunks`, so the HNSW scan can see it. In the same transaction the search runs `SET LOCAL hnsw.iterative_scan = relaxed_order` (pgvector 0.8 or newer). The scan keeps going until `limit` rows match, including when closer chunks belong to another organization. Relaxed order is not strict, so the query sorts by distance again and the handler sorts once more before responding. `snippet` is `chunk.text` trimmed to about 300 characters on a word boundary. `documentTitle` comes from the parent document.
 
 `200` body (`documentSearchResultSchema`):
 
@@ -110,15 +110,17 @@ Failures use `apiErrorSchema`:
 
 `details` is optional. It lists field problems for a 400. Other failures omit it.
 
-| HTTP | `error.code`             | When                                                                                                                 |
-| ---- | ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| 400  | `validation_error`       | Bad JSON, missing file, missing or invalid `x-org-id`, empty file, unreadable file, unknown organization or uploader |
-| 413  | `payload_too_large`      | File or `Content-Length` is over 10 MB                                                                               |
-| 415  | `unsupported_media_type` | Extension or media type is not in the upload list, or they disagree                                                  |
-| 500  | `internal_error`         | Anything else. `message` is `Something went wrong.` The response does not include the underlying error               |
+| HTTP | `error.code`             | When                                                                                                   |
+| ---- | ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| 400  | `invalid_org_id`         | `x-org-id` is missing or not a UUID                                                                    |
+| 400  | `unknown_organization`   | `x-org-id` is a UUID and no organization has that id                                                   |
+| 400  | `validation_error`       | Bad JSON, missing file, empty file, unreadable file, or unknown uploader                               |
+| 413  | `payload_too_large`      | File or `Content-Length` is over 10 MB                                                                 |
+| 415  | `unsupported_media_type` | Extension or media type is not in the upload list, or they disagree                                    |
+| 500  | `internal_error`         | Anything else. `message` is `Something went wrong.` The response does not include the underlying error |
 
 ## Tests
 
 `pnpm test` mocks `embed()` and the database. It does not read `DATABASE_URL` and does not connect to Neon.
 
-The pgvector integration test is skipped unless `SHIPSHAPE_INTEGRATION_DATABASE_URL` is set. That URL must be a normal Postgres connection string, not a `neon.tech` host. CI sets it to the `pgvector/pgvector:pg17` service after `0000_initial` is applied, and runs `src/server/documents/search.integration.test.ts` there. The test still mocks the embedding model and checks cosine order, organization scope, and snippets against the real `vector(384)` column.
+The pgvector integration test is skipped unless `SHIPSHAPE_INTEGRATION_DATABASE_URL` is set. That URL must be a normal Postgres connection string, not a `neon.tech` host. CI sets it to the `pgvector/pgvector:pg17` service after `0000_initial` is applied, and runs `src/server/documents/search.integration.test.ts` there. The test still mocks the embedding model and checks cosine order, organization scope, snippets, and a full page for a small organization beside a larger one against the real `vector(384)` column.
