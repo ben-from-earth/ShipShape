@@ -49,13 +49,15 @@ export {
   analysisDbStatusSchema,
   analysisMarginSchema,
   analysisSchema,
-} from "./analysis";
+  createAnalysisResultSchema,
+} from "./analyses";
 export type {
   Analysis,
   AnalysisConclusion,
   AnalysisCreate,
   AnalysisDbStatus,
-} from "./analysis";
+  CreateAnalysisResult,
+} from "./analyses";
 
 export {
   reviewCreateSchema,

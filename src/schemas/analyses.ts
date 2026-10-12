@@ -11,6 +11,11 @@ import {
 
 import { idSchema, timestampSchema } from "./common";
 
+/**
+ * Analyses Zod contract. This file is the only place those schemas are
+ * defined. It imports no database module, so client code can use it.
+ */
+
 /** Engineering judgment of whether the repair holds under load. */
 export const analysisConclusionSchema = z.enum([
   "adequate",
@@ -74,8 +79,9 @@ export const analysisCreateSchema = z.strictObject({
 
 /**
  * One stored analysis plus the load case used for margin classification.
- * `repairId` is the repair the revision belongs to. `createdBy` is null
- * when the row was opened without a session. There is no storage key.
+ * `createAnalysis` returns this record. `repairId` is the repair the
+ * revision belongs to. `createdBy` is null when the row was opened without
+ * a session. There is no storage key.
  */
 export const analysisSchema = z.strictObject({
   id: idSchema,
@@ -94,7 +100,11 @@ export const analysisSchema = z.strictObject({
   updatedAt: timestampSchema,
 });
 
+/** Same record as `analysisSchema`. */
+export const createAnalysisResultSchema = analysisSchema;
+
 export type AnalysisConclusion = z.infer<typeof analysisConclusionSchema>;
 export type AnalysisDbStatus = z.infer<typeof analysisDbStatusSchema>;
 export type AnalysisCreate = z.infer<typeof analysisCreateSchema>;
 export type Analysis = z.infer<typeof analysisSchema>;
+export type CreateAnalysisResult = z.infer<typeof createAnalysisResultSchema>;
