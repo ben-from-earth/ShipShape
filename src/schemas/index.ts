@@ -49,6 +49,12 @@ export {
 export type { Analysis, AnalysisConclusion, AnalysisCreate } from "./analysis";
 
 export {
+  createAnalysisFieldsSchema,
+  createAnalysisResultSchema,
+} from "./analyses";
+export type { CreateAnalysisFields, CreateAnalysisResult } from "./analyses";
+
+export {
   reviewCreateSchema,
   reviewDecisionSchema,
   reviewSchema,
