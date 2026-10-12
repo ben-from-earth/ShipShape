@@ -88,6 +88,14 @@ Each photo on a finding record is `mediaId` (the `issue_media` row `id`), `conte
 
 `updated_at` is `now()` in the database, and Drizzle refreshes it on update. Append-only tables (`stage_transitions`, `activity_log`) and rows that are replaced as a set (`analysis_people`, `document_chunks`) do not have it. A raw SQL update does not touch `updated_at`.
 
+## Stage advances
+
+`advanceStage({ orgId, findingId, toStage, actorId })` lives in `src/features/findings/advance-stage.ts`. It reads `issues.stage` through `assets.org_id`, checks the move, then updates that column and inserts `stage_transitions` in one statement. Neon HTTP has no interactive transaction, so the insert selects from the update's returned rows. When the update matches nothing, no history row is written.
+
+Allowed moves are defined once in `src/config/workflow.ts`, which does not import the database. The default is the next `work_stage` value: `discovered` → `repair_defined` → `analysis` → `review` → `approved` → `closed`. Two rework send-backs are also allowed: `review` → `analysis` (the approve step sends the finding back) and `analysis` → `repair_defined` (analysis sends the repair definition back). `approved` only moves to `closed`. `closed` has nowhere to go. The same stage, an unknown stage, and any other skip are `invalid_transition` and do not write.
+
+A finding in another organization, or a missing id, is `not_found`. If the stage changes between the read and the guarded update, the result is `conflict` and the history table is unchanged. The update sets `updated_at` to `now()` itself, because a raw statement does not run Drizzle's `updated_at` hook. `actorId` is stored as `changed_by` and must be a real user; a foreign-key failure rolls the stage change back with the insert.
+
 ## Migration workflow
 
 Schema lives in `src/db/schema.ts`. SQL lives in `migrations/`. `drizzle.config.ts` reads `DATABASE_URL` from the Next.js env files.
