@@ -122,7 +122,7 @@ Each photo on a finding record is `mediaId` (the `issue_media` row `id`), `conte
 
 Allowed moves are defined once in `src/config/workflow.ts`, which does not import the database. The default is the next `work_stage` value: `discovered` → `repair_defined` → `analysis` → `review` → `approved` → `closed`. Two rework send-backs are also allowed: `review` → `analysis` (the approve step sends the finding back) and `analysis` → `repair_defined` (analysis sends the repair definition back). `approved` only moves to `closed`. `closed` has nowhere to go. The same stage, an unknown stage, and any other skip are `invalid_transition` and do not write.
 
-A finding in another organization, or a missing id, is `not_found`. If the stage changes between the read and the guarded update, the result is `conflict` and the history table is unchanged. The update sets `updated_at` to `now()` itself, because a raw statement does not run Drizzle's `updated_at` hook. `actorId` is stored as `changed_by` and must be a real user; a foreign-key failure rolls the stage change back with the insert.
+A finding in another organization, or a missing id, is `not_found`. If the stage changes between the read and the guarded update, the result is `conflict` and the history table is unchanged. The update sets `updated_at` to `now()` itself, because a raw statement does not run Drizzle's `updated_at` hook. `actorId` may be null until #13 (session auth), matching `uploadedBy`. Null is written to `stage_transitions.changed_by`. A non-null `actorId` must be a real user; a foreign-key failure rolls the stage change back with the insert.
 
 ## Migration workflow
 

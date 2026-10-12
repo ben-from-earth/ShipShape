@@ -37,7 +37,7 @@ export type AdvanceStageInput = {
   orgId: string;
   findingId: string;
   toStage: string;
-  actorId: string;
+  actorId: string | null;
 };
 
 export type StageAdvanceWrite = {
@@ -45,13 +45,15 @@ export type StageAdvanceWrite = {
   findingId: string;
   fromStage: FindingStage;
   toStage: FindingStage;
-  actorId: string;
+  actorId: string | null;
 };
 
 type StageDb = Pick<Database, "select" | "execute">;
 
 /**
  * Move a finding to `toStage` and append `stage_transitions` for `actorId`.
+ * `actorId` may be null until session auth exists (#13); null is stored as
+ * `changed_by`. Any other value must be a UUID.
  *
  * The current stage is read first and checked against `src/config/workflow.ts`.
  * The update and the history insert then run as one statement, guarded on that
@@ -72,7 +74,7 @@ export async function advanceStage(
   ) {
     return { kind: "not_found" };
   }
-  if (!idSchema.safeParse(input.actorId).success) {
+  if (input.actorId !== null && !idSchema.safeParse(input.actorId).success) {
     throw new Error("actorId must be a UUID.");
   }
 
@@ -136,9 +138,12 @@ async function readFindingStage(
 
 /**
  * One statement: update the issue only when its stage and organization still
- * match, then insert the history row from that update. A foreign-key failure
- * on `changed_by` aborts the statement, so the stage change rolls back too.
- * `updated_at` is set here because a raw update does not run Drizzle's hook.
+ * match, then insert the history row from that update. A null `actorId` is
+ * bound as SQL NULL (`changed_by` is nullable). Drizzle drops `undefined` from
+ * a sql template, so the value is `actorId ?? null` before the `::uuid` cast.
+ * A foreign-key failure on a non-null `changed_by` aborts the statement, so
+ * the stage change rolls back too. `updated_at` is set here because a raw
+ * update does not run Drizzle's hook.
  */
 async function writeStageAdvance(
   db: StageDb,
@@ -168,7 +173,7 @@ async function writeStageAdvance(
       upd.id,
       ${input.fromStage}::work_stage,
       ${input.toStage}::work_stage,
-      ${input.actorId}::uuid
+      ${input.actorId ?? null}::uuid
     FROM upd
     RETURNING
       id,
