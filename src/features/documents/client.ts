@@ -1,4 +1,5 @@
 import { isDemoData } from "@/config/demo";
+import { documentOrgId, ORG_ID_HEADER } from "@/config/org";
 import {
   documentSchema,
   documentSearchQuerySchema,
@@ -7,8 +8,10 @@ import {
   type DocumentSearchResult,
 } from "@/schemas";
 
-import { documentFromFile, mediaTypeForFile, rankDemoHits } from "./derive";
+import { apiErrorSchema } from "./api-error";
+import { documentFromFile, rankDemoHits } from "./derive";
 import { DEMO_SEARCH_HITS } from "./fixtures";
+import { uploadIssue } from "./upload-rules";
 
 const SEARCH_PATH = "/api/documents/search";
 const UPLOAD_PATH = "/api/documents";
@@ -23,12 +26,15 @@ export type DocsRequestKind = "network" | "http" | "parse";
 export class DocsRequestError extends Error {
   readonly kind: DocsRequestKind;
   readonly status: number | null;
+  /** `apiErrorSchema` code when the body matched, otherwise null. */
+  readonly code: string | null;
 
   constructor(
     message: string,
     options: {
       kind: DocsRequestKind;
       status?: number | null;
+      code?: string | null;
       cause?: unknown;
     },
   ) {
@@ -39,6 +45,7 @@ export class DocsRequestError extends Error {
     this.name = "DocsRequestError";
     this.kind = options.kind;
     this.status = options.status ?? null;
+    this.code = options.code ?? null;
   }
 }
 
@@ -55,6 +62,30 @@ function httpFailure(action: DocsAction, status: number): DocsRequestError {
   return new DocsRequestError(`${action} failed (${status}).`, {
     kind: "http",
     status,
+  });
+}
+
+async function errorFromResponse(
+  response: Response,
+  action: DocsAction,
+): Promise<DocsRequestError> {
+  let payload: unknown;
+
+  try {
+    payload = await response.json();
+  } catch {
+    return httpFailure(action, response.status);
+  }
+
+  const parsed = apiErrorSchema.safeParse(payload);
+  if (!parsed.success) {
+    return httpFailure(action, response.status);
+  }
+
+  return new DocsRequestError(parsed.data.error.message, {
+    kind: "http",
+    status: response.status,
+    code: parsed.data.error.code,
   });
 }
 
@@ -75,7 +106,7 @@ async function readJson(
   action: DocsAction,
 ): Promise<unknown> {
   if (!response.ok) {
-    throw httpFailure(action, response.status);
+    throw await errorFromResponse(response, action);
   }
 
   try {
@@ -110,7 +141,10 @@ export async function searchDocuments(input: {
   try {
     response = await fetch(SEARCH_PATH, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        [ORG_ID_HEADER]: documentOrgId(),
+      },
       body: JSON.stringify(body),
     });
   } catch (cause) {
@@ -135,8 +169,9 @@ export async function searchDocuments(input: {
 export async function uploadDocument(
   file: Blob & { name: string; type: string },
 ): Promise<Document> {
-  if (!mediaTypeForFile(file.name, file.type)) {
-    throw new Error("Unsupported document type");
+  const issue = uploadIssue(file);
+  if (issue) {
+    throw new Error(issue);
   }
 
   if (isDemoData()) {
@@ -161,6 +196,7 @@ export async function uploadDocument(
   try {
     response = await fetch(UPLOAD_PATH, {
       method: "POST",
+      headers: { [ORG_ID_HEADER]: documentOrgId() },
       body: form,
     });
   } catch (cause) {

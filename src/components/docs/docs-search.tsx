@@ -10,13 +10,9 @@ import {
   searchDocuments,
   uploadDocument,
 } from "@/features/documents/client";
-import {
-  ACCEPTED_DOCUMENT_TYPES,
-  formatPageRange,
-  mediaTypeForFile,
-  scorePercent,
-} from "@/features/documents/derive";
+import { formatPageRange, scorePercent } from "@/features/documents/derive";
 import { SEARCH_EXAMPLES } from "@/features/documents/fixtures";
+import { UPLOAD_ACCEPT, uploadIssue } from "@/features/documents/upload-rules";
 import type { Document, DocumentSearchResult } from "@/schemas";
 import { cn } from "@/lib/utils";
 
@@ -73,12 +69,12 @@ export function DocsSearch({ map }: { map: ReactNode }) {
     const list = Array.from(files);
     setUploadError(null);
     const accepted: Document[] = [];
-    let rejected = 0;
     let requestError: string | null = null;
 
     for (const file of list) {
-      if (!mediaTypeForFile(file.name, file.type)) {
-        rejected += 1;
+      const issue = uploadIssue(file);
+      if (issue) {
+        requestError = issue;
         continue;
       }
 
@@ -95,8 +91,6 @@ export function DocsSearch({ map }: { map: ReactNode }) {
 
     if (requestError) {
       setUploadError(requestError);
-    } else if (rejected > 0) {
-      setUploadError("Use a PDF, Word, plain text, or Markdown file.");
     }
   }
 
@@ -232,13 +226,13 @@ function DropZone({
       >
         <span className="text-ui font-semibold">Drop a publication</span>
         <span className="max-w-measure text-body text-ink-muted">
-          PDF, Word, plain text, or Markdown. The file is kept for this session.
+          PDF, Word, plain text, or Markdown, up to 10 MB.
         </span>
         <input
           type="file"
           className="sr-only"
           multiple
-          accept={ACCEPTED_DOCUMENT_TYPES.join(",")}
+          accept={UPLOAD_ACCEPT}
           onChange={(event) => {
             const selected = event.target.files
               ? Array.from(event.target.files)

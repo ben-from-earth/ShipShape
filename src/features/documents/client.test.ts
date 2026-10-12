@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { DEMO_ORGANIZATION_ID, ORG_ID_HEADER } from "@/config/org";
+
 import { DocsRequestError, searchDocuments, uploadDocument } from "./client";
 import { DEMO_SEARCH_HITS } from "./fixtures";
+import { MAX_DOCUMENT_UPLOAD_BYTES } from "./upload-rules";
 
 const seal = () =>
   new File(["# seal"], "Seal check.md", { type: "text/markdown" });
@@ -42,8 +45,57 @@ describe("searchDocuments", () => {
     expect(result.hits[0]?.documentTitle).toBe("Hull inspection notes");
     expect(fetchMock).toHaveBeenCalledWith("/api/documents/search", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        [ORG_ID_HEADER]: DEMO_ORGANIZATION_ID,
+      },
       body: JSON.stringify({ query: "hatch" }),
+    });
+  });
+
+  it("sends the configured organization and shows the api error message", async () => {
+    vi.stubEnv("NEXT_PUBLIC_ORG_ID", "550e8400-e29b-41d4-a716-446655440000");
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        {
+          error: {
+            code: "validation_error",
+            message: "x-org-id must be the organization UUID.",
+            details: [{ path: "x-org-id", message: "Invalid organization id" }],
+          },
+        },
+        400,
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(searchDocuments({ query: "hatch" })).rejects.toMatchObject({
+      kind: "http",
+      status: 400,
+      code: "validation_error",
+      message: "x-org-id must be the organization UUID.",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/documents/search",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          [ORG_ID_HEADER]: "550e8400-e29b-41d4-a716-446655440000",
+        }),
+      }),
+    );
+  });
+
+  it("keeps a generic message when the error body is not apiErrorSchema", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse({ error: "nope" }, 400)),
+    );
+
+    await expect(searchDocuments({ query: "hatch" })).rejects.toMatchObject({
+      kind: "http",
+      status: 400,
+      code: null,
+      message: "Document search failed (400).",
     });
   });
 
@@ -137,6 +189,7 @@ describe("uploadDocument", () => {
   it("returns the stored document when upload answers", async () => {
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
       expect(init.method).toBe("POST");
+      expect(init.headers).toEqual({ [ORG_ID_HEADER]: DEMO_ORGANIZATION_ID });
       expect(init.body).toBeInstanceOf(FormData);
       expect((init.body as FormData).get("file")).toBeInstanceOf(File);
       return jsonResponse(storedDocument);
@@ -174,6 +227,30 @@ describe("uploadDocument", () => {
       expect(fetchMock).toHaveBeenCalledOnce();
     },
   );
+
+  it("shows the api error message for a 413 body", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            error: {
+              code: "payload_too_large",
+              message: "The file is larger than 10 MB.",
+            },
+          },
+          413,
+        ),
+      ),
+    );
+
+    await expect(uploadDocument(seal())).rejects.toMatchObject({
+      kind: "http",
+      status: 413,
+      code: "payload_too_large",
+      message: "The file is larger than 10 MB.",
+    });
+  });
 
   it("rejects a network failure instead of a demo upload", async () => {
     vi.stubGlobal(
@@ -225,12 +302,31 @@ describe("uploadDocument", () => {
     const photo = new File(["x"], "photo.png", { type: "image/png" });
 
     await expect(uploadDocument(photo)).rejects.toThrow(
-      "Unsupported document type",
+      "Use a PDF, Word, plain text, or Markdown file.",
     );
 
     vi.stubEnv("NEXT_PUBLIC_DOCS_DEMO_MODE", "true");
     await expect(uploadDocument(photo)).rejects.toThrow(
-      "Unsupported document type",
+      "Use a PDF, Word, plain text, or Markdown file.",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a file over 10 MB in both modes without calling fetch", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(storedDocument));
+    vi.stubGlobal("fetch", fetchMock);
+    const notes = new File(["x"], "notes.pdf", { type: "application/pdf" });
+    Object.defineProperty(notes, "size", {
+      value: MAX_DOCUMENT_UPLOAD_BYTES + 1,
+    });
+
+    await expect(uploadDocument(notes)).rejects.toThrow(
+      "The file is larger than 10 MB.",
+    );
+
+    vi.stubEnv("NEXT_PUBLIC_DOCS_DEMO_MODE", "true");
+    await expect(uploadDocument(notes)).rejects.toThrow(
+      "The file is larger than 10 MB.",
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });

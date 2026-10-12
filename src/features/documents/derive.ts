@@ -1,23 +1,8 @@
 import type { Document, DocumentSearchHit } from "@/schemas";
 
-const DOCX =
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+import { mediaTypeForFile } from "./upload-rules";
 
-/** Media types the upload control accepts. Matches extractText. */
-export const ACCEPTED_DOCUMENT_TYPES = [
-  "application/pdf",
-  DOCX,
-  "text/plain",
-  "text/markdown",
-] as const;
-
-const EXTENSION_TYPE: Record<string, string> = {
-  pdf: "application/pdf",
-  docx: DOCX,
-  txt: "text/plain",
-  md: "text/markdown",
-  markdown: "text/markdown",
-};
+export { mediaTypeForFile } from "./upload-rules";
 
 /**
  * Page label for a hit. Omitted when the format has no pages.
@@ -67,28 +52,6 @@ export function rankDemoHits(
     )
     .slice(0, limit)
     .map((row) => row.hit);
-}
-
-export function mediaTypeForFile(name: string, type: string): string | null {
-  const normalized = type.trim().toLowerCase();
-
-  if (
-    normalized === "text/x-markdown" ||
-    normalized === "application/markdown"
-  ) {
-    return "text/markdown";
-  }
-
-  if (
-    ACCEPTED_DOCUMENT_TYPES.includes(
-      normalized as (typeof ACCEPTED_DOCUMENT_TYPES)[number],
-    )
-  ) {
-    return normalized;
-  }
-
-  const extension = name.split(".").pop()?.toLowerCase() ?? "";
-  return EXTENSION_TYPE[extension] ?? null;
 }
 
 export function documentFromFile(
