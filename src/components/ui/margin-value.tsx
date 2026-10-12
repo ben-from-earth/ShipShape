@@ -20,8 +20,8 @@ export function MarginValue({
   className?: string;
 }) {
   return (
-    <span className={cn("font-mono", marginToneClass(margin), className)}>
-      {formatMargin(margin)}
+    <span className={cn("font-mono", className)}>
+      <span className={marginToneClass(margin)}>{formatMargin(margin)}</span>
     </span>
   );
 }
