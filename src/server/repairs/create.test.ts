@@ -132,6 +132,22 @@ describe("createFindingRepair", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it("reports an unknown key at path body", async () => {
+    const error = await createFindingRepair({
+      orgId,
+      findingId,
+      body: { title: "Replace the seal", code: "REP-1002" },
+      actorId,
+    }).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      code: "validation_error",
+      status: 400,
+      details: [{ path: "body" }],
+    });
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("lets a foreign-key failure from createRepair throw", async () => {
     create.mockRejectedValue(new Error("insert violates foreign key"));
 

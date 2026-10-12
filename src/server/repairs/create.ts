@@ -50,7 +50,7 @@ function requireFields(body: unknown): CreateRepairFields {
       "validation_error",
       "Repair fields are invalid.",
       detailsFromZod(parsed.error).map((detail) => ({
-        path: detail.path || "title",
+        path: detail.path || "body",
         message: detail.message,
       })),
     );
