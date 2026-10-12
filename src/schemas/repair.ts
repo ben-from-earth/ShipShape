@@ -1,29 +1,60 @@
 import { z } from "zod";
 
 import {
-  idSchema,
-  longTextSchema,
-  shortTextSchema,
-  timestampSchema,
-} from "./common";
+  MAX_REPAIR_CODE_LENGTH,
+  MAX_REPAIR_TITLE_LENGTH,
+  MAX_REPAIR_TYPE_LENGTH,
+  REPAIR_STATUSES,
+} from "@/config/repairs";
 
-export const repairStatusSchema = z.enum(["open", "in_review", "completed"]);
+import { idSchema, timestampSchema } from "./common";
 
-/** A repair opened from a damage report. */
-export const repairCreateSchema = z.object({
-  damageReportId: idSchema,
-  summary: shortTextSchema,
-  description: longTextSchema,
-  createdBy: shortTextSchema,
-});
+/** Same list as `REPAIR_STATUSES` in src/config/repairs.ts. */
+export const repairStatusSchema = z.enum(REPAIR_STATUSES);
 
-export const repairSchema = repairCreateSchema.extend({
+const repairTitleSchema = z.string().trim().min(1).max(MAX_REPAIR_TITLE_LENGTH);
+const repairTypeSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_REPAIR_TYPE_LENGTH)
+  .nullable();
+
+/**
+ * A repair row. `findingId` is `repairs.issue_id`. `createdBy` is the user
+ * who opened it, or null for rows that existed before that column.
+ * There is no storage key on this record.
+ */
+export const repairSchema = z.strictObject({
   id: idSchema,
+  code: z.string().trim().min(1).max(MAX_REPAIR_CODE_LENGTH),
+  findingId: idSchema,
+  title: repairTitleSchema,
+  type: repairTypeSchema,
   status: repairStatusSchema,
+  createdBy: idSchema.nullable(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
 });
 
+/**
+ * Generic fields for opening a repair. `orgId` and `actorId` are arguments
+ * to `createRepair`, not part of this payload. `status` defaults to `open`.
+ */
+export const repairCreateSchema = z.strictObject({
+  findingId: idSchema,
+  title: repairTitleSchema,
+  type: repairTypeSchema.optional(),
+  status: repairStatusSchema.optional(),
+});
+
+/** Optional filters for `listRepairs`. */
+export const repairListFiltersSchema = z.strictObject({
+  findingId: idSchema.optional(),
+  status: repairStatusSchema.optional(),
+});
+
 export type RepairStatus = z.infer<typeof repairStatusSchema>;
-export type RepairCreate = z.infer<typeof repairCreateSchema>;
 export type Repair = z.infer<typeof repairSchema>;
+export type RepairCreate = z.infer<typeof repairCreateSchema>;
+export type RepairListFilters = z.infer<typeof repairListFiltersSchema>;

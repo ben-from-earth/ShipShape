@@ -17,6 +17,7 @@ import {
   vector,
 } from "drizzle-orm/pg-core";
 
+import { REPAIR_STATUSES } from "../config/repairs";
 import { SEVERITIES } from "../config/severity";
 
 /**
@@ -105,6 +106,9 @@ export const docStatus = pgEnum("doc_status", [
 
 /** Same list as `SEVERITIES` in src/config/severity.ts. */
 export const issueSeverity = pgEnum("issue_severity", SEVERITIES);
+
+/** Same list as `REPAIR_STATUSES` in src/config/repairs.ts. */
+export const repairStatus = pgEnum("repair_status", REPAIR_STATUSES);
 
 // ---------- Organizations and people ----------
 
@@ -247,6 +251,24 @@ export const issueMedia = pgTable("issue_media", {
   ...timestamps(),
 });
 
+/**
+ * Allocates `repairs.code`. The demo seed uses `REP-1001`, so the first
+ * `nextval` is 1002 (`REP-1002`). Migration 0003 `setval`s the sequence to
+ * the highest existing prefixed code so a database that already has rows
+ * cannot collide.
+ */
+export const REPAIR_CODE_SEQUENCE_START = 1002;
+
+export const repairCodeSeq = pgSequence("repair_code_seq", {
+  startWith: REPAIR_CODE_SEQUENCE_START,
+  increment: 1,
+});
+
+/**
+ * Repair opened from an issue. Creating a row does not change `issues.stage`.
+ * `code` is a global human id (`REP-1002`). Allocate new values with
+ * `nextRepairCodeSql` in `src/db/repair-code.ts`.
+ */
 export const repairs = pgTable(
   "repairs",
   {
@@ -257,11 +279,16 @@ export const repairs = pgTable(
       .notNull()
       .references(() => issues.id),
     title: text("title").notNull(),
-    /** Free label, for example "doubler" or "replacement". */
+    /** Free label for the kind of work, for example "patch" or "replacement". */
     type: text("type"),
+    status: repairStatus("status").notNull().default("open"),
+    createdBy: uuid("created_by").references(() => users.id),
     ...timestamps(),
   },
-  (table) => [uniqueIndex("repairs_code_uq").on(table.code)],
+  (table) => [
+    uniqueIndex("repairs_code_uq").on(table.code),
+    index("repairs_issue_idx").on(table.issueId),
+  ],
 );
 
 export const repairRevisions = pgTable(
