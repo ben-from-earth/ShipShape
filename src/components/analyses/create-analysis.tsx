@@ -1,20 +1,23 @@
 "use client";
 
 import { useState, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { MarginValue } from "@/components/ui/margin-value";
 import {
+  AnalysisRequestError,
+  analysisRequestProblems,
+  createAnalysis,
+} from "@/features/analyses/client";
+import {
+  ANALYSIS_STATUS_LABEL,
+  ANALYSIS_STATUS_OPTIONS,
   analysisFormErrors,
   parseAnalysisMargin,
-  toAnalysisFields,
   type AnalysisDraft,
   type AnalysisFormField,
 } from "@/features/analyses/form";
-import {
-  ANALYSIS_PAGE_STATUS_LABEL,
-  ANALYSIS_PAGE_STATUSES,
-} from "@/features/analyses/view";
 
 const inputClass =
   "min-h-11 w-full border border-line-strong bg-surface px-3 py-2 text-base text-ink outline-none placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
@@ -25,12 +28,13 @@ const emptyDraft: AnalysisDraft = {
   loadCase: "",
   margin: "",
   status: "",
+  dueDate: "",
   revision: "",
 };
 
 /**
- * Create analysis on a repair. Submit checks the draft and does not
- * call an endpoint. The POST route lands after #33.
+ * Create analysis on a repair. Posts to `/api/repairs/[id]/analyses`.
+ * The body uses the local stand-in until `analysisCreateBodySchema` is exported from `@/schemas`.
  */
 export function CreateAnalysis({
   repairId,
@@ -40,28 +44,47 @@ export function CreateAnalysis({
   /** Organization cutoff passed in from the server page. */
   marginThreshold: number;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<AnalysisDraft>(emptyDraft);
   const [errors, setErrors] = useState<
     Partial<Record<AnalysisFormField, string>>
   >({});
-  const [notice, setNotice] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
   function update(field: AnalysisFormField, value: string) {
     setDraft((current) => ({ ...current, [field]: value }));
   }
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const problems = analysisFormErrors(draft);
-    setErrors(problems);
-    if (Object.keys(problems).length > 0) {
-      setNotice(null);
+    if (pending) {
       return;
     }
 
-    void toAnalysisFields(draft);
-    setNotice("This analysis is not saved yet.");
+    const problems = analysisFormErrors(draft);
+    setErrors(problems);
+    setFormError(null);
+    if (Object.keys(problems).length > 0) {
+      return;
+    }
+
+    setPending(true);
+    try {
+      const result = await createAnalysis(repairId, draft);
+      router.push(`/analyses/${result.id}`);
+    } catch (caught) {
+      if (caught instanceof AnalysisRequestError) {
+        const failure = analysisRequestProblems(caught);
+        setErrors(failure.fields);
+        setFormError(failure.form);
+      } else {
+        setFormError("Could not create the analysis.");
+      }
+    } finally {
+      setPending(false);
+    }
   }
 
   const preview = parseAnalysisMargin(draft.margin);
@@ -86,9 +109,10 @@ export function CreateAnalysis({
       {open ? (
         <form
           className="flex flex-col gap-4 border border-line bg-surface p-4"
-          onSubmit={onSubmit}
+          onSubmit={(event) => {
+            void onSubmit(event);
+          }}
         >
-          <input type="hidden" name="repairId" value={repairId} />
           <Field label="Title" htmlFor="analysis-title" error={errors.title}>
             <input
               id="analysis-title"
@@ -155,12 +179,28 @@ export function CreateAnalysis({
               }}
             >
               <option value="">Optional</option>
-              {ANALYSIS_PAGE_STATUSES.map((status) => (
+              {ANALYSIS_STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
-                  {ANALYSIS_PAGE_STATUS_LABEL[status]}
+                  {ANALYSIS_STATUS_LABEL[status]}
                 </option>
               ))}
             </select>
+          </Field>
+          <Field
+            label="Due date"
+            htmlFor="analysis-due-date"
+            error={errors.dueDate}
+          >
+            <input
+              id="analysis-due-date"
+              name="dueDate"
+              value={draft.dueDate}
+              placeholder="YYYY-MM-DD"
+              className={inputClass}
+              onChange={(event) => {
+                update("dueDate", event.target.value);
+              }}
+            />
           </Field>
           <Field
             label="Revision"
@@ -178,24 +218,30 @@ export function CreateAnalysis({
               }}
             />
           </Field>
-          {notice ? (
-            <p className="text-body text-ink-muted" role="status">
-              {notice}
+          {formError ? (
+            <p className="text-body text-accent" role="alert">
+              {formError}
             </p>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" variant="dark" className="min-h-11">
-              Create analysis
+            <Button
+              type="submit"
+              variant="dark"
+              className="min-h-11"
+              disabled={pending}
+            >
+              {pending ? "Creating" : "Create analysis"}
             </Button>
             <Button
               type="button"
               variant="subtle"
               className="min-h-11"
+              disabled={pending}
               onClick={() => {
                 setOpen(false);
                 setDraft(emptyDraft);
                 setErrors({});
-                setNotice(null);
+                setFormError(null);
               }}
             >
               Cancel

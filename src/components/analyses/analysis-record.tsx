@@ -5,17 +5,13 @@ import { PageHeading } from "@/components/shell/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
-import {
-  ANALYSIS_PAGE_STATUS_LABEL,
-  type AnalysisPageStatus,
-  type AnalysisView,
-} from "@/features/analyses/view";
-import { idSchema } from "@/schemas";
+import { ANALYSIS_STATUS_LABEL } from "@/features/analyses/form";
+import type { Analysis, AnalysisDbStatus } from "@/schemas";
 
 import { LoadCaseMargins } from "./load-cases";
 
 const STATUS_TONE: Record<
-  AnalysisPageStatus,
+  AnalysisDbStatus,
   "neutral" | "navy" | "warn" | "accent" | "ok"
 > = {
   draft: "neutral",
@@ -29,13 +25,10 @@ export function AnalysisRecordView({
   record,
   marginThreshold,
 }: {
-  record: AnalysisView;
+  record: Analysis;
   /** Organization cutoff passed in from the server page. */
   marginThreshold: number;
 }) {
-  const repairHref = recordHref("/repairs", record.repair.id);
-  const findingHref = recordHref("/findings", record.finding.id);
-
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeading
@@ -54,7 +47,7 @@ export function AnalysisRecordView({
             {record.title}
           </h2>
           <StatusPill
-            label={ANALYSIS_PAGE_STATUS_LABEL[record.status]}
+            label={ANALYSIS_STATUS_LABEL[record.status]}
             tone={STATUS_TONE[record.status]}
           />
         </div>
@@ -64,41 +57,38 @@ export function AnalysisRecordView({
           </Fact>
           <Fact label="Status">
             <span className="text-body">
-              {ANALYSIS_PAGE_STATUS_LABEL[record.status]}
+              {ANALYSIS_STATUS_LABEL[record.status]}
             </span>
           </Fact>
           <Fact label="Repair">
             <span className="flex flex-col gap-1">
-              <RecordLink href={repairHref}>
-                <span className="font-mono">{record.repair.code}</span>
-                <span> · Rev {record.repair.revision}</span>
-              </RecordLink>
+              <Link
+                href={`/repairs/${record.repairId}`}
+                className="text-body text-ink no-underline hover:text-accent"
+              >
+                Repair
+              </Link>
               <span className="text-body text-ink-muted">
-                {record.repair.title}
+                Rev {record.revision}
               </span>
             </span>
           </Fact>
-          <Fact label="Finding">
-            <RecordLink href={findingHref}>
-              <span className="font-mono">{record.finding.code}</span>
-            </RecordLink>
+          <Fact label="Due">
+            <span className="text-body">{record.dueDate ?? "—"}</span>
           </Fact>
         </dl>
       </Card>
 
       <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">
-        <h2 className="text-card-title font-semibold">Load cases</h2>
+        <h2 className="text-card-title font-semibold">Load case</h2>
         <LoadCaseMargins
-          cases={record.loadCases}
+          loadCase={record.loadCase}
+          margin={record.margin}
           marginThreshold={marginThreshold}
         />
       </Card>
     </div>
   );
-}
-
-function recordHref(base: "/repairs" | "/findings", id: string): string | null {
-  return idSchema.safeParse(id).success ? `${base}/${id}` : null;
 }
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
@@ -107,26 +97,5 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
       <dt className="text-ui font-medium text-ink-muted">{label}</dt>
       <dd>{children}</dd>
     </div>
-  );
-}
-
-function RecordLink({
-  href,
-  children,
-}: {
-  href: string | null;
-  children: ReactNode;
-}) {
-  if (!href) {
-    return <span className="text-body text-ink">{children}</span>;
-  }
-
-  return (
-    <Link
-      href={href}
-      className="text-body text-ink no-underline hover:text-accent"
-    >
-      {children}
-    </Link>
   );
 }

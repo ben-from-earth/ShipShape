@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { AnalysisRecordView } from "@/components/analyses/analysis-record";
-import { getAnalysisView } from "@/features/analyses/page";
+import { getAnalysisPage } from "@/features/analyses/page";
 import { getLowMarginThreshold } from "@/features/dashboard/data";
 
 export const metadata: Metadata = {
@@ -27,7 +27,7 @@ export default function AnalysisPage({
 async function AnalysisLoader({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [record, marginThreshold] = await Promise.all([
-    getAnalysisView(id),
+    getAnalysisPage(id),
     getLowMarginThreshold(),
   ]);
 
