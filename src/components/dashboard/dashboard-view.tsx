@@ -102,6 +102,9 @@ export function DashboardView({
         title="Dashboard"
         actions={
           <>
+            <Button href="/findings" variant="outline" size="sm">
+              Findings
+            </Button>
             <Button href="/findings/new" variant="dark" size="sm">
               New finding
             </Button>
