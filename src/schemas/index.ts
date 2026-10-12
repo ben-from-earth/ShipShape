@@ -38,6 +38,9 @@ export type {
   RepairStatus,
 } from "./repair";
 
+export { createRepairFieldsSchema, createRepairResultSchema } from "./repairs";
+export type { CreateRepairFields, CreateRepairResult } from "./repairs";
+
 export {
   analysisConclusionSchema,
   analysisCreateSchema,
