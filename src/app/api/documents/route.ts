@@ -5,6 +5,7 @@ import {
   MULTIPART_OVERHEAD_BYTES,
 } from "@/server/documents/file";
 import { ingestDocument } from "@/server/documents/ingest";
+import { assertOrganizationExists } from "@/server/documents/org";
 import { documentErrorResponse, readOrgId } from "@/server/http/api";
 
 /**
@@ -16,6 +17,7 @@ import { documentErrorResponse, readOrgId } from "@/server/http/api";
 export async function POST(request: Request): Promise<Response> {
   try {
     const orgId = readOrgId(request);
+    await assertOrganizationExists(orgId);
     const upload = await readUpload(request);
     const result = await ingestDocument({ orgId, ...upload });
     return Response.json(documentUploadResultSchema.parse(result), {

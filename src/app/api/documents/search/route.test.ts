@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { apiErrorSchema, documentSearchResultSchema } from "@/schemas";
+import { DocumentRequestError } from "@/server/documents/errors";
+import { assertOrganizationExists } from "@/server/documents/org";
 import { searchDocuments } from "@/server/documents/search";
 
 import { POST } from "./route";
@@ -9,9 +11,14 @@ vi.mock("@/server/documents/search", () => ({
   searchDocuments: vi.fn(),
 }));
 
+vi.mock("@/server/documents/org", () => ({
+  assertOrganizationExists: vi.fn(async () => undefined),
+}));
+
 const orgId = "550e8400-e29b-41d4-a716-446655440000";
 const documentId = "550e8400-e29b-41d4-a716-446655440010";
 const search = vi.mocked(searchDocuments);
+const organizationExists = vi.mocked(assertOrganizationExists);
 
 const result = {
   query: "hatch",
@@ -36,6 +43,8 @@ const result = {
 beforeEach(() => {
   search.mockReset();
   search.mockResolvedValue(result);
+  organizationExists.mockReset();
+  organizationExists.mockResolvedValue(undefined);
 });
 
 function searchRequest(body: unknown, org: string | null = orgId) {
@@ -59,6 +68,7 @@ describe("POST /api/documents/search", () => {
 
     expect(response.status).toBe(200);
     expect(body).toEqual(result);
+    expect(organizationExists).toHaveBeenCalledWith(orgId);
     expect(search).toHaveBeenCalledWith({
       orgId,
       query: "hatch",
@@ -77,13 +87,37 @@ describe("POST /api/documents/search", () => {
     expect(search).not.toHaveBeenCalled();
   });
 
-  it("returns 400 when the organization header is missing", async () => {
-    const response = await POST(searchRequest({ query: "hatch" }, null));
+  it("returns invalid_org_id when the header is missing or not a UUID", async () => {
+    const missing = await POST(searchRequest({ query: "hatch" }, null));
+    const malformed = await POST(
+      searchRequest({ query: "hatch" }, "not-a-uuid"),
+    );
+
+    expect(missing.status).toBe(400);
+    expect(apiErrorSchema.parse(await missing.json()).error.code).toBe(
+      "invalid_org_id",
+    );
+    expect(malformed.status).toBe(400);
+    expect(apiErrorSchema.parse(await malformed.json()).error.code).toBe(
+      "invalid_org_id",
+    );
+    expect(organizationExists).not.toHaveBeenCalled();
+    expect(search).not.toHaveBeenCalled();
+  });
+
+  it("returns unknown_organization when the UUID is not stored", async () => {
+    organizationExists.mockRejectedValueOnce(
+      new DocumentRequestError(
+        "unknown_organization",
+        "No organization exists with that id.",
+      ),
+    );
+
+    const response = await POST(searchRequest({ query: "hatch" }));
+    const body = apiErrorSchema.parse(await response.json());
 
     expect(response.status).toBe(400);
-    expect(apiErrorSchema.parse(await response.json()).error.code).toBe(
-      "validation_error",
-    );
+    expect(body.error.code).toBe("unknown_organization");
     expect(search).not.toHaveBeenCalled();
   });
 });

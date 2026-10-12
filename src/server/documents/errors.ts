@@ -2,6 +2,8 @@ import "server-only";
 
 const STATUS_BY_CODE = {
   validation_error: 400,
+  invalid_org_id: 400,
+  unknown_organization: 400,
   payload_too_large: 413,
   unsupported_media_type: 415,
 } as const;

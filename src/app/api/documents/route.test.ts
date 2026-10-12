@@ -7,6 +7,7 @@ import {
   MULTIPART_OVERHEAD_BYTES,
 } from "@/server/documents/file";
 import { ingestDocument } from "@/server/documents/ingest";
+import { assertOrganizationExists } from "@/server/documents/org";
 import { INTERNAL_ERROR_MESSAGE } from "@/server/http/api";
 
 import { POST } from "./route";
@@ -15,8 +16,13 @@ vi.mock("@/server/documents/ingest", () => ({
   ingestDocument: vi.fn(),
 }));
 
+vi.mock("@/server/documents/org", () => ({
+  assertOrganizationExists: vi.fn(async () => undefined),
+}));
+
 const orgId = "550e8400-e29b-41d4-a716-446655440000";
 const ingest = vi.mocked(ingestDocument);
+const organizationExists = vi.mocked(assertOrganizationExists);
 
 const uploaded = {
   id: "550e8400-e29b-41d4-a716-446655440010",
@@ -31,6 +37,8 @@ const uploaded = {
 beforeEach(() => {
   ingest.mockReset();
   ingest.mockResolvedValue(uploaded);
+  organizationExists.mockReset();
+  organizationExists.mockResolvedValue(undefined);
 });
 
 function uploadRequest(init?: {
@@ -78,6 +86,7 @@ describe("POST /api/documents", () => {
 
     expect(response.status).toBe(201);
     expect(body).toEqual(uploaded);
+    expect(organizationExists).toHaveBeenCalledWith(orgId);
     expect(ingest).toHaveBeenCalledWith(
       expect.objectContaining({
         orgId,
@@ -88,12 +97,18 @@ describe("POST /api/documents", () => {
     );
   });
 
-  it("returns 400 when the file or organization is missing", async () => {
+  it("returns 400 when the file is missing or the organization id is invalid", async () => {
     const missingFile = await POST(uploadRequest());
     const missingOrg = await POST(
       uploadRequest({
         file: new File(["x"], "notes.txt", { type: "text/plain" }),
         orgId: null,
+      }),
+    );
+    const malformedOrg = await POST(
+      uploadRequest({
+        file: new File(["x"], "notes.txt", { type: "text/plain" }),
+        orgId: "not-a-uuid",
       }),
     );
 
@@ -102,6 +117,42 @@ describe("POST /api/documents", () => {
       "validation_error",
     );
     expect(missingOrg.status).toBe(400);
+    expect(apiErrorSchema.parse(await missingOrg.json()).error.code).toBe(
+      "invalid_org_id",
+    );
+    expect(malformedOrg.status).toBe(400);
+    expect(apiErrorSchema.parse(await malformedOrg.json()).error.code).toBe(
+      "invalid_org_id",
+    );
+    expect(ingest).not.toHaveBeenCalled();
+    expect(organizationExists).toHaveBeenCalledTimes(1);
+    expect(organizationExists).toHaveBeenCalledWith(orgId);
+  });
+
+  it("returns 400 when the organization UUID is not stored", async () => {
+    organizationExists.mockRejectedValueOnce(
+      new DocumentRequestError(
+        "unknown_organization",
+        "No organization exists with that id.",
+        [
+          {
+            path: "x-org-id",
+            message: "No organization exists with that id.",
+          },
+        ],
+      ),
+    );
+
+    const response = await POST(
+      uploadRequest({
+        file: new File(["x"], "notes.txt", { type: "text/plain" }),
+      }),
+    );
+    const body = apiErrorSchema.parse(await response.json());
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe("unknown_organization");
+    expect(body.error.details?.[0]?.path).toBe("x-org-id");
     expect(ingest).not.toHaveBeenCalled();
   });
 

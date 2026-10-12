@@ -13,7 +13,7 @@ export function readOrgId(request: Request): string {
   const parsed = idSchema.safeParse(header ?? "");
   if (!parsed.success) {
     throw new DocumentRequestError(
-      "validation_error",
+      "invalid_org_id",
       "x-org-id must be the organization UUID.",
       [
         {

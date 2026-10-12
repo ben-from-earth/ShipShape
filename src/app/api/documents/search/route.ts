@@ -6,6 +6,7 @@ import {
   DocumentRequestError,
   detailsFromZod,
 } from "@/server/documents/errors";
+import { assertOrganizationExists } from "@/server/documents/org";
 import { searchDocuments } from "@/server/documents/search";
 import {
   documentErrorResponse,
@@ -23,6 +24,7 @@ import {
 export async function POST(request: Request): Promise<Response> {
   try {
     const orgId = readOrgId(request);
+    await assertOrganizationExists(orgId);
     const body = await readJsonBody(request);
     const parsed = documentSearchQuerySchema.safeParse(body);
     if (!parsed.success) {

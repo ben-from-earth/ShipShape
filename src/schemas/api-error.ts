@@ -3,6 +3,8 @@ import { z } from "zod";
 /** Stable codes for document API failures. The route picks HTTP status from the code. */
 export const apiErrorCodeSchema = z.enum([
   "validation_error",
+  "invalid_org_id",
+  "unknown_organization",
   "payload_too_large",
   "unsupported_media_type",
   "internal_error",
