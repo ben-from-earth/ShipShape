@@ -84,6 +84,12 @@ describe.skipIf(!enabled)("repairs data", () => {
       type: "patch",
       status: "open",
       createdBy: actor,
+      finding: { id: finding, code: `FND-${finding.slice(-4)}` },
+      asset: {
+        id: uid(4),
+        identifier: `A-${uid(4).slice(-4)}`,
+        name: "Fitting",
+      },
     });
     expect(result.repair.code).toMatch(/^REP-\d{4,}$/);
     const number = BigInt(result.repair.code.slice("REP-".length));
@@ -247,6 +253,25 @@ describe.skipIf(!enabled)("repairs data", () => {
       openRepair.repair.id,
     ]);
     expect(listed.some((repair) => repair.id === hidden.repair.id)).toBe(false);
+    expect(listed.map((repair) => repair.finding.id)).toEqual([
+      secondFinding,
+      firstFinding,
+    ]);
+    expect(listed.map((repair) => repair.asset.id)).toEqual([uid(7), uid(6)]);
+    expect(doneRepair.repair.finding).toEqual({
+      id: secondFinding,
+      code: "FND-SECOND",
+    });
+    expect(doneRepair.repair.asset).toEqual({
+      id: uid(7),
+      identifier: `A-${uid(7).slice(-4)}`,
+      name: "Fitting",
+    });
+    expect(hidden.repair.finding).toEqual({
+      id: otherFinding,
+      code: "FND-OTHER",
+    });
+    expect(hidden.repair.asset.id).toBe(uid(9));
 
     const byFinding = await listRepairs(org, { findingId: firstFinding }, db);
     expect(byFinding.map((repair) => repair.id)).toEqual([

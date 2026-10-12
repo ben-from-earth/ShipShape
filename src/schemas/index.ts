@@ -26,7 +26,9 @@ export type {
 } from "./damage-report";
 
 export {
+  repairAssetSchema,
   repairCreateSchema,
+  repairFindingSchema,
   repairListFiltersSchema,
   repairSchema,
   repairStatusSchema,

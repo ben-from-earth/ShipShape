@@ -18,7 +18,8 @@ export const createRepairFieldsSchema = z.strictObject({
 
 /**
  * 201 body from POST /api/findings/{id}/repairs.
- * Same fields as a repair row. `findingId` is `repairs.issue_id`.
+ * Same record as `getRepair`: the repair row plus `finding` and `asset`
+ * from the insert's join. `findingId` is `repairs.issue_id`.
  * `createdBy` is `repairs.created_by` and is null until sessions exist.
  */
 export const createRepairResultSchema = repairSchema;

@@ -5,7 +5,6 @@ import { io } from "next/cache";
 import { isDemoData } from "@/config/demo";
 import { getDb, type Database } from "@/db";
 import { organizations } from "@/db/schema";
-import { getFinding } from "@/features/findings/data";
 import { oldestOrganizationOrder } from "@/lib/org-threshold";
 import { idSchema, type Repair, type RepairListFilters } from "@/schemas";
 
@@ -64,7 +63,7 @@ export async function getRepairView(id: string): Promise<RepairView | null> {
     return null;
   }
 
-  const [view] = await attachFindings([repair]);
+  const [view] = attachFindings([repair]);
   return view ?? null;
 }
 
@@ -79,36 +78,11 @@ async function tenantOrgId(
   return rows[0]?.id ?? null;
 }
 
-async function attachFindings(
-  repairs: readonly Repair[],
-): Promise<RepairView[]> {
-  const findings = new Map<
-    string,
-    { code: string; identifier: string; name: string | null } | null
-  >();
-  await Promise.all(
-    [...new Set(repairs.map((repair) => repair.findingId))].map(async (id) => {
-      const finding = await getFinding(id);
-      findings.set(
-        id,
-        finding
-          ? {
-              code: finding.code,
-              identifier: finding.asset.identifier,
-              name: finding.asset.name,
-            }
-          : null,
-      );
-    }),
-  );
-
-  return repairs.map((repair) => {
-    const finding = findings.get(repair.findingId) ?? null;
-    return {
-      ...repair,
-      findingCode: finding?.code ?? null,
-      assetIdentifier: finding?.identifier ?? null,
-      assetName: finding?.name ?? null,
-    };
-  });
+function attachFindings(repairs: readonly Repair[]): RepairView[] {
+  return repairs.map((repair) => ({
+    ...repair,
+    findingCode: repair.finding.code,
+    assetIdentifier: repair.asset.identifier,
+    assetName: repair.asset.name,
+  }));
 }

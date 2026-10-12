@@ -68,37 +68,56 @@ export async function createRepair(
     input.actorId === null ? sql`null` : sql`${input.actorId}::uuid`;
 
   const result = await db.execute<Record<string, unknown>>(sql`
-    INSERT INTO repairs (
-      id,
-      code,
-      issue_id,
-      title,
-      type,
-      status,
-      created_by
+    WITH inserted AS (
+      INSERT INTO repairs (
+        id,
+        code,
+        issue_id,
+        title,
+        type,
+        status,
+        created_by
+      )
+      SELECT
+        gen_random_uuid(),
+        ${nextRepairCodeSql()},
+        i.id,
+        ${fields.title},
+        ${type},
+        ${status}::repair_status,
+        ${createdBy}
+      FROM issues AS i
+      INNER JOIN assets AS a ON a.id = i.asset_id
+      WHERE i.id = ${input.findingId}::uuid
+        AND a.org_id = ${input.orgId}::uuid
+      RETURNING
+        id,
+        code,
+        issue_id,
+        title,
+        type,
+        status,
+        created_by,
+        created_at,
+        updated_at
     )
     SELECT
-      gen_random_uuid(),
-      ${nextRepairCodeSql()},
-      i.id,
-      ${fields.title},
-      ${type},
-      ${status}::repair_status,
-      ${createdBy}
-    FROM issues AS i
+      inserted.id,
+      inserted.code,
+      inserted.issue_id AS "findingId",
+      inserted.title,
+      inserted.type,
+      inserted.status,
+      inserted.created_by AS "createdBy",
+      inserted.created_at AS "createdAt",
+      inserted.updated_at AS "updatedAt",
+      i.code AS "findingCode",
+      a.id AS "assetId",
+      a.identifier AS "assetIdentifier",
+      a.name AS "assetName"
+    FROM inserted
+    INNER JOIN issues AS i ON i.id = inserted.issue_id
     INNER JOIN assets AS a ON a.id = i.asset_id
-    WHERE i.id = ${input.findingId}::uuid
-      AND a.org_id = ${input.orgId}::uuid
-    RETURNING
-      id,
-      code,
-      issue_id AS "findingId",
-      title,
-      type,
-      status,
-      created_by AS "createdBy",
-      created_at AS "createdAt",
-      updated_at AS "updatedAt"
   `);
 
   const row = rowsFrom(result)[0];
@@ -178,6 +197,10 @@ function repairColumns() {
     createdBy: repairs.createdBy,
     createdAt: repairs.createdAt,
     updatedAt: repairs.updatedAt,
+    findingCode: issues.code,
+    assetId: assets.id,
+    assetIdentifier: assets.identifier,
+    assetName: assets.name,
   };
 }
 
@@ -191,11 +214,27 @@ function toRepair(row: {
   createdBy: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
+  findingCode: string;
+  assetId: string;
+  assetIdentifier: string;
+  assetName: string | null;
 }): Repair {
   return repairSchema.parse({
-    ...row,
+    id: row.id,
+    code: row.code,
+    findingId: row.findingId,
+    title: row.title,
+    type: row.type,
+    status: row.status,
+    createdBy: row.createdBy,
     createdAt: asTimestamp(row.createdAt),
     updatedAt: asTimestamp(row.updatedAt),
+    finding: { id: row.findingId, code: row.findingCode },
+    asset: {
+      id: row.assetId,
+      identifier: row.assetIdentifier,
+      name: row.assetName,
+    },
   });
 }
 
@@ -205,16 +244,27 @@ function repairFromRow(row: unknown): Repair {
   }
   const createdBy = readNullableString(row, "createdBy", "created_by");
   const type = readNullableString(row, "type");
+  const assetName = readNullableString(row, "assetName", "asset_name");
+  const findingId = readString(row, "findingId", "issue_id");
   return repairSchema.parse({
     id: readString(row, "id"),
     code: readString(row, "code"),
-    findingId: readString(row, "findingId", "issue_id"),
+    findingId,
     title: readString(row, "title"),
     type: type === undefined ? null : type,
     status: readString(row, "status"),
     createdBy: createdBy === undefined ? null : createdBy,
     createdAt: readTimestamp(row, "createdAt", "created_at"),
     updatedAt: readTimestamp(row, "updatedAt", "updated_at"),
+    finding: {
+      id: findingId,
+      code: readString(row, "findingCode", "finding_code"),
+    },
+    asset: {
+      id: readString(row, "assetId", "asset_id"),
+      identifier: readString(row, "assetIdentifier", "asset_identifier"),
+      name: assetName === undefined ? null : assetName,
+    },
   });
 }
 
