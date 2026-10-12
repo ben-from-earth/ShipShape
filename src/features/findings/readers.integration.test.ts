@@ -1,4 +1,13 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { sql } from "drizzle-orm";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import type { Database } from "@/db";
 import {
@@ -500,6 +509,114 @@ describe.skipIf(!enabled)("finding readers", () => {
     });
     expect(await readFindingMedia(db, findingId, otherPhotoId)).toBeNull();
     expect(await readFindingMedia(db, otherFindingId, otherPhotoId)).toBeNull();
+  });
+
+  it("keeps issues.stage when a later stage transition disagrees", async () => {
+    const org = uid(1);
+    const asset = uid(2);
+    const finding = uid(3);
+
+    await db.insert(organizations).values({ id: org, name: "North Yard" });
+    await db.insert(assets).values({
+      id: asset,
+      orgId: org,
+      identifier: "CR-1",
+    });
+    await db.insert(issues).values({
+      id: finding,
+      code: "FND-STAGE",
+      assetId: asset,
+      description: "Column wins",
+      severity: "low",
+      stage: "analysis",
+    });
+    await db.insert(stageTransitions).values({
+      id: uid(4),
+      issueId: finding,
+      fromStage: "analysis",
+      toStage: "closed",
+      changedAt: at("2026-10-06"),
+    });
+
+    expect((await readFinding(db, finding))?.stage).toBe("analysis");
+  });
+
+  it("returns null for a bad location and skips a photo with an unknown mime type", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const org = uid(1);
+    const asset = uid(2);
+    const finding = uid(3);
+    const goodPhoto = uid(4);
+    const badPhoto = uid(5);
+
+    try {
+      await db.insert(organizations).values({ id: org, name: "North Yard" });
+      await db.insert(assets).values({
+        id: asset,
+        orgId: org,
+        identifier: "CR-1",
+        name: "North crane",
+      });
+      await db.insert(issues).values({
+        id: finding,
+        code: "FND-BAD",
+        assetId: asset,
+        description: "Bad location and a gif",
+        severity: "high",
+        stage: "discovered",
+        location: {},
+      });
+      await db.execute(
+        sql`update issues set location = '["not-an-object"]'::jsonb where id = ${finding}::uuid`,
+      );
+      await db.insert(issueMedia).values([
+        {
+          id: goodPhoto,
+          issueId: finding,
+          storageKey: `${org}/issues/${finding}/${goodPhoto}`,
+          mimeType: "image/jpeg",
+          createdAt: at("2026-10-05", "10:00:00"),
+        },
+        {
+          id: badPhoto,
+          issueId: finding,
+          storageKey: `${org}/issues/${finding}/${badPhoto}`,
+          mimeType: "image/gif",
+          createdAt: at("2026-10-05", "11:00:00"),
+        },
+      ]);
+
+      const listed = await readFindings(db);
+      expect(listed).toHaveLength(1);
+      expect(listed[0]).toMatchObject({
+        id: finding,
+        location: null,
+        stage: "discovered",
+      });
+      expect(listed[0]?.photos).toEqual([
+        {
+          mediaId: goodPhoto,
+          contentType: "image/jpeg",
+          size: null,
+          createdAt: "2026-10-05T10:00:00.000Z",
+        },
+      ]);
+      expect(await readFinding(db, finding)).toEqual(listed[0]);
+      expect(await readFindingMedia(db, finding, badPhoto)).toBeNull();
+      expect(await readFindingMedia(db, finding, goodPhoto)).toEqual({
+        storageKey: `${org}/issues/${finding}/${goodPhoto}`,
+        contentType: "image/jpeg",
+        size: null,
+      });
+      expect(warn).toHaveBeenCalledWith(
+        `Finding ${finding} location is not a JSON object; returning null.`,
+      );
+      expect(warn).toHaveBeenCalledWith(
+        `Skipping issue_media ${badPhoto} on finding ${finding}: mime type image/gif is not a stored photo type.`,
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 

@@ -455,7 +455,12 @@ describe("findingRecordSchema", () => {
   it("reuses the stage and severity schemas and rejects a title", () => {
     expect(findingRecordSchema.shape.stage).toBe(findingStageSchema);
     expect(findingRecordSchema.shape.severity).toBe(findingSeveritySchema);
-    expect(findingRecordSchema.shape.location).toBe(findingLocationSchema);
+    expect(findingRecordSchema.shape.location.unwrap()).toBe(
+      findingLocationSchema,
+    );
+    expect(
+      findingRecordSchema.parse({ ...record, location: null }).location,
+    ).toBeNull();
     expect([...findingRecordSchema.shape.severity.options]).toEqual([
       ...SEVERITIES,
     ]);

@@ -14,18 +14,19 @@ import {
 import { oldestOrganizationOrder } from "@/lib/org-threshold";
 import {
   findingListFiltersSchema,
-  findingLocationSchema,
-  findingMediaContentSchema,
-  findingPhotoMetaSchema,
   findingRecordSchema,
   idSchema,
   type FindingListFilters,
-  type FindingLocation,
   type FindingMediaContent,
   type FindingPhotoMeta,
   type FindingRecord,
 } from "@/schemas";
 
+import {
+  readStoredLocation,
+  readStoredMediaContent,
+  readStoredPhoto,
+} from "./coerce";
 import {
   getFinding as getDemoFinding,
   getFindingMedia as getDemoFindingMedia,
@@ -59,27 +60,12 @@ type MediaRow = {
   createdAt: Date | string;
 };
 
-/**
- * Current stage is `issues.stage`. The dashboard pipeline counts that
- * column. `stage_transitions` is the history those counts do not
- * recompute from (age and throughput read it). A later transition that
- * was not written back onto the column does not change this value.
- */
-function currentStage(columnStage: FindingRow["stage"]): FindingRow["stage"] {
-  return columnStage;
-}
-
 function asTimestamp(value: Date | string): string {
   const instant = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(instant.getTime())) {
     throw new Error("Finding timestamp is invalid.");
   }
   return instant.toISOString();
-}
-
-function asLocation(value: unknown): FindingLocation {
-  const parsed = findingLocationSchema.safeParse(value);
-  return parsed.success ? parsed.data : {};
 }
 
 function orgFilter(conditions: SQL[]): SQL {
@@ -157,12 +143,15 @@ async function loadPhotoMeta(
     .orderBy(asc(issueMedia.createdAt), asc(issueMedia.id));
 
   for (const row of rows) {
-    const photo = findingPhotoMetaSchema.parse({
-      mediaId: row.id,
-      contentType: row.mimeType,
-      size: null,
+    const photo = readStoredPhoto({
+      id: row.id,
+      issueId: row.issueId,
+      mimeType: row.mimeType,
       createdAt: asTimestamp(row.createdAt),
     });
+    if (!photo) {
+      continue;
+    }
     const list = grouped.get(row.issueId) ?? [];
     list.push(photo);
     grouped.set(row.issueId, list);
@@ -178,10 +167,16 @@ function toRecord(row: FindingRow, photos: FindingPhotoMeta[]): FindingRecord {
     assetId: row.assetId,
     description: row.description,
     severity: row.severity,
-    stage: currentStage(row.stage),
+    /**
+     * `issues.stage`. The dashboard pipeline counts that column.
+     * `stage_transitions` is the history those counts do not recompute
+     * from. A later transition that was not written back onto the
+     * column does not change this value.
+     */
+    stage: row.stage,
     zone: row.zone,
     locationLabel: row.locationLabel,
-    location: asLocation(row.location),
+    location: readStoredLocation(row.id, row.location),
     createdAt: asTimestamp(row.createdAt),
     asset: {
       id: row.assetId,
@@ -316,10 +311,11 @@ export async function readFindingMedia(
     return null;
   }
 
-  return findingMediaContentSchema.parse({
+  return readStoredMediaContent({
+    findingId,
+    mediaId,
     storageKey: row.storageKey,
-    contentType: row.mimeType,
-    size: null,
+    mimeType: row.mimeType,
   });
 }
 

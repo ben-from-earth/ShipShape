@@ -23,7 +23,7 @@ export type FindingInsert = {
   severity: FindingSeverity;
   zone: string | null;
   locationLabel: string | null;
-  location: FindingLocation;
+  location: NonNullable<FindingLocation>;
   reportedBy: string | null;
   discoveredAt: Date | null;
   photos: FindingPhotoInsert[];
