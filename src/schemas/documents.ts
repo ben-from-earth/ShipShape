@@ -68,10 +68,17 @@ export const documentSearchQuerySchema = z.object({
 /**
  * One ranked chunk. `score` is cosine similarity of normalized embeddings,
  * so it falls between -1 and 1.
+ *
+ * `documentTitle` names the source document. `snippet` is a short,
+ * human-readable excerpt of the matched chunk, suitable for displaying
+ * in search results. The server derives it from `chunk.text`, trimmed to
+ * roughly 300 characters on word boundaries.
  */
 export const documentSearchHitSchema = z.object({
   documentId: idSchema,
+  documentTitle: z.string().min(1),
   chunk: documentChunkSchema,
+  snippet: z.string().min(1),
   score: z.number().min(-1).max(1),
 });
 
