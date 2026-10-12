@@ -1,10 +1,14 @@
 import type { ReactNode } from "react";
 
+import Link from "next/link";
+
+import { RepairStatusPill } from "@/components/repairs/status-pill";
 import { PageHeading } from "@/components/shell/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { STAGE_LABEL, formatFindingDate } from "@/features/findings/display";
+import type { RepairView } from "@/features/repairs/view";
 import {
   findingLocationLine,
   findingZoneLine,
@@ -14,7 +18,13 @@ import type { FindingRecord } from "@/schemas";
 import { FindingPhoto } from "./finding-photo";
 import { SeverityPill } from "./severity-pill";
 
-export function FindingDetail({ record }: { record: FindingRecord }) {
+export function FindingDetail({
+  record,
+  repairs,
+}: {
+  record: FindingRecord;
+  repairs: readonly RepairView[];
+}) {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeading
@@ -59,6 +69,41 @@ export function FindingDetail({ record }: { record: FindingRecord }) {
             </span>
           </Fact>
         </dl>
+      </Card>
+
+      <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">
+        <h2 className="text-card-title font-semibold">Repairs</h2>
+        {repairs.length === 0 ? (
+          <p className="text-body text-ink-muted">No repairs yet.</p>
+        ) : (
+          <ul className="flex flex-col border border-line bg-surface">
+            {repairs.map((repair) => (
+              <li
+                key={repair.id}
+                className="border-b border-line-faint last:border-b-0"
+              >
+                <Link
+                  href={`/repairs/${repair.id}`}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-ink no-underline hover:bg-sunken"
+                >
+                  <span className="font-mono text-ui font-medium">
+                    {repair.code}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-body">
+                    {repair.title}
+                  </span>
+                  <RepairStatusPill status={repair.status} />
+                  <time
+                    dateTime={repair.createdAt}
+                    className="text-body text-ink-muted"
+                  >
+                    {formatFindingDate(repair.createdAt)}
+                  </time>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
 
       <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">

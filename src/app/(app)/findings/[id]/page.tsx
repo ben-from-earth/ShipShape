@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { FindingDetail } from "@/components/findings/finding-detail";
 import { getFinding } from "@/features/findings/data";
+import { listRepairViews } from "@/features/repairs/read";
 import { idSchema } from "@/schemas";
 
 export const metadata: Metadata = {
@@ -35,5 +36,6 @@ async function FindingLoader({ params }: { params: Promise<{ id: string }> }) {
     notFound();
   }
 
-  return <FindingDetail record={record} />;
+  const repairs = await listRepairViews({ findingId: record.id });
+  return <FindingDetail record={record} repairs={repairs} />;
 }
