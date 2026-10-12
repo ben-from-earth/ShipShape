@@ -96,6 +96,8 @@ Allowed moves are defined once in `src/config/workflow.ts`, which does not impor
 
 A finding in another organization, or a missing id, is `not_found`. If the stage changes between the read and the guarded update, the result is `conflict` and the history table is unchanged. The update sets `updated_at` to `now()` itself, because a raw statement does not run Drizzle's `updated_at` hook. `actorId` is stored as `changed_by` and must be a real user; a foreign-key failure rolls the stage change back with the insert.
 
+A successful result is `{ id, stage, transitionedAt }`. `id` is the finding. `stage` is the stage just written. `transitionedAt` is `stage_transitions.changed_at`, the time that history row was inserted. The table has no `created_at`. A route can return those three fields as the response body. The other results are `not_found`, `invalid_transition`, and `conflict`.
+
 ## Migration workflow
 
 Schema lives in `src/db/schema.ts`. SQL lives in `migrations/`. `drizzle.config.ts` reads `DATABASE_URL` from the Next.js env files.

@@ -16,22 +16,20 @@ import { findingStageSchema, idSchema, type FindingStage } from "@/schemas";
  */
 export type AdvanceStageError = "not_found" | "invalid_transition" | "conflict";
 
-export type StageTransitionRecord = {
+/**
+ * Success body a stage route can return as JSON.
+ * `id` is the finding. `stage` is the stage just written.
+ * `transitionedAt` is `stage_transitions.changed_at`. That table has no
+ * `created_at`; `changed_at` is when the history row was inserted.
+ */
+export type AdvanceStageOk = {
   id: string;
-  issueId: string;
-  fromStage: FindingStage;
-  toStage: FindingStage;
-  changedBy: string | null;
-  changedAt: string;
+  stage: FindingStage;
+  transitionedAt: string;
 };
 
 export type AdvanceStageResult =
-  | {
-      kind: "ok";
-      stage: FindingStage;
-      transition: StageTransitionRecord;
-    }
-  | { kind: AdvanceStageError };
+  ({ kind: "ok" } & AdvanceStageOk) | { kind: AdvanceStageError };
 
 export type AdvanceStageInput = {
   orgId: string;
@@ -110,7 +108,7 @@ export async function applyStageAdvance(
 
   const written = await writeStageAdvance(db, input);
   if (written) {
-    return { kind: "ok", stage: written.toStage, transition: written };
+    return { kind: "ok", ...written };
   }
 
   const current = await readFindingStage(db, input.orgId, input.findingId);
@@ -143,7 +141,7 @@ async function readFindingStage(
 async function writeStageAdvance(
   db: StageDb,
   input: StageAdvanceWrite,
-): Promise<StageTransitionRecord | null> {
+): Promise<AdvanceStageOk | null> {
   const result = await db.execute<Record<string, unknown>>(sql`
     WITH upd AS (
       UPDATE issues AS i
@@ -171,12 +169,9 @@ async function writeStageAdvance(
       ${input.actorId}::uuid
     FROM upd
     RETURNING
-      id,
-      issue_id AS "issueId",
-      from_stage AS "fromStage",
-      to_stage AS "toStage",
-      changed_by AS "changedBy",
-      changed_at AS "changedAt"
+      issue_id AS "id",
+      to_stage AS "stage",
+      changed_at AS "transitionedAt"
   `);
 
   const rows = rowsFrom(result);
@@ -184,7 +179,7 @@ async function writeStageAdvance(
   if (!row) {
     return null;
   }
-  return transitionFromRow(row);
+  return okFromRow(row);
 }
 
 function rowsFrom(result: unknown): unknown[] {
@@ -197,46 +192,29 @@ function rowsFrom(result: unknown): unknown[] {
   throw new Error("Stage advance query did not return rows.");
 }
 
-function transitionFromRow(row: unknown): StageTransitionRecord {
+function okFromRow(row: unknown): AdvanceStageOk {
   if (!isRecord(row)) {
     throw new Error("Stage advance returned an unreadable transition row.");
   }
 
-  const id = readString(row, "id");
-  const issueId = readString(row, "issueId", "issue_id");
-  const fromStage = findingStageSchema.safeParse(
-    readString(row, "fromStage", "from_stage"),
+  const id = readString(row, "id", "issue_id");
+  const stage = findingStageSchema.safeParse(
+    readString(row, "stage", "to_stage"),
   );
-  const toStage = findingStageSchema.safeParse(
-    readString(row, "toStage", "to_stage"),
-  );
-  const changedBy = readNullableString(row, "changedBy", "changed_by");
-  const changedAt = readTimestamp(row, "changedAt", "changed_at");
+  const transitionedAt = readTimestamp(row, "transitionedAt", "changed_at");
 
   if (
     !id ||
     !idSchema.safeParse(id).success ||
-    !issueId ||
-    !idSchema.safeParse(issueId).success ||
-    !fromStage.success ||
-    !toStage.success ||
-    changedBy === undefined ||
-    (changedBy !== null && !idSchema.safeParse(changedBy).success) ||
-    !changedAt
+    !stage.success ||
+    !transitionedAt
   ) {
     throw new Error(
       `Stage advance returned an unreadable transition row: ${Object.keys(row).join(", ")}`,
     );
   }
 
-  return {
-    id,
-    issueId,
-    fromStage: fromStage.data,
-    toStage: toStage.data,
-    changedBy,
-    changedAt,
-  };
+  return { id, stage: stage.data, transitionedAt };
 }
 
 function readString(
@@ -246,25 +224,6 @@ function readString(
   for (const key of keys) {
     const value = row[key];
     if (typeof value === "string" && value.length > 0) {
-      return value;
-    }
-  }
-  return undefined;
-}
-
-function readNullableString(
-  row: Record<string, unknown>,
-  ...keys: readonly string[]
-): string | null | undefined {
-  for (const key of keys) {
-    if (!Object.prototype.hasOwnProperty.call(row, key)) {
-      continue;
-    }
-    const value = row[key];
-    if (value === null) {
-      return null;
-    }
-    if (typeof value === "string") {
       return value;
     }
   }

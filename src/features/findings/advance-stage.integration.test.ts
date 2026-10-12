@@ -74,15 +74,12 @@ describe.skipIf(!enabled)("advanceStage", () => {
     if (result.kind !== "ok") {
       return;
     }
-    expect(result.stage).toBe("repair_defined");
-    expect(result.transition).toMatchObject({
-      issueId: finding,
-      fromStage: "discovered",
-      toStage: "repair_defined",
-      changedBy: actor,
+    expect(result).toMatchObject({
+      id: finding,
+      stage: "repair_defined",
     });
-    expect(new Date(result.transition.changedAt).toISOString()).toBe(
-      result.transition.changedAt,
+    expect(new Date(result.transitionedAt).toISOString()).toBe(
+      result.transitionedAt,
     );
 
     const stored = await db
@@ -101,6 +98,7 @@ describe.skipIf(!enabled)("advanceStage", () => {
       toStage: "repair_defined",
       changedBy: actor,
     });
+    expect(result.transitionedAt).toBe(history[0]?.changedAt.toISOString());
 
     const again = await advanceStage(
       {
@@ -157,24 +155,24 @@ describe.skipIf(!enabled)("advanceStage", () => {
 
     expect(backToRepair).toMatchObject({
       kind: "ok",
+      id: analysisFinding,
       stage: "repair_defined",
-      transition: {
-        issueId: analysisFinding,
-        fromStage: "analysis",
-        toStage: "repair_defined",
-        changedBy: actor,
-      },
     });
     expect(backToAnalysis).toMatchObject({
       kind: "ok",
+      id: reviewFinding,
       stage: "analysis",
-      transition: {
-        issueId: reviewFinding,
-        fromStage: "review",
-        toStage: "analysis",
-        changedBy: actor,
-      },
     });
+    if (backToRepair.kind === "ok") {
+      expect(backToRepair.transitionedAt).toBe(
+        (await historyFor(db, analysisFinding))[0]?.changedAt.toISOString(),
+      );
+    }
+    if (backToAnalysis.kind === "ok") {
+      expect(backToAnalysis.transitionedAt).toBe(
+        (await historyFor(db, reviewFinding))[0]?.changedAt.toISOString(),
+      );
+    }
     expect(await historyFor(db, analysisFinding)).toHaveLength(1);
     expect(await historyFor(db, reviewFinding)).toHaveLength(1);
   });
