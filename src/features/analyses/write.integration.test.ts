@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { LOW_MARGIN_THRESHOLD } from "@/config/analysis";
@@ -133,6 +133,127 @@ describe.skipIf(!enabled)("analyses writes", () => {
     expect(loaded).toEqual(result.analysis);
     expect(await getAnalysis(uid(9), result.analysis.id, db)).toBeNull();
     expect(await getAnalysis(org, randomUUID(), db)).toBeNull();
+  });
+
+  it("opens the first revision and leaves that row unchanged on reuse", async () => {
+    const org = uid(1);
+    const finding = uid(2);
+    const actor = uid(3);
+    const repair = uid(5);
+    await seedRepair(db, { org, finding, asset: uid(4), actor, repair });
+    expect(await revisionCount(db, repair)).toBe(0);
+
+    const result = await createAnalysis(
+      {
+        orgId: org,
+        repairId: repair,
+        actorId: actor,
+        title: "First pass",
+        margin: 0.2,
+      },
+      db,
+    );
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") {
+      return;
+    }
+    expect(result.analysis.code).toMatch(/^AN-\d{4,}$/);
+    expect(result.analysis.code).toBe(
+      formatAnalysisCode(BigInt(result.analysis.code.slice("AN-".length))),
+    );
+    expect(result.analysis.revision).toBe("A");
+    expect(await revisionCount(db, repair)).toBe(1);
+    expect(await analysisCount(db)).toBe(1);
+
+    const frozen = "2020-01-15T00:00:00.000Z";
+    await db.execute(sql`
+      UPDATE repair_revisions
+      SET detail = 'kept detail',
+          updated_at = ${frozen}::timestamptz
+      WHERE id = ${result.analysis.revisionId}::uuid
+    `);
+    const before = await revisionRow(db, result.analysis.revisionId);
+
+    const other = uid(11);
+    await db.insert(users).values({
+      id: other,
+      orgId: org,
+      email: `${other}@example.com`,
+      name: "Bea Other",
+      initials: "BO",
+      role: "checker",
+    });
+    const again = await createAnalysis(
+      {
+        orgId: org,
+        repairId: repair,
+        actorId: other,
+        title: "Second pass",
+        margin: 0.4,
+      },
+      db,
+    );
+    expect(again).toMatchObject({
+      kind: "ok",
+      analysis: { revisionId: result.analysis.revisionId, revision: "A" },
+    });
+    expect(await revisionRow(db, result.analysis.revisionId)).toEqual(before);
+    expect(before).toMatchObject({
+      id: result.analysis.revisionId,
+      repairId: repair,
+      rev: "A",
+      detail: "kept detail",
+      createdBy: actor,
+      updatedAt: new Date(frozen),
+    });
+    expect(await revisionCount(db, repair)).toBe(1);
+    expect(await analysisCount(db)).toBe(2);
+  });
+
+  it("shares one revision when two first creates race", async () => {
+    const org = uid(1);
+    const finding = uid(2);
+    const actor = uid(3);
+    const repair = uid(5);
+    await seedRepair(db, { org, finding, asset: uid(4), actor, repair });
+    expect(await revisionCount(db, repair)).toBe(0);
+
+    const [left, right] = await Promise.all([
+      createAnalysis(
+        {
+          orgId: org,
+          repairId: repair,
+          actorId: actor,
+          title: "Left",
+          margin: 0.2,
+        },
+        db,
+      ),
+      createAnalysis(
+        {
+          orgId: org,
+          repairId: repair,
+          actorId: actor,
+          title: "Right",
+          margin: 0.3,
+        },
+        db,
+      ),
+    ]);
+
+    expect(left.kind).toBe("ok");
+    expect(right.kind).toBe("ok");
+    if (left.kind !== "ok" || right.kind !== "ok") {
+      return;
+    }
+    expect(left.analysis.revisionId).toBe(right.analysis.revisionId);
+    expect(left.analysis.code).not.toBe(right.analysis.code);
+    for (const code of [left.analysis.code, right.analysis.code]) {
+      expect(code).toMatch(/^AN-\d{4,}$/);
+      expect(code).toBe(formatAnalysisCode(BigInt(code.slice("AN-".length))));
+    }
+    expect(await revisionCount(db, repair)).toBe(1);
+    expect(await analysisCount(db)).toBe(2);
   });
 
   it("gives concurrent creates distinct codes", async () => {
@@ -522,4 +643,25 @@ async function revisionCount(db: Database, repairId: string): Promise<number> {
     .from(repairRevisions)
     .where(eq(repairRevisions.repairId, repairId));
   return rows.length;
+}
+
+async function analysisCount(db: Database): Promise<number> {
+  const rows = await db.select({ id: analyses.id }).from(analyses);
+  return rows.length;
+}
+
+async function revisionRow(db: Database, id: string) {
+  const rows = await db
+    .select({
+      id: repairRevisions.id,
+      repairId: repairRevisions.repairId,
+      rev: repairRevisions.rev,
+      detail: repairRevisions.detail,
+      createdBy: repairRevisions.createdBy,
+      createdAt: repairRevisions.createdAt,
+      updatedAt: repairRevisions.updatedAt,
+    })
+    .from(repairRevisions)
+    .where(eq(repairRevisions.id, id));
+  return rows[0];
 }

@@ -49,9 +49,17 @@ export type CreateAnalysisResult =
  * organization are both `not_found`, and neither consumes a code.
  *
  * The analysis hangs off a repair revision (`repair_revision_id`). The
- * statement reuses `revision` (default `A`) when that revision already
- * exists, and inserts it when it does not. `nextval` runs only in the
- * analysis insert, after that revision row is chosen.
+ * revision letter is the `rev` column. The statement inserts that row and,
+ * when `(repair_id, rev)` already exists, runs
+ * `ON CONFLICT DO UPDATE SET rev = EXCLUDED.rev`. That assignment is a
+ * no-op: it changes no other column, including `updated_at`. `DO UPDATE`
+ * still returns the existing row, so two first creates that race share one
+ * revision. `DO NOTHING` would not return it.
+ *
+ * Postgres runs every CTE in this statement against one snapshot, so the
+ * statement reads the new revision, analysis, and case only from `RETURNING`.
+ * It does not join those tables again. `nextval` runs only in the analysis
+ * insert, after the revision id is chosen.
  */
 export async function createAnalysis(
   input: CreateAnalysisInput,
@@ -96,26 +104,13 @@ export async function createAnalysis(
       WHERE r.id = ${input.repairId}::uuid
         AND a.org_id = ${input.orgId}::uuid
     ),
-    new_rev AS (
+    chosen AS (
       INSERT INTO repair_revisions (id, repair_id, rev, created_by)
       SELECT gen_random_uuid(), scoped.repair_id, ${revision}, ${createdBy}
       FROM scoped
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM repair_revisions AS existing
-        WHERE existing.repair_id = scoped.repair_id
-          AND existing.rev = ${revision}
-      )
-      RETURNING id
-    ),
-    chosen AS (
-      SELECT id FROM new_rev
-      UNION ALL
-      SELECT existing.id
-      FROM repair_revisions AS existing
-      INNER JOIN scoped ON scoped.repair_id = existing.repair_id
-      WHERE existing.rev = ${revision}
-        AND NOT EXISTS (SELECT 1 FROM new_rev)
+      ON CONFLICT (repair_id, rev)
+      DO UPDATE SET rev = EXCLUDED.rev
+      RETURNING id, repair_id
     ),
     inserted AS (
       INSERT INTO analyses (
@@ -159,7 +154,7 @@ export async function createAnalysis(
     SELECT
       inserted.id,
       inserted.code,
-      scoped_repair.repair_id AS "repairId",
+      chosen.repair_id AS "repairId",
       inserted.repair_revision_id AS "revisionId",
       ${revision} AS "revision",
       inserted.title,
@@ -173,10 +168,7 @@ export async function createAnalysis(
       inserted.updated_at AS "updatedAt"
     FROM inserted
     INNER JOIN cased ON cased.analysis_id = inserted.id
-    INNER JOIN repair_revisions AS chosen_rev
-      ON chosen_rev.id = inserted.repair_revision_id
-    INNER JOIN scoped AS scoped_repair
-      ON scoped_repair.repair_id = chosen_rev.repair_id
+    INNER JOIN chosen ON chosen.id = inserted.repair_revision_id
   `);
 
   const row = rowsFrom(result)[0];
