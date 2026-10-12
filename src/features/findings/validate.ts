@@ -1,11 +1,11 @@
+import { SEVERITIES, type Severity } from "@/config/severity";
+
 import {
   FINDING_PHOTO_MEDIA_TYPES,
-  SEVERITIES,
   MAX_FINDING_PHOTO_BYTES,
   MAX_FINDING_PHOTOS,
   findingFormSchema,
   type FindingForm,
-  type FindingSeverity,
 } from "./contract";
 
 export type FindingPhotoInput = {
@@ -91,7 +91,7 @@ export function photoProblem(
   return null;
 }
 
-export function isFindingSeverity(value: string): value is FindingSeverity {
+export function isFindingSeverity(value: string): value is Severity {
   return SEVERITIES.some((severity) => severity === value);
 }
 

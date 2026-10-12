@@ -12,13 +12,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import { SEVERITIES, type Severity } from "@/config/severity";
 import { createFinding, FindingRequestError } from "@/features/findings/client";
 import {
   FINDING_PHOTO_MEDIA_TYPES,
-  SEVERITIES,
   MAX_FINDING_PHOTOS,
   type FindingCreated,
-  type FindingSeverity,
 } from "@/features/findings/contract";
 import {
   FINDING_ASSETS,
@@ -50,7 +49,7 @@ export function NewFindingForm() {
   const [assetId, setAssetId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [severity, setSeverity] = useState<FindingSeverity | "">("");
+  const [severity, setSeverity] = useState<Severity | "">("");
   const [zone, setZone] = useState("");
   const [locationLabel, setLocationLabel] = useState("");
   const [photos, setPhotos] = useState<Preview[]>([]);
