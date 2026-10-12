@@ -25,7 +25,8 @@ export type RepairStore = Pick<Database, "select" | "execute">;
 export type CreateRepairInput = {
   orgId: string;
   findingId: string;
-  actorId: string;
+  /** User id, or null until a session exists (#13). */
+  actorId: string | null;
   title: string;
   type?: string | null;
   status?: Repair["status"];
@@ -51,7 +52,7 @@ export async function createRepair(
   ) {
     return { kind: "not_found" };
   }
-  if (!idSchema.safeParse(input.actorId).success) {
+  if (input.actorId !== null && !idSchema.safeParse(input.actorId).success) {
     throw new Error("actorId must be a UUID.");
   }
 
@@ -63,6 +64,8 @@ export async function createRepair(
   });
   const status = fields.status ?? "open";
   const type = fields.type ?? null;
+  const createdBy =
+    input.actorId === null ? sql`null` : sql`${input.actorId}::uuid`;
 
   const result = await db.execute<Record<string, unknown>>(sql`
     INSERT INTO repairs (
@@ -81,7 +84,7 @@ export async function createRepair(
       ${fields.title},
       ${type},
       ${status}::repair_status,
-      ${input.actorId}::uuid
+      ${createdBy}
     FROM issues AS i
     INNER JOIN assets AS a ON a.id = i.asset_id
     WHERE i.id = ${input.findingId}::uuid

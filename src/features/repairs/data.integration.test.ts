@@ -296,11 +296,57 @@ describe.skipIf(!enabled)("repairs data", () => {
     });
   });
 
-  it("rolls back when the actor does not exist", async () => {
+  it("stores null when actorId is null", async () => {
     const org = uid(1);
     const finding = uid(2);
     const actor = uid(3);
     await seedFinding(db, { org, finding, asset: uid(4), actor });
+
+    const result = await createRepair(
+      {
+        orgId: org,
+        findingId: finding,
+        actorId: null,
+        title: "Opened before sessions exist",
+      },
+      db,
+    );
+
+    expect(result).toMatchObject({
+      kind: "ok",
+      repair: { findingId: finding, createdBy: null, status: "open" },
+    });
+    if (result.kind !== "ok") {
+      return;
+    }
+    expect(await getRepair(org, result.repair.id, db)).toMatchObject({
+      createdBy: null,
+    });
+    const stored = await db
+      .select({ createdBy: repairs.createdBy })
+      .from(repairs)
+      .where(eq(repairs.id, result.repair.id));
+    expect(stored[0]?.createdBy).toBeNull();
+    expect(await stageOf(db, finding)).toBe("discovered");
+  });
+
+  it("rejects a non-uuid actor and rolls back when the user is missing", async () => {
+    const org = uid(1);
+    const finding = uid(2);
+    const actor = uid(3);
+    await seedFinding(db, { org, finding, asset: uid(4), actor });
+
+    await expect(
+      createRepair(
+        {
+          orgId: org,
+          findingId: finding,
+          actorId: "not-a-uuid",
+          title: "Bad actor",
+        },
+        db,
+      ),
+    ).rejects.toThrow(/UUID/);
 
     await expect(
       createRepair(

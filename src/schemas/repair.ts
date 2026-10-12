@@ -39,7 +39,8 @@ export const repairSchema = z.strictObject({
 
 /**
  * Generic fields for opening a repair. `orgId` and `actorId` are arguments
- * to `createRepair`, not part of this payload. `status` defaults to `open`.
+ * to `createRepair`, not part of this payload. `actorId` may be null until
+ * a session exists (#13). `status` defaults to `open`.
  */
 export const repairCreateSchema = z.strictObject({
   findingId: idSchema,
