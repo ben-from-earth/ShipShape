@@ -1,0 +1,62 @@
+# Contributing to ShipShape
+
+## Branch and pull request workflow
+
+1. Start from an up-to-date `main`.
+2. Create a branch with a short, descriptive name, such as `feat/repair-form`.
+3. Keep each commit focused on one change.
+4. Open a pull request into `main` and fill in the pull request template, including how you tested.
+5. Wait for CI. It runs `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`, and `pnpm build`. The workflow does not need secrets.
+
+## Commits
+
+Write [Conventional Commits](https://www.conventionalcommits.org/):
+
+```text
+type(scope): short summary
+```
+
+The scope is optional. Use a lowercase type and the imperative mood, the way the summary would complete “this commit will…”.
+
+| Type       | Use for                                    |
+| ---------- | ------------------------------------------ |
+| `feat`     | A new capability                           |
+| `fix`      | A bug fix                                  |
+| `docs`     | Documentation only                         |
+| `test`     | Tests only                                 |
+| `ci`       | CI changes                                 |
+| `chore`    | Tooling or maintenance                     |
+| `refactor` | A code change that keeps behavior the same |
+
+```text
+feat(repairs): accept a repair opened from a damage report
+fix(schemas): reject a damage report with no photos
+docs: describe the local embedding contract
+```
+
+## Before you push
+
+```bash
+pnpm lint
+pnpm format:check
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+`pnpm format` rewrites files that fail the format check.
+
+## Secrets
+
+Put `DATABASE_URL` in `.env.local`. That file is gitignored. `.env.example` is the committed template and contains no real credentials.
+
+## Where to put code
+
+| You are adding…                       | Put it in             |
+| ------------------------------------- | --------------------- |
+| A shape the UI and the server share   | `src/schemas`         |
+| Server behavior for one workflow step | `src/server/<domain>` |
+| Tables or the database client         | `src/db`              |
+| A page or a route handler             | `src/app`             |
+
+Domains already in the tree: `damage-reports`, `repairs`, `analyses`, `reviews`, `documents`.
