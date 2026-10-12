@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, open, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { Readable } from "node:stream";
 import path from "node:path";
 
 export type StoredObject = {
@@ -8,13 +9,15 @@ export type StoredObject = {
 };
 
 /**
- * Bytes addressed by a key. Document routes depend on this, not on a
- * vendor SDK. A later object store can implement the same three methods.
- * `put` returns the key that was stored; the document row saves that key.
+ * Bytes addressed by a key. Document and finding routes depend on this,
+ * not on a vendor SDK. A later object store can implement the same methods.
+ * `put` returns the key that was stored; the row saves that key.
+ * `read` streams the bytes. It does not mint a public or signed URL.
  */
 export interface ObjectStorage {
   put(key: string, body: Uint8Array): Promise<StoredObject>;
   get(key: string): Promise<Uint8Array | null>;
+  read(key: string): Promise<ReadableStream<Uint8Array> | null>;
   delete(key: string): Promise<void>;
 }
 
@@ -65,6 +68,30 @@ export function createLocalDiskStorage(
         if (isNotFound(error)) {
           return null;
         }
+        throw error;
+      }
+    },
+
+    async read(key) {
+      let handle;
+      try {
+        handle = await open(
+          /*turbopackIgnore: true*/ resolveKey(directory, key),
+          "r",
+        );
+      } catch (error) {
+        if (isNotFound(error)) {
+          return null;
+        }
+        throw error;
+      }
+
+      try {
+        return Readable.toWeb(
+          handle.createReadStream(),
+        ) as ReadableStream<Uint8Array>;
+      } catch (error) {
+        await handle.close();
         throw error;
       }
     },
