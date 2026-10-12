@@ -1,6 +1,6 @@
-import { drizzle } from "drizzle-orm/node-postgres";
+import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
 import { inArray } from "drizzle-orm";
-import { Pool } from "pg";
+import { Client, Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { documentChunks, documents, organizations } from "@/db/schema";
@@ -156,6 +156,126 @@ describe.skipIf(!databaseUrl)("document search against pgvector", () => {
 });
 
 type ChunkSearchDb = Parameters<typeof querySimilarChunks>[0];
+
+/**
+ * One small organization beside a larger one whose chunks are closer to
+ * the query. Without iterative HNSW scans, an index scan can stop before
+ * the small organization fills `limit`. Seq scans and the document-id
+ * btree are disabled so the plan has to use the cosine index. The btree
+ * is restored before the client closes.
+ */
+describe.skipIf(!databaseUrl)(
+  "org-filtered HNSW search fills the limit",
+  () => {
+    const limit = 8;
+    const largeOrg = "550e8400-e29b-41d4-a716-446655441001";
+    const smallOrg = "550e8400-e29b-41d4-a716-446655441002";
+    const largeDoc = "550e8400-e29b-41d4-a716-446655441003";
+    const smallDoc = "550e8400-e29b-41d4-a716-446655441004";
+
+    let client: Client | undefined;
+    let db: NodePgDatabase | undefined;
+
+    beforeAll(async () => {
+      client = new Client({ connectionString: databaseUrl });
+      await client.connect();
+      await client.query("SET enable_seqscan = off");
+      await client.query("SET enable_bitmapscan = off");
+      await client.query("SET hnsw.ef_search = 40");
+      db = drizzle(client);
+      const database = db;
+
+      await database.insert(organizations).values([
+        { id: largeOrg, name: "Large org" },
+        { id: smallOrg, name: "Small org" },
+      ]);
+      await database.insert(documents).values([
+        {
+          id: largeDoc,
+          orgId: largeOrg,
+          title: "Large corpus",
+          storageKey: `${largeOrg}/${largeDoc}`,
+          mimeType: "text/plain",
+          status: "indexed",
+        },
+        {
+          id: smallDoc,
+          orgId: smallOrg,
+          title: "Small corpus",
+          storageKey: `${smallOrg}/${smallDoc}`,
+          mimeType: "text/plain",
+          status: "indexed",
+        },
+      ]);
+
+      const closer = axis(0);
+      await database.insert(documentChunks).values(
+        Array.from({ length: 80 }, (_, index) => ({
+          documentId: largeDoc,
+          index,
+          text: `Closer chunk ${index} from the large organization.`,
+          startOffset: 0,
+          endOffset: 48,
+          pageStart: null,
+          pageEnd: null,
+          embedding: closer,
+        })),
+      );
+      await database.insert(documentChunks).values(
+        Array.from({ length: limit }, (_, index) => ({
+          documentId: smallDoc,
+          index,
+          text: `Small organization chunk ${index} about the hatch.`,
+          startOffset: 0,
+          endOffset: 48,
+          pageStart: 1,
+          pageEnd: 1,
+          embedding: axis(1),
+        })),
+      );
+      await client.query('DROP INDEX IF EXISTS "chunks_doc_idx_uq"');
+    }, 30_000);
+
+    afterAll(async () => {
+      if (client) {
+        await client.query(
+          'CREATE UNIQUE INDEX IF NOT EXISTS "chunks_doc_idx_uq" ON "document_chunks" USING btree ("document_id", "index")',
+        );
+      }
+      if (db) {
+        await db
+          .delete(documents)
+          .where(inArray(documents.orgId, [largeOrg, smallOrg]));
+        await db
+          .delete(organizations)
+          .where(inArray(organizations.id, [largeOrg, smallOrg]));
+      }
+      await client?.end();
+    });
+
+    it("returns a full page for the smaller organization", async () => {
+      if (!db) {
+        throw new Error("Integration database was not opened");
+      }
+
+      const result = await searchDocuments(
+        { orgId: smallOrg, query: "hatch", limit },
+        {
+          embedQuery: async () => axis(0),
+          findSimilarChunks: (query) =>
+            querySimilarChunks(db as ChunkSearchDb, query),
+        },
+      );
+
+      expect(result.hits).toHaveLength(limit);
+      expect(result.hits.every((hit) => hit.documentId === smallDoc)).toBe(
+        true,
+      );
+      const scores = result.hits.map((hit) => hit.score);
+      expect(scores).toEqual([...scores].sort((left, right) => right - left));
+    });
+  },
+);
 
 function axis(index: number): number[] {
   const values = Array.from({ length: DOCUMENT_EMBEDDING_DIMENSIONS }, () => 0);

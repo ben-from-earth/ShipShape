@@ -1,4 +1,5 @@
 import { drizzle } from "drizzle-orm/neon-http";
+import { PgDialect } from "drizzle-orm/pg-core";
 import { describe, expect, it, vi } from "vitest";
 
 import * as schema from "@/db/schema";
@@ -6,6 +7,7 @@ import { DOCUMENT_EMBEDDING_DIMENSIONS } from "@/schemas";
 
 import { buildSnippet, SNIPPET_MAX_CHARACTERS } from "./snippet";
 import {
+  querySimilarChunks,
   searchDocuments,
   selectSimilarChunks,
   type SearchDependencies,
@@ -117,6 +119,26 @@ describe("searchDocuments", () => {
     expect(result.hits[0]?.score).toBe(1);
   });
 
+  it("re-sorts a relaxed scan so the nearest chunk is first", async () => {
+    const deps = dependencies([
+      row({ distance: 0.9, documentTitle: "Far" }),
+      row({
+        distance: 0.1,
+        documentTitle: "Near",
+        documentId: "550e8400-e29b-41d4-a716-446655440011",
+      }),
+    ]);
+
+    const result = await searchDocuments({ orgId, query: "hatch" }, deps);
+
+    expect(result.hits.map((hit) => hit.documentTitle)).toEqual([
+      "Near",
+      "Far",
+    ]);
+    expect(result.hits[0]?.score).toBeCloseTo(0.9);
+    expect(result.hits[1]?.score).toBeCloseTo(0.1);
+  });
+
   it("does not embed when the organization id is invalid", async () => {
     const deps = dependencies();
 
@@ -136,13 +158,111 @@ describe("selectSimilarChunks", () => {
       documentId,
       limit: 5,
     }).toSQL();
+    const sqlText = compiled.sql.toLowerCase();
 
-    expect(compiled.sql.toLowerCase()).toContain("<=>");
+    expect(sqlText).toContain("<=>");
     expect(compiled.sql).toContain("::vector");
     expect(compiled.sql).toContain("org_id");
     expect(compiled.sql).toContain("document_id");
-    expect(compiled.sql.toLowerCase()).toContain("limit");
-    expect(compiled.sql.toLowerCase()).not.toContain("desc");
+    expect(sqlText).toContain("limit");
+    expect(sqlText).not.toContain("desc");
+    expect(sqlText).toMatch(/order by[\s\S]*<=>/);
     expect(compiled.params).toContain("[1,0,0]");
   });
+
+  it("runs iterative scan in the same batch and sorts the rows", async () => {
+    const db = drizzle.mock({ schema });
+    const statements: string[] = [];
+    const batch = vi.fn(async (queries: readonly object[]) => {
+      for (const query of queries) {
+        statements.push(statementSql(query));
+      }
+      return [
+        [],
+        [
+          row({ distance: 0.8 }),
+          row({ distance: 0.2, documentTitle: "Closer" }),
+        ],
+      ];
+    });
+    Object.assign(db, { batch });
+
+    const rows = await querySimilarChunks(db, {
+      orgId,
+      embedding: [1, 0, 0],
+      limit: 2,
+    });
+
+    expect(statements[0]?.toLowerCase()).toContain("hnsw.iterative_scan");
+    expect(statements[0]?.toLowerCase()).toContain("relaxed_order");
+    expect(statements[1]?.toLowerCase()).toContain("<=>");
+    expect(batch).toHaveBeenCalledTimes(1);
+    expect(rows.map((hit) => hit.distance)).toEqual([0.2, 0.8]);
+    expect(rows[0]?.documentTitle).toBe("Closer");
+  });
+
+  it("runs iterative scan in a transaction when the driver has no batch", async () => {
+    const db = drizzle.mock({ schema });
+    const statements: string[] = [];
+    const select = ((...args: Parameters<typeof db.select>) =>
+      queryWithoutExecution(db.select(...args))) as unknown as typeof db.select;
+    const tx = {
+      execute(query: object) {
+        statements.push(statementSql(query));
+        return Promise.resolve(undefined);
+      },
+      select,
+    };
+    const database = {
+      select,
+      execute: db.execute.bind(db),
+      transaction: async <T>(run: (inner: typeof tx) => Promise<T>) => run(tx),
+    };
+
+    const rows = await querySimilarChunks(database, {
+      orgId,
+      embedding: [1, 0, 0],
+      limit: 2,
+    });
+
+    expect(statements[0]?.toLowerCase()).toContain("hnsw.iterative_scan");
+    expect(statements[0]?.toLowerCase()).toContain("relaxed_order");
+    expect(rows).toEqual([]);
+  });
 });
+
+const pgDialect = new PgDialect();
+
+/** Keep the query builder, but do not send the mock driver a statement. */
+function queryWithoutExecution<T extends object>(builder: T): T {
+  return new Proxy(builder, {
+    get(target, prop, receiver) {
+      if (prop === "then") {
+        return (resolve: (rows: unknown[]) => void) => resolve([]);
+      }
+      const value = Reflect.get(target, prop, receiver);
+      if (typeof value !== "function") {
+        return value;
+      }
+      return (...args: unknown[]) => {
+        const result = value.apply(target, args);
+        return result && typeof result === "object"
+          ? queryWithoutExecution(result)
+          : result;
+      };
+    },
+  });
+}
+
+function statementSql(query: object): string {
+  if ("toSQL" in query && typeof query.toSQL === "function") {
+    return query.toSQL().sql;
+  }
+  if ("getQuery" in query && typeof query.getQuery === "function") {
+    return query.getQuery().sql;
+  }
+  if ("getSQL" in query && typeof query.getSQL === "function") {
+    return pgDialect.sqlToQuery(query.getSQL()).sql;
+  }
+  throw new Error("Query did not expose SQL");
+}

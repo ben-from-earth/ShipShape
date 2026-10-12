@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, cosineDistance, eq, sql, type SQL } from "drizzle-orm";
+import { and, cosineDistance, eq, inArray, sql, type SQL } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
 import { getDb } from "@/db";
@@ -44,6 +44,21 @@ export type SearchDependencies = {
 };
 
 type ChunkSearchDb = Pick<PgDatabase<PgQueryResultHKT>, "select">;
+
+type StatementDb = ChunkSearchDb & {
+  execute: (query: SQL) => Promise<unknown>;
+};
+
+type BatchDb = StatementDb & {
+  batch: (queries: readonly unknown[]) => Promise<unknown[]>;
+};
+
+type TransactionDb = StatementDb & {
+  transaction: <T>(run: (tx: StatementDb) => Promise<T>) => Promise<T>;
+};
+
+/** pgvector >= 0.8. Must run in the same transaction as the nearest-neighbor query. */
+const iterativeScan = sql`SET LOCAL hnsw.iterative_scan = relaxed_order`;
 
 /**
  * Embed the query and return the nearest chunks in one organization.
@@ -90,12 +105,14 @@ export async function searchDocuments(
     await dependencies.embedQuery(parsed.data.query),
   );
 
-  const rows = await dependencies.findSimilarChunks({
-    orgId: orgId.data,
-    embedding,
-    documentId: parsed.data.documentId,
-    limit,
-  });
+  const rows = sortByDistance(
+    await dependencies.findSimilarChunks({
+      orgId: orgId.data,
+      embedding,
+      documentId: parsed.data.documentId,
+      limit,
+    }),
+  );
 
   const hits = rows.slice(0, limit).map((row) => {
     const distance = readDistance(row.distance);
@@ -128,55 +145,119 @@ export async function searchDocuments(
  * `cosineDistance` JSON-encodes an array without a cast. pgvector only
  * assigns text to `vector` on insert, so the `<=>` operand is cast with
  * `::vector` by passing an SQL fragment instead of a bare array.
+ *
+ * The organization filter is a `document_id` predicate on `document_chunks`
+ * so the HNSW scan can see it. Iterative scan then keeps walking until
+ * `limit` rows match. The outer query sorts by that distance because
+ * `relaxed_order` is not strict.
  */
 export function selectSimilarChunks(
   db: ChunkSearchDb,
   args: SimilarChunkQuery,
 ) {
   const distance = distanceTo(args.embedding);
+  const orgDocuments = db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.orgId, args.orgId),
+        args.documentId ? eq(documents.id, args.documentId) : undefined,
+      ),
+    );
 
-  return db
+  const matches = db
     .select({
       documentId: documentChunks.documentId,
-      documentTitle: documents.title,
       index: documentChunks.index,
       text: documentChunks.text,
       startOffset: documentChunks.startOffset,
       endOffset: documentChunks.endOffset,
       pageStart: documentChunks.pageStart,
       pageEnd: documentChunks.pageEnd,
-      distance: distance.mapWith(Number),
+      distance: distance.mapWith(Number).as("distance"),
     })
     .from(documentChunks)
-    .innerJoin(documents, eq(documentChunks.documentId, documents.id))
-    .where(
-      and(
-        eq(documents.orgId, args.orgId),
-        args.documentId
-          ? eq(documentChunks.documentId, args.documentId)
-          : undefined,
-      ),
-    )
-    .orderBy(distanceTo(args.embedding))
-    .limit(args.limit);
+    .where(inArray(documentChunks.documentId, orgDocuments))
+    .orderBy(distance)
+    .limit(args.limit)
+    .as("matches");
+
+  return db
+    .select({
+      documentId: matches.documentId,
+      documentTitle: documents.title,
+      index: matches.index,
+      text: matches.text,
+      startOffset: matches.startOffset,
+      endOffset: matches.endOffset,
+      pageStart: matches.pageStart,
+      pageEnd: matches.pageEnd,
+      distance: matches.distance,
+    })
+    .from(matches)
+    .innerJoin(documents, eq(matches.documentId, documents.id))
+    .orderBy(matches.distance);
 }
 
 export async function querySimilarChunks(
-  db: ChunkSearchDb,
+  db: StatementDb,
   args: SimilarChunkQuery,
 ): Promise<SimilarChunkRow[]> {
-  const rows = await selectSimilarChunks(db, args);
-  return rows.map((row) => ({
-    documentId: row.documentId,
-    documentTitle: row.documentTitle,
-    index: row.index,
-    text: row.text,
-    startOffset: row.startOffset,
-    endOffset: row.endOffset,
-    pageStart: row.pageStart,
-    pageEnd: row.pageEnd,
-    distance: row.distance,
-  }));
+  const rows = await readSimilarChunks(db, args);
+  return sortByDistance(rows);
+}
+
+/**
+ * An org filter on an HNSW index scan stops early and can return fewer
+ * than `limit` rows. relaxed_order keeps scanning until the limit is
+ * filled, then we sort because that mode is not strictly ordered.
+ *
+ * Neon HTTP exposes batch and a transaction method that throws.
+ * node-postgres exposes transaction. Prefer batch when it exists so the
+ * Neon client does not hit that throw.
+ */
+async function readSimilarChunks(
+  db: StatementDb,
+  args: SimilarChunkQuery,
+): Promise<SimilarChunkRow[]> {
+  const batchDb = asBatchDb(db);
+  if (batchDb) {
+    const results = await batchDb.batch([
+      batchDb.execute(iterativeScan),
+      selectSimilarChunks(batchDb, args),
+    ]);
+    return asChunkRows(results[1]);
+  }
+
+  const transactionDb = asTransactionDb(db);
+  if (transactionDb) {
+    const rows = await transactionDb.transaction(async (tx) => {
+      await tx.execute(iterativeScan);
+      return selectSimilarChunks(tx, args);
+    });
+    return asChunkRows(rows);
+  }
+
+  throw new Error(
+    "Document search needs a database that can run SET LOCAL in a transaction",
+  );
+}
+
+function asBatchDb(db: StatementDb): BatchDb | undefined {
+  const candidate = db as StatementDb & { batch?: unknown };
+  if (typeof candidate.batch !== "function") {
+    return undefined;
+  }
+  return candidate as BatchDb;
+}
+
+function asTransactionDb(db: StatementDb): TransactionDb | undefined {
+  const candidate = db as StatementDb & { transaction?: unknown };
+  if (typeof candidate.transaction !== "function") {
+    return undefined;
+  }
+  return candidate as TransactionDb;
 }
 
 function defaultDependencies(): SearchDependencies {
@@ -194,6 +275,19 @@ function distanceTo(embedding: number[]): SQL {
 
   const vector = sql`${JSON.stringify(embedding)}::vector`;
   return cosineDistance(documentChunks.embedding, vector as unknown as string);
+}
+
+function sortByDistance(rows: readonly SimilarChunkRow[]): SimilarChunkRow[] {
+  return [...rows].sort(
+    (left, right) => readDistance(left.distance) - readDistance(right.distance),
+  );
+}
+
+function asChunkRows(value: unknown): SimilarChunkRow[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Search returned an unexpected result");
+  }
+  return value as SimilarChunkRow[];
 }
 
 function readDistance(value: unknown): number {
