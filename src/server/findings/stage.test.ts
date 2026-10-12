@@ -118,7 +118,7 @@ describe("changeFindingStage", () => {
       orgId,
       findingId,
       body: { toStage: "repair_defined" },
-      actorId: null,
+      actorId: "not-a-uuid",
     }).catch((error: unknown) => error);
 
     expect(badId).toMatchObject({
@@ -137,6 +137,40 @@ describe("changeFindingStage", () => {
       message: "actorId must be a UUID.",
     });
     expect(advance).not.toHaveBeenCalled();
+  });
+
+  it("passes a null actor through to advanceStage", async () => {
+    advance.mockResolvedValue({
+      kind: "ok",
+      stage: "repair_defined",
+      transition: {
+        id: "550e8400-e29b-41d4-a716-446655440041",
+        issueId: findingId,
+        fromStage: "discovered",
+        toStage: "repair_defined",
+        changedBy: null,
+        changedAt: transitionedAt,
+      },
+    });
+
+    const result = await changeFindingStage({
+      orgId,
+      findingId,
+      body: { toStage: "repair_defined" },
+      actorId: null,
+    });
+
+    expect(advance).toHaveBeenCalledWith({
+      orgId,
+      findingId,
+      toStage: "repair_defined",
+      actorId: null,
+    });
+    expect(result).toEqual({
+      id: findingId,
+      stage: "repair_defined",
+      transitionedAt,
+    });
   });
 
   it("lets a foreign-key failure from advanceStage throw", async () => {

@@ -1,11 +1,15 @@
 import "server-only";
 
-import { advanceStage } from "@/features/findings/advance-stage";
+import {
+  advanceStage,
+  type AdvanceStageInput,
+} from "@/features/findings/advance-stage";
 import {
   advanceFindingStageFieldsSchema,
   advanceFindingStageResultSchema,
   idSchema,
   type AdvanceFindingStageResult,
+  type FindingStage,
 } from "@/schemas";
 import { detailsFromZod } from "@/server/documents/errors";
 
@@ -36,7 +40,9 @@ export async function changeFindingStage(
     orgId: input.orgId,
     findingId,
     toStage,
-    actorId,
+    // AdvanceStageInput.actorId is still `string`. Drop this cast once it
+    // is `string | null` and null is written to `changed_by`.
+    actorId: actorId as AdvanceStageInput["actorId"],
   });
 
   switch (result.kind) {
@@ -61,7 +67,7 @@ export async function changeFindingStage(
   }
 }
 
-function requireStage(body: unknown): string {
+function requireStage(body: unknown): FindingStage {
   const parsed = advanceFindingStageFieldsSchema.safeParse(body);
   if (!parsed.success) {
     throw new FindingRequestError(
@@ -76,7 +82,10 @@ function requireStage(body: unknown): string {
   return parsed.data.toStage;
 }
 
-function requireActorId(actorId: unknown): string {
+function requireActorId(actorId: unknown): string | null {
+  if (actorId === null) {
+    return null;
+  }
   const parsed = idSchema.safeParse(actorId);
   if (!parsed.success) {
     throw new FindingRequestError(

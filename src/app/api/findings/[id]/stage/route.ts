@@ -9,8 +9,9 @@ import { readJsonBody, readOrgId } from "@/server/http/api";
 
 /**
  * Moves one finding to `toStage`. `advanceStage` owns the organization
- * check and the history row. This handler validates the id, the body,
- * and the temporary actor before that call.
+ * check and the history row. This handler validates the id and the body
+ * before that call. A null actor is the session stand-in and is passed
+ * through. Any other non-UUID actor is rejected first.
  *
  * `POST` reads the request. `unstable_rethrow` lets a prerender bailout
  * leave the error handler.

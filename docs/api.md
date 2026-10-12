@@ -261,7 +261,7 @@ Moves one finding to another `work_stage`. `application/json` body:
 
 `id` is `issues.id` and must be a UUID. A non-UUID is `validation_error`. `x-org-id` is the same temporary organization header as the other finding routes.
 
-`actorId` is not a body field. Until requests carry a session (#13) it is null, the same stand-in POST /api/findings uses for `uploadedBy`. The route returns `validation_error` when that value is not a UUID and does not call `advanceStage`. A UUID is passed as `advanceStage({ orgId, findingId, toStage, actorId })`. A UUID that is not a user fails the `changed_by` foreign key. That throw is `internal_error`. The response does not include the database error.
+`actorId` is not a body field. Until requests carry a session (#13) it is null, the same stand-in POST /api/findings uses for `uploadedBy`. Null is passed to `advanceStage` and stored as NULL on `changed_by`. A value that is neither null nor a UUID is `validation_error` and `advanceStage` is not called. A UUID that is not a user fails the `changed_by` foreign key. That throw is `internal_error`. The response does not include the database error.
 
 `200` is the `ok` result, returned directly:
 
@@ -279,7 +279,7 @@ Moves one finding to another `work_stage`. `application/json` body:
 | ---- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
 | 400  | `invalid_org_id`       | `x-org-id` is missing or not a UUID                                                                    |
 | 400  | `unknown_organization` | `x-org-id` is a UUID and no organization has that id                                                   |
-| 400  | `validation_error`     | `id` is not a UUID, `toStage` is not a `work_stage` value, or `actorId` is not a UUID                  |
+| 400  | `validation_error`     | `id` is not a UUID, `toStage` is not a `work_stage` value, or `actorId` is neither null nor a UUID     |
 | 404  | `not_found`            | The finding is missing or its asset is in another organization                                         |
 | 422  | `invalid_transition`   | The move is not the next stage or an allowed send-back                                                 |
 | 409  | `conflict`             | The stage changed after it was read                                                                    |

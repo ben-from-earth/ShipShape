@@ -18,9 +18,14 @@ vi.mock("@/features/findings/advance-stage", () => ({
   advanceStage: vi.fn(),
 }));
 
-vi.mock("@/server/findings/actor", () => ({
-  temporaryActorId: vi.fn(),
-}));
+vi.mock("@/server/findings/actor", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/server/findings/actor")
+  >("@/server/findings/actor");
+  return {
+    temporaryActorId: vi.fn(actual.temporaryActorId),
+  };
+});
 
 vi.mock("@/server/documents/org", () => ({
   assertOrganizationExists: vi.fn(async () => undefined),
@@ -105,6 +110,44 @@ describe("POST /api/findings/[id]/stage", () => {
     });
   });
 
+  it("passes the real null actor through to advanceStage", async () => {
+    const { temporaryActorId: realTemporaryActorId } = await vi.importActual<
+      typeof import("@/server/findings/actor")
+    >("@/server/findings/actor");
+    actor.mockReset();
+    actor.mockImplementation(realTemporaryActorId);
+    advance.mockResolvedValue({
+      kind: "ok",
+      stage: "repair_defined",
+      transition: {
+        id: "550e8400-e29b-41d4-a716-446655440041",
+        issueId: findingId,
+        fromStage: "discovered",
+        toStage: "repair_defined",
+        changedBy: null,
+        changedAt: transitionedAt,
+      },
+    });
+
+    const response = await call(stageRequest());
+
+    expect(realTemporaryActorId()).toBeNull();
+    expect(response.status).toBe(200);
+    expect(
+      advanceFindingStageResultSchema.parse(await response.json()),
+    ).toEqual({
+      id: findingId,
+      stage: "repair_defined",
+      transitionedAt,
+    });
+    expect(advance).toHaveBeenCalledWith({
+      orgId,
+      findingId,
+      toStage: "repair_defined",
+      actorId: null,
+    });
+  });
+
   it("maps not_found, invalid_transition, and conflict", async () => {
     advance.mockResolvedValueOnce({ kind: "not_found" });
     const missing = await call(stageRequest());
@@ -135,7 +178,7 @@ describe("POST /api/findings/[id]/stage", () => {
     const badStage = await call(
       stageRequest({ body: { toStage: "published" } }),
     );
-    actor.mockReturnValue(null);
+    actor.mockReturnValue("not-a-uuid");
     const badActor = await call(stageRequest());
 
     expect(badId.status).toBe(400);
