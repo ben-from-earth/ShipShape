@@ -37,6 +37,9 @@ function dependencies(
     async get() {
       return null;
     },
+    async read() {
+      return null;
+    },
     async delete(key) {
       deleted.push(key);
     },
@@ -84,15 +87,56 @@ function insertedFinding(finding: FindingInsert): InsertedFinding {
   };
 }
 
+const JPEG_BYTES = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+const PNG_BYTES = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+]);
+const HEIC_BYTES = new Uint8Array([
+  0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69, 0x63, 0x00,
+  0x00, 0x00, 0x00, 0x6d, 0x69, 0x66, 0x31,
+]);
+
+function sampleBytes(fileName: string): Uint8Array {
+  const extension = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
+  if (extension === ".png") {
+    return PNG_BYTES;
+  }
+  if (extension === ".heic" || extension === ".heif") {
+    return HEIC_BYTES;
+  }
+  return JPEG_BYTES;
+}
+
 function photo(
   fileName = "bay.jpg",
   mediaType = "image/jpeg",
-  bytes: Uint8Array = new Uint8Array([1, 2, 3]),
+  bytes?: Uint8Array,
 ) {
-  return { fileName, mediaType, bytes };
+  return { fileName, mediaType, bytes: bytes ?? sampleBytes(fileName) };
 }
 
 describe("createFinding", () => {
+  it("stores a HEIC photo whose major brand is mif1 and heic is compatible", async () => {
+    const deps = dependencies();
+    const bytes = new Uint8Array([
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x69, 0x66, 0x31,
+      0x00, 0x00, 0x00, 0x00, 0x68, 0x65, 0x69, 0x63,
+    ]);
+
+    const result = await createFinding(
+      {
+        orgId,
+        fields,
+        photos: [photo("bay.heic", "image/heic", bytes)],
+      },
+      deps,
+    );
+
+    expect(result.photos[0]?.mimeType).toBe("image/heic");
+    expect(deps.events.some((event) => event.startsWith("put"))).toBe(true);
+    expect(deps.inserted).toHaveLength(1);
+  });
+
   it("stores org-scoped photos and returns the discovered finding", async () => {
     const deps = dependencies();
 
@@ -270,7 +314,30 @@ describe("createFinding", () => {
       message: "The file extension does not match its media type.",
     });
 
-    for (const deps of [none, tooMany, tooLarge, wrongType, mismatch]) {
+    const disguised = dependencies();
+    await expect(
+      createFinding(
+        {
+          orgId,
+          fields,
+          photos: [photo("bay.jpg", "image/jpeg", PNG_BYTES)],
+        },
+        disguised,
+      ),
+    ).rejects.toMatchObject({
+      code: "unsupported_media_type",
+      status: 415,
+      message: "The file contents do not match its media type.",
+    });
+
+    for (const deps of [
+      none,
+      tooMany,
+      tooLarge,
+      wrongType,
+      mismatch,
+      disguised,
+    ]) {
       expect(deps.events.filter((event) => event.startsWith("put"))).toEqual(
         [],
       );
@@ -311,6 +378,9 @@ describe("createFinding", () => {
           return { key: "disk/first" };
         },
         async get() {
+          return null;
+        },
+        async read() {
           return null;
         },
         async delete(key) {

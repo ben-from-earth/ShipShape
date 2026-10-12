@@ -179,7 +179,7 @@ A blank optional field is omitted. Omitted `zone` and `locationLabel` are stored
 
 The client does not send `code`. `createFindingFieldsSchema` rejects it. The handler does not assign `MAX(code) + 1`. It sets `issues.code` with `nextIssueCodeSql()` in the insert batch (`src/db/issue-code.ts`): `ISS-` plus the sequence integer, padded to at least four digits. The first allocated code is `ISS-1002`. The 201 body returns that text, at most 64 characters. `created_at` and `updated_at` come from the database.
 
-Each photo is checked the way a document file is checked: non-empty, at most 15 MB, extension and media type present and in agreement. An empty photo or a missing media type is `validation_error`. A photo over the cap is `payload_too_large`. An extension or media type that is missing from the list, or that disagrees with the other, is `unsupported_media_type`. More than 10 photos is `too_many_photos`. Zero photos is `validation_error`.
+Each photo is checked the way a document file is checked: non-empty, at most 15 MB, extension and media type present and in agreement. An empty photo or a missing media type is `validation_error`. A photo over the cap is `payload_too_large`. An extension or media type that is missing from the list, or that disagrees with the other, is `unsupported_media_type`. The leading bytes must match that stored type: JPEG (`FF D8 FF`), PNG, WebP (`RIFF` / `WEBP`), or an HEIC/HEIF `ftyp` box. A `heic` brand matches HEIC whether it is the major brand or a compatible brand. Major brands `mif1` and `msf1` match both HEIC and HEIF. A mismatch is `unsupported_media_type`, and nothing is stored. More than 10 photos is `too_many_photos`. Zero photos is `validation_error`.
 
 `findingPhotoSchema` is one `issue_media` row, and only columns that table already has: `id`, `issueId`, `storageKey`, `mimeType`, `caption`, `uploadedBy`, `createdAt`, `updatedAt`. `storageKey` is the key `ObjectStorage.put` returns. The client does not choose it. There is no column for the original file name or the byte length, and this contract does not add one. This request has no caption field, so `caption` is null. `uploadedBy` is null until sessions exist (#13).
 
@@ -189,7 +189,7 @@ The handler then inserts three things in one Neon `db.batch` transaction: the `i
 
 If validation fails, nothing is stored. If a later `put` fails, photos already stored for this request are deleted. If the insert fails, every stored photo is deleted.
 
-Local development can use `createLocalDiskStorage()`. Replacing that with another `ObjectStorage` (`put`, `get`, `delete`) does not change this contract. `Content-Length` larger than 10 photos of 15 MB each, plus multipart framing, is `payload_too_large`.
+Local development can use `createLocalDiskStorage()`. Replacing that with another `ObjectStorage` (`put`, `get`, `delete`, `read`) does not change this contract. `Content-Length` is checked before the body is read. Larger than 10 photos of 15 MB each, plus 64 KiB for the text fields and multipart framing, is `payload_too_large`. The parser also stops as parts arrive: an 11th photo is `too_many_photos`, and a photo that passes 15 MB is `payload_too_large`. The rest of the body is not read.
 
 `201` body (`createFindingResultSchema`):
 
@@ -243,11 +243,11 @@ Failures use `apiErrorSchema`:
 | 400  | `validation_error`       | Not multipart, bad text fields, a missing or unknown severity, an unknown field such as `title`, `notes`, or `groupId`, bad location JSON, no photos, empty photo, missing media type, or unknown user |
 | 404  | `asset_not_found`        | `assetId` is not an asset in that organization                                                                                                                                                         |
 | 400  | `too_many_photos`        | More than 10 photos                                                                                                                                                                                    |
-| 413  | `payload_too_large`      | A photo is over 15 MB, or `Content-Length` cannot fit 10 photos of that size plus multipart framing                                                                                                    |
-| 415  | `unsupported_media_type` | Extension or media type is not in the photo list, or they disagree                                                                                                                                     |
+| 413  | `payload_too_large`      | A photo is over 15 MB, or `Content-Length` is over 10 photos of 15 MB plus 64 KiB for fields and framing. The body is not buffered past that cap                                                       |
+| 415  | `unsupported_media_type` | Extension or media type is not in the photo list, they disagree, or the leading bytes do not match the stored type                                                                                     |
 | 500  | `internal_error`         | Anything else. `message` is `Something went wrong.` The response does not include the underlying error                                                                                                 |
 
-Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findings.ts`. Findings add only `asset_not_found` and `too_many_photos`. `validation_error`, `payload_too_large`, and `unsupported_media_type` are the codes document routes already use. `internal_error` stays 500.
+Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findings.ts`. Findings add `asset_not_found`, `too_many_photos`, and `not_found`. `validation_error`, `payload_too_large`, and `unsupported_media_type` are the codes document routes already use. `internal_error` stays 500.
 
 ## Fields the intake form collects that this request does not accept
 
@@ -260,3 +260,27 @@ Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findi
 | Notes        | `notes`                                 | Dropped. Description is the write-up. Do not send `notes`                                                                                       |
 
 `issues.code` is allocated by `issue_code_seq` through `nextIssueCodeSql()`. This contract does not allocate it with `MAX(code) + 1`.
+
+## GET /api/findings/{id}/photos/{mediaId}
+
+Streams one photo. The handler does not redirect to a public URL or a signed URL. `x-org-id` is the same temporary organization header as the other finding and document routes.
+
+`id` is the finding (`issues.id`). `mediaId` is `issue_media.id`. Both must be UUIDs. The handler loads the photo with `getFindingMedia(findingId, mediaId)`, which returns `{ storageKey, contentType, size }` or null. Null means the media is not on that finding, or the finding is outside the organization. This route does not query `issue_media` or `assets` itself. A missing finding, another organization, and a media id from a different finding all return the same 404. The body does not say which check failed.
+
+`200` streams `ObjectStorage.read(storageKey)`. `Content-Type` is `contentType` from that reader (the stored `issue_media.mime_type`). `size` is not a response header. The response headers are:
+
+| Header                   | Value                  |
+| ------------------------ | ---------------------- |
+| `Content-Type`           | reader's `contentType` |
+| `Cache-Control`          | `private`              |
+| `X-Content-Type-Options` | `nosniff`              |
+
+If the reader returns a row but the stored object is missing, the response is the same 404.
+
+| HTTP | `error.code`           | When                                                                                                      |
+| ---- | ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| 400  | `invalid_org_id`       | `x-org-id` is missing or not a UUID                                                                       |
+| 400  | `unknown_organization` | `x-org-id` is a UUID and no organization has that id                                                      |
+| 400  | `validation_error`     | `id` or `mediaId` is not a UUID                                                                           |
+| 404  | `not_found`            | The finding is not in the organization, the media is not on that finding, or the stored bytes are missing |
+| 500  | `internal_error`       | Anything else. `message` is `Something went wrong.`                                                       |

@@ -172,16 +172,31 @@ describe("POST /api/findings", () => {
   });
 
   it("returns 413 before reading an oversized body", async () => {
-    const response = await POST(
-      findingRequest({
-        contentType: "multipart/form-data; boundary=test",
-        contentLength: String(MAX_FINDING_UPLOAD_BYTES + 1),
-      }),
-    );
+    let reads = 0;
+    const stream = new ReadableStream({
+      pull(controller) {
+        reads += 1;
+        controller.enqueue(new Uint8Array([1]));
+      },
+    });
+    const request = new Request("http://localhost/api/findings", {
+      method: "POST",
+      headers: {
+        "x-org-id": orgId,
+        "content-type": "multipart/form-data; boundary=test",
+        "content-length": String(MAX_FINDING_UPLOAD_BYTES + 1),
+      },
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    await Promise.resolve();
+    const readsBefore = reads;
+    const response = await POST(request);
     const body = apiErrorSchema.parse(await response.json());
 
     expect(response.status).toBe(413);
     expect(body.error.code).toBe("payload_too_large");
+    expect(reads).toBe(readsBefore);
     expect(create).not.toHaveBeenCalled();
   });
 

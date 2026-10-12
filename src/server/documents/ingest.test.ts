@@ -32,6 +32,9 @@ function dependencies(
     async get() {
       return null;
     },
+    async read() {
+      return null;
+    },
     async delete(key) {
       deleted.push(key);
     },

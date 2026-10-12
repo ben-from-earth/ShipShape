@@ -34,6 +34,21 @@ describe("local disk storage", () => {
     await disk.delete("org/doc");
   });
 
+  it("streams a stored object and treats a missing key as empty", async () => {
+    const disk = await storage();
+    const body = new TextEncoder().encode("fastener line");
+
+    await disk.put("org/issues/finding/photo", body);
+    const stream = await disk.read("org/issues/finding/photo");
+    expect(stream).not.toBeNull();
+    const streamed = new Uint8Array(await new Response(stream).arrayBuffer());
+    expect(streamed).toEqual(body);
+    await expect(disk.read("org/missing")).resolves.toBeNull();
+    await expect(disk.read("../secrets")).rejects.toThrow(
+      /invalid storage key/i,
+    );
+  });
+
   it("rejects keys that leave the storage root", async () => {
     const disk = await storage();
     const body = new Uint8Array([1]);
