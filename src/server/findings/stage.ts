@@ -1,9 +1,6 @@
 import "server-only";
 
-import {
-  advanceStage,
-  type AdvanceStageInput,
-} from "@/features/findings/advance-stage";
+import { advanceStage } from "@/features/findings/advance-stage";
 import {
   advanceFindingStageFieldsSchema,
   advanceFindingStageResultSchema,
@@ -40,9 +37,7 @@ export async function changeFindingStage(
     orgId: input.orgId,
     findingId,
     toStage,
-    // AdvanceStageInput.actorId is still `string`. Drop this cast once it
-    // is `string | null` and null is written to `changed_by`.
-    actorId: actorId as AdvanceStageInput["actorId"],
+    actorId,
   });
 
   switch (result.kind) {
