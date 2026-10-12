@@ -2,6 +2,7 @@ import { DEMO_ASSET_GROUP_NAME } from "@/config/demo";
 
 export const APP_NAV = [
   { label: "Dashboard", href: "/dashboard" },
+  { label: "Findings", href: "/findings" },
   { label: "Engineering", href: "/engineering" },
   { label: "Docs", href: "/docs" },
   { label: "Tools", href: "/tools" },
@@ -39,8 +40,26 @@ export function crumbsForPath(pathname: string): Crumb[] {
     return [assetGroup, currentGroup, { label: "Tools" }];
   }
 
-  if (pathname === "/findings" || pathname.startsWith("/findings/")) {
-    return [assetGroup, currentGroup, { label: "New finding" }];
+  if (pathname === "/findings/new") {
+    return [
+      assetGroup,
+      currentGroup,
+      { label: "Findings", href: "/findings" },
+      { label: "New finding" },
+    ];
+  }
+
+  if (pathname === "/findings") {
+    return [assetGroup, currentGroup, { label: "Findings" }];
+  }
+
+  if (pathname.startsWith("/findings/")) {
+    return [
+      assetGroup,
+      currentGroup,
+      { label: "Findings", href: "/findings" },
+      { label: "Finding" },
+    ];
   }
 
   return [assetGroup, { label: DEMO_ASSET_GROUP_NAME }];

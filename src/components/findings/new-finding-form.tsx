@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   useEffect,
   useMemo,
@@ -22,7 +23,6 @@ import {
 } from "@/config/findings";
 import { SEVERITIES, type Severity } from "@/config/severity";
 import { createFinding, FindingRequestError } from "@/features/findings/client";
-import type { CreateFindingResult } from "@/schemas";
 import {
   FINDING_ASSETS,
   FINDING_ASSET_GROUPS,
@@ -48,6 +48,7 @@ const inputClass =
   "w-full border border-line-strong bg-surface px-3 py-3 text-base text-ink outline-none placeholder:text-ink-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
 
 export function NewFindingForm() {
+  const router = useRouter();
   const [groupId, setGroupId] = useState("");
   const [query, setQuery] = useState("");
   const [assetId, setAssetId] = useState("");
@@ -61,7 +62,6 @@ export function NewFindingForm() {
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [created, setCreated] = useState<CreateFindingResult | null>(null);
   const photosRef = useRef(photos);
 
   const group = FINDING_ASSET_GROUPS.find((item) => item.id === groupId);
@@ -114,7 +114,6 @@ export function NewFindingForm() {
     if (incoming.length === 0) {
       return;
     }
-    setCreated(null);
     setSubmitError(null);
     setPhotos((current) => {
       const next = [...current];
@@ -147,7 +146,6 @@ export function NewFindingForm() {
     const next = findingErrors(draft());
     setErrors(next);
     setSubmitError(null);
-    setCreated(null);
     if (Object.keys(next).length > 0) {
       return;
     }
@@ -158,10 +156,9 @@ export function NewFindingForm() {
         draft(),
         photos.map((photo) => photo.file),
       );
-      setCreated(result);
+      router.push(`/findings/${result.id}`);
     } catch (caught) {
       setSubmitError(visibleError(caught));
-    } finally {
       setPending(false);
     }
   }
@@ -384,11 +381,6 @@ export function NewFindingForm() {
       {submitError ? (
         <p className="text-body text-accent" role="alert">
           {submitError}
-        </p>
-      ) : null}
-      {created ? (
-        <p className="text-body text-ink" role="status">
-          Recorded {created.code} at stage {created.stage}.
         </p>
       ) : null}
       <Button
