@@ -216,14 +216,17 @@ ALTER TABLE "tool_runs" ADD CONSTRAINT "tool_runs_analysis_id_analyses_id_fk" FO
 ALTER TABLE "tool_runs" ADD CONSTRAINT "tool_runs_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_org_id_organizations_id_fk" FOREIGN KEY ("org_id") REFERENCES "public"."organizations"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "activity_entity_idx" ON "activity_log" USING btree ("entity_type","entity_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "analyses_code_uq" ON "analyses" USING btree ("code");--> statement-breakpoint
 CREATE INDEX "analyses_status_idx" ON "analyses" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "analyses_owner_idx" ON "analyses" USING btree ("owner_id");--> statement-breakpoint
 CREATE INDEX "analysis_cases_analysis_idx" ON "analysis_cases" USING btree ("analysis_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "assets_org_identifier_uq" ON "assets" USING btree ("org_id","identifier");--> statement-breakpoint
 CREATE UNIQUE INDEX "chunks_doc_idx_uq" ON "document_chunks" USING btree ("document_id","index");--> statement-breakpoint
 CREATE INDEX "chunks_embedding_hnsw" ON "document_chunks" USING hnsw ("embedding" vector_cosine_ops);--> statement-breakpoint
+CREATE UNIQUE INDEX "issues_code_uq" ON "issues" USING btree ("code");--> statement-breakpoint
 CREATE INDEX "issues_asset_idx" ON "issues" USING btree ("asset_id");--> statement-breakpoint
 CREATE INDEX "issues_stage_idx" ON "issues" USING btree ("stage");--> statement-breakpoint
 CREATE UNIQUE INDEX "repair_rev_uq" ON "repair_revisions" USING btree ("repair_id","rev");--> statement-breakpoint
+CREATE UNIQUE INDEX "repairs_code_uq" ON "repairs" USING btree ("code");--> statement-breakpoint
 CREATE INDEX "stage_transitions_issue_idx" ON "stage_transitions" USING btree ("issue_id","changed_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "users_email_uq" ON "users" USING btree ("email");

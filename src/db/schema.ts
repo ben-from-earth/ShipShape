@@ -182,7 +182,7 @@ export const issues = pgTable(
   "issues",
   {
     id: id(),
-    /** Human id shown in the UI. */
+    /** Human id shown in the UI. Unique across all organizations. */
     code: text("code").notNull(),
     assetId: uuid("asset_id")
       .notNull()
@@ -201,6 +201,7 @@ export const issues = pgTable(
     ...timestamps(),
   },
   (table) => [
+    uniqueIndex("issues_code_uq").on(table.code),
     index("issues_asset_idx").on(table.assetId),
     index("issues_stage_idx").on(table.stage),
   ],
@@ -219,17 +220,22 @@ export const issueMedia = pgTable("issue_media", {
   ...timestamps(),
 });
 
-export const repairs = pgTable("repairs", {
-  id: id(),
-  code: text("code").notNull(),
-  issueId: uuid("issue_id")
-    .notNull()
-    .references(() => issues.id),
-  title: text("title").notNull(),
-  /** Free label, for example "doubler" or "replacement". */
-  type: text("type"),
-  ...timestamps(),
-});
+export const repairs = pgTable(
+  "repairs",
+  {
+    id: id(),
+    /** Human id shown in the UI. Unique across all organizations. */
+    code: text("code").notNull(),
+    issueId: uuid("issue_id")
+      .notNull()
+      .references(() => issues.id),
+    title: text("title").notNull(),
+    /** Free label, for example "doubler" or "replacement". */
+    type: text("type"),
+    ...timestamps(),
+  },
+  (table) => [uniqueIndex("repairs_code_uq").on(table.code)],
+);
 
 export const repairRevisions = pgTable(
   "repair_revisions",
@@ -251,6 +257,7 @@ export const analyses = pgTable(
   "analyses",
   {
     id: id(),
+    /** Human id shown in the UI. Unique across all organizations. */
     code: text("code").notNull(),
     repairRevisionId: uuid("repair_revision_id")
       .notNull()
@@ -263,6 +270,7 @@ export const analyses = pgTable(
     ...timestamps(),
   },
   (table) => [
+    uniqueIndex("analyses_code_uq").on(table.code),
     index("analyses_status_idx").on(table.status),
     index("analyses_owner_idx").on(table.ownerId),
   ],

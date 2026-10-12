@@ -1,5 +1,5 @@
 {
-  "id": "c5f88591-d068-4155-be70-8b1daa0cf7ab",
+  "id": "46462095-04ec-4980-bb99-d157d8a9b995",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -187,6 +187,21 @@
         }
       },
       "indexes": {
+        "analyses_code_uq": {
+          "name": "analyses_code_uq",
+          "columns": [
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "analyses_status_idx": {
           "name": "analyses_status_idx",
           "columns": [
@@ -990,6 +1005,21 @@
         }
       },
       "indexes": {
+        "issues_code_uq": {
+          "name": "issues_code_uq",
+          "columns": [
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "issues_asset_idx": {
           "name": "issues_asset_idx",
           "columns": [
@@ -1259,7 +1289,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "repairs_code_uq": {
+          "name": "repairs_code_uq",
+          "columns": [
+            {
+              "expression": "code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "repairs_issue_id_issues_id_fk": {
           "name": "repairs_issue_id_issues_id_fk",

@@ -28,6 +28,8 @@ Seventeen tables. Drizzle relations in `src/db/relations.ts` back `getDb().query
 | `documents`         | Uploaded reference file and its indexing status.                                                                                                                                                                         |
 | `document_chunks`   | Chunk text plus a 384-dimension L2-normalized embedding from all-MiniLM-L6-v2. Cosine HNSW index on `embedding`. Columns match `DocumentChunk`: `index`, `text`, `start_offset`, `end_offset`, `page_start`, `page_end`. |
 
+Issues, repairs, and analyses have no `org_id`. Tenant scoping for those rows goes through `assets.org_id`: an issue belongs to its asset, a repair to its issue, and an analysis to its repair revision.
+
 `updated_at` is `now()` in the database, and Drizzle refreshes it on update. Append-only tables (`stage_transitions`, `activity_log`) and rows that are replaced as a set (`analysis_people`, `document_chunks`) do not have it. A raw SQL update does not touch `updated_at`.
 
 ## Migration workflow

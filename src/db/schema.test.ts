@@ -13,8 +13,11 @@ import { DOCUMENT_EMBEDDING_DIMENSIONS } from "@/schemas";
 import * as relations from "./relations";
 import {
   DOCUMENT_CHUNK_EMBEDDING_DIMENSIONS,
+  analyses,
   assets,
   documentChunks,
+  issues,
+  repairs,
 } from "./schema";
 import * as schema from "./schema";
 
@@ -57,6 +60,21 @@ describe("database schema", () => {
       const column = config.columns.find((entry) => entry.name === name);
       expect(column?.getSQLType()).toBe("integer");
       expect(column?.notNull).toBe(false);
+    }
+  });
+
+  it("keeps issue, repair, and analysis codes unique", () => {
+    const expected = [
+      [issues, "issues_code_uq"],
+      [repairs, "repairs_code_uq"],
+      [analyses, "analyses_code_uq"],
+    ] as const;
+
+    for (const [table, name] of expected) {
+      const unique = getTableConfig(table).indexes.find(
+        (entry) => entry.config.name === name,
+      );
+      expect(unique?.config.unique).toBe(true);
     }
   });
 
