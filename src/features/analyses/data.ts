@@ -5,8 +5,8 @@ import type { AnalysisRecord } from "./types";
 
 /**
  * Analysis list. Swap this read for a query later and keep the
- * `AnalysisRecord[]` return type.
+ * `Promise<AnalysisRecord[]>` return type.
  */
-export function listAnalyses(): AnalysisRecord[] {
+export async function listAnalyses(): Promise<AnalysisRecord[]> {
   return ANALYSES.map((record) => ({ ...record }));
 }

@@ -27,9 +27,11 @@ const PERIODS: readonly DashboardPeriod[] = ["30D", "90D", "12M"];
 
 /**
  * Dashboard view model. Swap the fixture reads for queries later;
- * keep the `DashboardModel` return type so the page components stay put.
+ * the promise and `DashboardModel` stay so the page does not change.
  */
-export function getDashboard(period: DashboardPeriod): DashboardModel {
+export async function getDashboard(
+  period: DashboardPeriod,
+): Promise<DashboardModel> {
   const throughput = PERIOD_THROUGHPUT[period];
 
   return {
@@ -49,11 +51,19 @@ export function getDashboard(period: DashboardPeriod): DashboardModel {
   };
 }
 
-export function getDashboards(): Record<DashboardPeriod, DashboardModel> {
+export async function getDashboards(): Promise<
+  Record<DashboardPeriod, DashboardModel>
+> {
+  const [thirty, ninety, year] = await Promise.all([
+    getDashboard("30D"),
+    getDashboard("90D"),
+    getDashboard("12M"),
+  ]);
+
   return {
-    "30D": getDashboard("30D"),
-    "90D": getDashboard("90D"),
-    "12M": getDashboard("12M"),
+    "30D": thirty,
+    "90D": ninety,
+    "12M": year,
   };
 }
 

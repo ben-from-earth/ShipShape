@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: "Dashboard",
 };
 
-export default function DashboardPage() {
-  return <DashboardView periods={getDashboards()} />;
+export default async function DashboardPage() {
+  const periods = await getDashboards();
+  return <DashboardView periods={periods} />;
 }

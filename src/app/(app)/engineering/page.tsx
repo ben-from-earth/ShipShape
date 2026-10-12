@@ -8,11 +8,10 @@ export const metadata: Metadata = {
   title: "Engineering",
 };
 
-export default function EngineeringPage() {
+export default async function EngineeringPage() {
+  const records = await listAnalyses();
+
   return (
-    <AnalysesView
-      records={listAnalyses()}
-      defaultSelectedId={DEFAULT_ANALYSIS_ID}
-    />
+    <AnalysesView records={records} defaultSelectedId={DEFAULT_ANALYSIS_ID} />
   );
 }
