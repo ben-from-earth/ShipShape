@@ -320,3 +320,47 @@ If the reader returns a row but the stored object is missing, the response is th
 | 400  | `validation_error`     | `id` or `mediaId` is not a UUID                                                                           |
 | 404  | `not_found`            | The finding is not in the organization, the media is not on that finding, or the stored bytes are missing |
 | 500  | `internal_error`       | Anything else. `message` is `Something went wrong.`                                                       |
+
+## POST /api/findings/{id}/repairs
+
+Opens one repair on a finding. `application/json` body. The handler does not accept a file. Creating a repair does not change the finding's stage.
+
+```json
+{
+  "title": "Replace the seal",
+  "type": "weld",
+  "status": "open"
+}
+```
+
+`title` is required. `type` and `status` may be omitted. `type` may be null. `status` is `open`, `in_review`, or `completed`, and `createRepair` stores `open` when it is omitted. `type` is stored as null when it is omitted. An unknown field such as `findingId`, `actorId`, or `code` is `validation_error` and `createRepair` is not called.
+
+`id` is `issues.id` and must be a UUID. A non-UUID is `validation_error`. `x-org-id` is the same temporary organization header as the other finding routes. That id is passed to `createRepair` as `findingId`.
+
+`actorId` is not a body field. Until requests carry a session (#13) it is null, the same stand-in POST /api/findings uses for `uploadedBy`. Null is passed to `createRepair` and stored as NULL on `created_by`. A value that is neither null nor a UUID is `validation_error` and `createRepair` is not called. A UUID that is not a user fails the `created_by` foreign key. That throw is `internal_error`. The response does not include the database error.
+
+`201` is the `ok` repair, the same fields as the repair row:
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440051",
+  "code": "REP-1002",
+  "findingId": "550e8400-e29b-41d4-a716-446655440031",
+  "title": "Replace the seal",
+  "type": "weld",
+  "status": "open",
+  "createdBy": null,
+  "createdAt": "2026-10-12T21:04:00.000Z",
+  "updatedAt": "2026-10-12T21:04:00.000Z"
+}
+```
+
+`code` is allocated by `repair_code_seq` through `nextRepairCodeSql()`. `findingId` is `repairs.issue_id`. `createdBy` is `repairs.created_by`.
+
+| HTTP | `error.code`           | When                                                                                                   |
+| ---- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| 400  | `invalid_org_id`       | `x-org-id` is missing or not a UUID                                                                    |
+| 400  | `unknown_organization` | `x-org-id` is a UUID and no organization has that id                                                   |
+| 400  | `validation_error`     | `id` is not a UUID, the body fields are invalid, or `actorId` is neither null nor a UUID               |
+| 404  | `not_found`            | The finding is missing or its asset is in another organization                                         |
+| 500  | `internal_error`       | Anything else, including a `created_by` user that does not exist. `message` is `Something went wrong.` |
