@@ -56,6 +56,7 @@ src/app/                  Next.js App Router pages and route handlers
 src/app/api/health/       Liveness check
 src/app/(app)/            Shell: dashboard, engineering, docs, tools
 src/components/           Shared UI and the application header
+src/features/             Page view models, demo fixtures, and derived counts
 src/config/               Shared constants (margin threshold, navigation)
 src/schemas/              Zod schemas shared by the UI and the server
 src/schemas/documents.ts  Chunk and search shapes for reference documents
@@ -101,6 +102,8 @@ import { parseDamageReportCreate } from "@/server/damage-reports";
 **Tables cover the repair workflow.** `src/db/schema.ts` holds organizations, people, generic assets, issues, repairs, analyses, reviews, and documents. Assets are not aircraft-specific: `asset_type` is a free label and type-specific fields live in JSON. The table list, migration rules, and restore steps are in [docs/database.md](docs/database.md).
 
 **Document search embeds locally and stores chunks in Postgres.** `extractText()` reads PDF with unpdf, DOCX with mammoth, and plain text or Markdown as UTF-8. `chunkText()` splits that text into overlapping chunks of about 500 tokens, keeping a page span and character offsets. `embed()` and `embedText()` are the only functions that load `Xenova/all-MiniLM-L6-v2` through Transformers.js. They mean-pool and L2-normalize to the 384-dimension vectors named by `DOCUMENT_EMBEDDING_DIMENSIONS`. `document_chunks` stores that `DocumentChunk` shape (`index`, `text`, `startOffset`, `endOffset`, `pageStart`, `pageEnd`) plus the embedding, with a cosine HNSW index. Serving search over HTTP comes later. `pnpm test` mocks the model. Set `RUN_EMBEDDING_MODEL=1` to run the optional test that downloads it.
+
+**Dashboard and the analysis list read demo fixtures.** `getDashboard()` and `listAnalyses()` in `src/features/<domain>/data.ts` return typed view models. The pages render those objects. Swapping the fixture reads for queries later does not require a component change. Stage counts, item age, and minimum margin live in `derive.ts` and are covered by Vitest.
 
 **Low margins use one cutoff until organizations store their own.** `LOW_MARGIN_THRESHOLD` in `src/config/analysis.ts` is `0.10`. A later setting, `organizations.low_margin_threshold`, replaces it per organization. Negative margins stay red either way.
 

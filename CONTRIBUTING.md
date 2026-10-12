@@ -52,13 +52,14 @@ Put `DATABASE_URL` in `.env.local`. That file is gitignored. `.env.example` is t
 
 ## Where to put code
 
-| You are adding…                       | Put it in             |
-| ------------------------------------- | --------------------- |
-| A shape the UI and the server share   | `src/schemas`         |
-| Server behavior for one workflow step | `src/server/<domain>` |
-| Tables or the database client         | `src/db`              |
-| A page or a route handler             | `src/app`             |
-| A shared component                    | `src/components`      |
-| An app-wide constant                  | `src/config`          |
+| You are adding…                       | Put it in               |
+| ------------------------------------- | ----------------------- |
+| A shape the UI and the server share   | `src/schemas`           |
+| Server behavior for one workflow step | `src/server/<domain>`   |
+| Tables or the database client         | `src/db`                |
+| A page or a route handler             | `src/app`               |
+| A shared component                    | `src/components`        |
+| A page's view model and demo fixtures | `src/features/<domain>` |
+| An app-wide constant                  | `src/config`            |
 
 Domains already in the tree: `damage-reports`, `repairs`, `analyses`, `reviews`, `documents`.

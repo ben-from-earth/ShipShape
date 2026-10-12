@@ -1,3 +1,5 @@
+import { DEMO_ASSET_GROUP_NAME } from "@/config/demo";
+
 export const APP_NAV = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Engineering", href: "/engineering" },
@@ -13,27 +15,31 @@ export type Crumb = {
 };
 
 const assetGroup: Crumb = { label: "Asset group", href: "/dashboard" };
-const asset: Crumb = { label: "Asset", href: "/dashboard" };
+
+/** Current group name. Demo data until a selected asset group exists. */
+const currentGroup: Crumb = {
+  label: DEMO_ASSET_GROUP_NAME,
+  href: "/dashboard",
+};
 
 /**
- * Breadcrumbs stay domain-agnostic: "Asset group / Asset", never a
- * vehicle-specific taxonomy. T-45 and similar names belong in demo
- * content, not in these labels.
+ * Breadcrumbs use domain terms: "Asset group", then the current group's
+ * name, then the section. The name comes from demo data.
  */
 export function crumbsForPath(pathname: string): Crumb[] {
   if (pathname === "/engineering" || pathname.startsWith("/engineering/")) {
-    return [assetGroup, asset, { label: "Engineering" }];
+    return [assetGroup, currentGroup, { label: "Engineering" }];
   }
 
   if (pathname === "/docs" || pathname.startsWith("/docs/")) {
-    return [assetGroup, asset, { label: "Docs" }];
+    return [assetGroup, currentGroup, { label: "Docs" }];
   }
 
   if (pathname === "/tools" || pathname.startsWith("/tools/")) {
-    return [assetGroup, asset, { label: "Tools" }];
+    return [assetGroup, currentGroup, { label: "Tools" }];
   }
 
-  return [assetGroup, { label: "Asset" }];
+  return [assetGroup, { label: DEMO_ASSET_GROUP_NAME }];
 }
 
 export function isNavActive(pathname: string, href: AppHref): boolean {
