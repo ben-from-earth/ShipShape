@@ -306,6 +306,54 @@ describe.skipIf(!enabled)("advanceStage", () => {
     expect(await historyFor(db, finding)).toHaveLength(1);
   });
 
+  it("writes changed_by NULL when actorId is null", async () => {
+    const org = uid(1);
+    const finding = uid(2);
+    await seedFinding(db, { org, finding, asset: uid(3), actor: uid(4) });
+
+    const result = await advanceStage(
+      {
+        orgId: org,
+        findingId: finding,
+        toStage: "repair_defined",
+        actorId: null,
+      },
+      db,
+    );
+
+    expect(result.kind).toBe("ok");
+    if (result.kind !== "ok") {
+      return;
+    }
+    expect(result.stage).toBe("repair_defined");
+    expect(result.transition.changedBy).toBeNull();
+
+    const history = await historyFor(db, finding);
+    expect(history).toHaveLength(1);
+    expect(history[0]?.changedBy).toBeNull();
+  });
+
+  it("throws for a non-UUID actor and does not write", async () => {
+    const org = uid(1);
+    const finding = uid(2);
+    await seedFinding(db, { org, finding, asset: uid(3), actor: uid(4) });
+
+    await expect(
+      advanceStage(
+        {
+          orgId: org,
+          findingId: finding,
+          toStage: "repair_defined",
+          actorId: "not-a-uuid",
+        },
+        db,
+      ),
+    ).rejects.toThrow("actorId must be a UUID.");
+
+    expect(await stageOf(db, finding)).toBe("discovered");
+    expect(await historyFor(db, finding)).toEqual([]);
+  });
+
   it("rolls the stage change back when the actor does not exist", async () => {
     const org = uid(1);
     const finding = uid(2);
