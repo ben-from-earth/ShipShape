@@ -8,14 +8,18 @@ import {
 } from "drizzle-orm/relations";
 import { describe, expect, it } from "vitest";
 
+import { SEVERITIES } from "@/config/severity";
 import { DOCUMENT_EMBEDDING_DIMENSIONS } from "@/schemas";
 
 import * as relations from "./relations";
 import {
   DOCUMENT_CHUNK_EMBEDDING_DIMENSIONS,
+  ISSUE_CODE_SEQUENCE_START,
   analyses,
   assets,
   documentChunks,
+  issueCodeSeq,
+  issueSeverity,
   issues,
   repairs,
 } from "./schema";
@@ -61,6 +65,58 @@ describe("database schema", () => {
       expect(column?.getSQLType()).toBe("integer");
       expect(column?.notNull).toBe(false);
     }
+  });
+
+  it("starts the issue code sequence past the demo seed", () => {
+    expect(issueCodeSeq.seqName).toBe("issue_code_seq");
+    expect(issueCodeSeq.seqOptions?.startWith).toBe(ISSUE_CODE_SEQUENCE_START);
+    expect(issueCodeSeq.seqOptions?.increment).toBe(1);
+    expect(ISSUE_CODE_SEQUENCE_START).toBe(1002);
+  });
+
+  it("adds the issue code sequence without a destructive statement", () => {
+    const migrationsDir = path.join(process.cwd(), "migrations");
+    const sqlText = readFileSync(
+      path.join(migrationsDir, "0001_issue_code_seq.sql"),
+      "utf8",
+    );
+
+    expect(sqlText).toContain(
+      'CREATE SEQUENCE "public"."issue_code_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1002 CACHE 1;',
+    );
+    expect(sqlText).toContain("SELECT setval(");
+    expect(sqlText).toContain("1001::bigint");
+    expect(sqlText).toContain("'^ISS-([0-9]+)$'");
+    expect(sqlText).not.toMatch(/\bDROP\b/i);
+    expect(sqlText).not.toMatch(/\bALTER TABLE\b/i);
+  });
+
+  it("requires issue severity from the shared list and stores no default", () => {
+    expect(issueSeverity.enumName).toBe("issue_severity");
+    expect(issueSeverity.enumValues).toEqual([...SEVERITIES]);
+    expect("SEVERITIES" in schema).toBe(false);
+
+    const column = getTableConfig(issues).columns.find(
+      (entry) => entry.name === "severity",
+    );
+    expect(column?.getSQLType()).toBe("issue_severity");
+    expect(column?.notNull).toBe(true);
+    expect(column?.hasDefault).toBe(false);
+
+    const sqlText = readFileSync(
+      path.join(process.cwd(), "migrations", "0002_issue_severity.sql"),
+      "utf8",
+    );
+    expect(sqlText).toContain(
+      "CREATE TYPE \"public\".\"issue_severity\" AS ENUM('low', 'medium', 'high', 'critical');",
+    );
+    expect(sqlText).toContain(
+      'ADD COLUMN "severity" "issue_severity" DEFAULT \'medium\' NOT NULL;',
+    );
+    expect(sqlText).toContain(
+      'ALTER TABLE "issues" ALTER COLUMN "severity" DROP DEFAULT;',
+    );
+    expect(sqlText).not.toMatch(/DROP\s+(TABLE|COLUMN|TYPE)\b/i);
   });
 
   it("keeps issue, repair, and analysis codes unique", () => {

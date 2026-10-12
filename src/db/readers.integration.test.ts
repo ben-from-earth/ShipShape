@@ -192,6 +192,7 @@ describe.skipIf(!enabled)("database-backed readers", () => {
       {
         id: issueOld,
         code: "IS-1",
+        severity: "medium",
         assetId: assetDown,
         zone: "Tail",
         description: "Old crack",
@@ -201,6 +202,7 @@ describe.skipIf(!enabled)("database-backed readers", () => {
       {
         id: issueRepair,
         code: "IS-2",
+        severity: "medium",
         assetId: assetUp,
         zone: "Tail",
         description: "Repair defined",
@@ -210,6 +212,7 @@ describe.skipIf(!enabled)("database-backed readers", () => {
       {
         id: issueRework,
         code: "IS-3",
+        severity: "high",
         assetId: assetUp,
         zone: "Wing",
         description: "Negative margin",
@@ -220,6 +223,7 @@ describe.skipIf(!enabled)("database-backed readers", () => {
       {
         id: issueReview,
         code: "IS-4",
+        severity: "medium",
         assetId: assetUp,
         zone: "Wing",
         description: "In review",
@@ -229,6 +233,7 @@ describe.skipIf(!enabled)("database-backed readers", () => {
       {
         id: issueLow,
         code: "IS-5",
+        severity: "low",
         assetId: assetUp,
         zone: "Keel",
         description: "Low margin",
@@ -238,6 +243,7 @@ describe.skipIf(!enabled)("database-backed readers", () => {
       {
         id: issueApproved,
         code: "IS-6",
+        severity: "medium",
         assetId: assetUp,
         zone: "Nose",
         description: "Approved",
@@ -247,6 +253,7 @@ describe.skipIf(!enabled)("database-backed readers", () => {
       {
         id: issueOther,
         code: "IS-B",
+        severity: "medium",
         assetId: otherAsset,
         zone: "Tail",
         description: "Other tenant",

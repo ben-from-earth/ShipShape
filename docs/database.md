@@ -14,7 +14,7 @@ Seventeen tables. Drizzle relations in `src/db/relations.ts` back `getDb().query
 | `users`             | Person in an organization, with one role. Email is unique.                                                                                                                                                               |
 | `asset_groups`      | Named set of repairable things, with a free `asset_type`.                                                                                                                                                                |
 | `assets`            | One repairable thing. Identifier is unique per organization. `attributes` holds type-specific fields. `out_of_service` is a boolean.                                                                                     |
-| `issues`            | Field damage report. `stage` moves from `discovered` through `closed`. `location` is structured JSON; `location_label` is the human text.                                                                                |
+| `issues`            | Field damage report. `stage` moves from `discovered` through `closed`. `severity` is required (`low`, `medium`, `high`, `critical`). `location` is structured JSON; `location_label` is the human text.                  |
 | `issue_media`       | File pointer for a photo or other attachment. Bytes stay in object storage.                                                                                                                                              |
 | `repairs`           | Repair opened from an issue.                                                                                                                                                                                             |
 | `repair_revisions`  | One revision of a repair (`A`, `B`, …). Unique per repair.                                                                                                                                                               |
@@ -29,6 +29,46 @@ Seventeen tables. Drizzle relations in `src/db/relations.ts` back `getDb().query
 | `document_chunks`   | Chunk text plus a 384-dimension L2-normalized embedding from all-MiniLM-L6-v2. Cosine HNSW index on `embedding`. Columns match `DocumentChunk`: `index`, `text`, `start_offset`, `end_offset`, `page_start`, `page_end`. |
 
 Issues, repairs, and analyses have no `org_id`. Tenant scoping for those rows goes through `assets.org_id`: an issue belongs to its asset, a repair to its issue, and an analysis to its repair revision.
+
+## Issue codes
+
+`issues.code` is unique across every organization. The demo seed uses `ISS-1001`. New codes come from the Postgres sequence `issue_code_seq` in `src/db/schema.ts`.
+
+`nextIssueCode(db)` returns the next code. `nextIssueCodeSql()` is that same allocation as a scalar SQL expression, so it can be the `code` value of an insert inside `db.batch`. Both call `nextval` once. The format matches the seed: the prefix `ISS-`, then the decimal integer padded to at least four digits. A longer integer is not truncated.
+
+| Sequence value | Code        |
+| -------------- | ----------- |
+| 1001 (seed)    | `ISS-1001`  |
+| 1002           | `ISS-1002`  |
+| 10000          | `ISS-10000` |
+
+The sequence is created with `START WITH 1002`. Migration `0001_issue_code_seq` then runs `setval` to the greater of `1001` and the highest existing `ISS-` number. The next `nextval` is that value plus one, so it does not collide with the seed row or with a higher code already stored. Overlapping calls receive different values. A rolled-back transaction does not put its value back.
+
+```ts
+import { getDb } from "@/db";
+import { nextIssueCode, nextIssueCodeSql } from "@/db/issue-code";
+import { issues } from "@/db/schema";
+
+const code = await nextIssueCode(getDb());
+
+const db = getDb();
+await db.batch([
+  db.insert(issues).values({
+    code: nextIssueCodeSql(),
+    assetId,
+    severity: "high",
+    description,
+  }),
+]);
+```
+
+`src/db/issue-code.integration.test.ts` checks concurrent calls against a loopback database only. CI runs it on the `pgvector/pgvector:pg17` service after migrations are applied. `openIntegrationDatabase` refuses any host that is not loopback, so a Neon URL is never opened.
+
+## Issue severity
+
+`issues.severity` is required. The values live in `src/config/severity.ts` as `SEVERITIES`: `low`, `medium`, `high`, `critical`. That file imports nothing, so client code can use it. `issueSeverity` in `src/db/schema.ts` is `pgEnum("issue_severity", SEVERITIES)`. The database module does not export a second copy of the list.
+
+Migration `0002_issue_severity` adds the column as `NOT NULL DEFAULT 'medium'`, which backfills every existing row, then drops the default. Inserts after that must set `severity`. The demo seed sets the canopy-sill crack to `high`. A row that already existed when the migration ran stays `medium`; seeding again does not overwrite it.
 
 `updated_at` is `now()` in the database, and Drizzle refreshes it on update. Append-only tables (`stage_transitions`, `activity_log`) and rows that are replaced as a set (`analysis_people`, `document_chunks`) do not have it. A raw SQL update does not touch `updated_at`.
 

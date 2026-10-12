@@ -118,6 +118,16 @@ jobs:
         env:
           RUN_DB_INTEGRATION: "1"
 
+      - name: Prove concurrent issue codes are distinct
+        run: pnpm exec vitest run src/db/issue-code.integration.test.ts
+        env:
+          RUN_DB_INTEGRATION: "1"
+
+      - name: Prove issue severity backfill
+        run: pnpm exec vitest run src/db/severity.integration.test.ts
+        env:
+          RUN_DB_INTEGRATION: "1"
+
       - name: Prove pgvector and the cosine HNSW index
         run: |
           set -euo pipefail

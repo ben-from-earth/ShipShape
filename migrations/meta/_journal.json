@@ -8,6 +8,20 @@
       "when": 1791833870755,
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791838709890,
+      "tag": "0001_issue_code_seq",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791838987789,
+      "tag": "0002_issue_severity",
+      "breakpoints": true
     }
   ]
 }

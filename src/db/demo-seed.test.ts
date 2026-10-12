@@ -22,6 +22,7 @@ describe("demo seed", () => {
     expect(demoAsset.orgId).toBe(demoIds.organization);
     expect(demoAsset.outOfService).toBe(false);
     expect(demoIssue.assetId).toBe(demoAsset.id);
+    expect(demoIssue.severity).toBe("high");
     expect(demoDocumentChunk.pageStart).toBe(1);
     expect(demoDocumentChunk.pageEnd).toBe(1);
     expect(demoDocumentChunk.startOffset).toBe(0);

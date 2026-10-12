@@ -7,6 +7,7 @@ import {
   jsonb,
   numeric,
   pgEnum,
+  pgSequence,
   pgTable,
   primaryKey,
   text,
@@ -15,6 +16,8 @@ import {
   uuid,
   vector,
 } from "drizzle-orm/pg-core";
+
+import { SEVERITIES } from "../config/severity";
 
 /**
  * all-MiniLM-L6-v2 output width. Chunks store L2-normalized vectors and
@@ -100,6 +103,9 @@ export const docStatus = pgEnum("doc_status", [
   "failed",
 ]);
 
+/** Same list as `SEVERITIES` in src/config/severity.ts. */
+export const issueSeverity = pgEnum("issue_severity", SEVERITIES);
+
 // ---------- Organizations and people ----------
 
 export const organizations = pgTable("organizations", {
@@ -175,8 +181,24 @@ export const assets = pgTable(
 // ---------- Workflow: issue -> repair -> analysis -> review ----------
 
 /**
+ * Allocates `issues.code`. The demo seed inserts `ISS-1001`, so the first
+ * `nextval` is 1002 (`ISS-1002`). Migration 0001 also `setval`s the sequence
+ * to the highest existing `ISS-` code so a database that already has rows
+ * cannot collide.
+ */
+export const ISSUE_CODE_SEQUENCE_START = 1002;
+
+export const issueCodeSeq = pgSequence("issue_code_seq", {
+  startWith: ISSUE_CODE_SEQUENCE_START,
+  increment: 1,
+});
+
+/**
  * Field report of damage. The product calls this a damage report; the row
  * stays one issue so stage history can follow it from discovery to close.
+ * `code` is a global human id (`ISS-1001`). Allocate new values with
+ * `nextIssueCode` in `src/db/issue-code.ts`, not by picking the next number
+ * in application code.
  */
 export const issues = pgTable(
   "issues",
@@ -193,6 +215,11 @@ export const issues = pgTable(
     /** Structured coordinates. Shape depends on the asset type. */
     location: jsonObject("location"),
     description: text("description").notNull(),
+    /**
+     * Required on insert. There is no database default: migration 0002
+     * backfills existing rows with `medium`, then drops that default.
+     */
+    severity: issueSeverity("severity").notNull(),
     stage: workStage("stage").notNull().default("discovered"),
     reportedBy: uuid("reported_by").references(() => users.id),
     discoveredAt: timestamp("discovered_at", { withTimezone: true })
