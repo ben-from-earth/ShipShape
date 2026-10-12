@@ -118,6 +118,11 @@ jobs:
         env:
           RUN_DB_INTEGRATION: "1"
 
+      - name: Test finding readers
+        run: pnpm exec vitest run src/features/findings/readers.integration.test.ts
+        env:
+          RUN_DB_INTEGRATION: "1"
+
       - name: Prove concurrent issue codes are distinct
         run: pnpm exec vitest run src/db/issue-code.integration.test.ts
         env:

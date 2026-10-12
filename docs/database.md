@@ -70,6 +70,22 @@ await db.batch([
 
 Migration `0002_issue_severity` adds the column as `NOT NULL DEFAULT 'medium'`, which backfills every existing row, then drops the default. Inserts after that must set `severity`. The demo seed sets the canopy-sill crack to `high`. A row that already existed when the migration ran stays `medium`; seeding again does not overwrite it.
 
+## Finding readers
+
+`listFindings`, `getFinding`, and `getFindingMedia` live in `src/features/findings/db.ts`. `src/features/findings/data.ts` re-exports them. With no `DATABASE_URL` they return the demo canopy-sill finding and do not connect.
+
+The organization is the oldest row in `organizations` (lowest id when `created_at` ties). That is the same stand-in the dashboard uses until a session exists (#13). Issues have no `org_id`. Every finding query joins `assets` and keeps `assets.org_id` in the filter, including the photo query.
+
+`listFindings` takes optional `stage`, `severity`, and `assetId`. `stage` is `findingStageSchema`. `severity` is `findingSeveritySchema`, which is `z.enum(SEVERITIES)`. Rows are ordered by `issues.created_at` descending, then `issues.id` descending. Photos for those issues load in one query (`created_at` ascending, then `id` ascending).
+
+A finding record is the `issues` columns the product stores: `id`, `code`, `assetId`, `description`, `severity`, `stage`, `zone`, `locationLabel`, `location`, and `createdAt`. There is no title column and no notes column, so the record does not invent them. `stage` is the `issues.stage` column. The dashboard pipeline counts that column. `stage_transitions` is the history used for age and throughput. A transition that was not copied onto the column does not replace it. The asset summary is `id`, `identifier`, `name`, and the asset group (`id` and `name`, or null when the asset has no group in this organization).
+
+Each photo on a finding record is `mediaId` (the `issue_media` row `id`), `contentType` (`mime_type`), `createdAt`, and `size`. The table has no byte-length column, so `size` is null. The storage key is not on that record, because finding records are read by pages and client components. The reader does not load file bytes and does not build a public URL.
+
+`getFinding` returns null when the id is missing or the issue's asset belongs to another organization. `getFindingMedia(findingId, mediaId)` returns `{ storageKey, contentType, size }` or null when that media row is not on that finding, or the finding is outside the organization.
+
+`src/features/findings/readers.integration.test.ts` runs in CI against the loopback `pgvector/pgvector:pg17` service after migrations. `openIntegrationDatabase` refuses any host that is not loopback.
+
 `updated_at` is `now()` in the database, and Drizzle refreshes it on update. Append-only tables (`stage_transitions`, `activity_log`) and rows that are replaced as a set (`analysis_people`, `document_chunks`) do not have it. A raw SQL update does not touch `updated_at`.
 
 ## Migration workflow

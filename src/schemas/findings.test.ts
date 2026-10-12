@@ -16,8 +16,12 @@ import {
   apiErrorSchema,
   createFindingFieldsSchema,
   createFindingResultSchema,
+  findingListFiltersSchema,
   findingLocationSchema,
+  findingMediaContentSchema,
+  findingPhotoMetaSchema,
   findingPhotoSchema,
+  findingRecordSchema,
   findingSeveritySchema,
   findingStageSchema,
   initialFindingStageTransitionSchema,
@@ -417,6 +421,86 @@ describe("finding API errors", () => {
 describe("findingStageSchema", () => {
   it("matches the work_stage enum", () => {
     expect(findingStageSchema.options).toEqual([...workStage.enumValues]);
+  });
+});
+
+describe("findingRecordSchema", () => {
+  const record = {
+    id: findingId,
+    code: "ISS-1002",
+    assetId,
+    description: "The cover is cracked along the fastener line.",
+    severity: "high" as const,
+    stage: "discovered" as const,
+    zone: "bay 3",
+    locationLabel: "upper fitting",
+    location: { bay: "3" },
+    createdAt: storedAt,
+    asset: {
+      id: assetId,
+      identifier: "CR-1",
+      name: "North crane",
+      assetGroup: { id: orgId, name: "Yard cranes" },
+    },
+    photos: [
+      {
+        mediaId: photoId,
+        contentType: "image/jpeg" as const,
+        size: null,
+        createdAt: storedAt,
+      },
+    ],
+  };
+
+  it("reuses the stage and severity schemas and rejects a title", () => {
+    expect(findingRecordSchema.shape.stage).toBe(findingStageSchema);
+    expect(findingRecordSchema.shape.severity).toBe(findingSeveritySchema);
+    expect(findingRecordSchema.shape.location).toBe(findingLocationSchema);
+    expect([...findingRecordSchema.shape.severity.options]).toEqual([
+      ...SEVERITIES,
+    ]);
+
+    const parsed = findingRecordSchema.parse(record);
+    expect(parsed.photos[0]?.mediaId).toBe(photoId);
+    expect(parsed.photos[0]?.contentType).toBe("image/jpeg");
+    expect(parsed.photos[0]?.size).toBeNull();
+    expect(parsed.photos[0]).not.toHaveProperty("storageKey");
+    expect(parsed).not.toHaveProperty("title");
+    expect(parsed).not.toHaveProperty("notes");
+
+    expect(
+      findingRecordSchema.safeParse({ ...record, title: "Crack" }).success,
+    ).toBe(false);
+    expect(
+      findingRecordSchema.safeParse({ ...record, notes: "see photo" }).success,
+    ).toBe(false);
+    expect(
+      findingPhotoMetaSchema.safeParse({
+        ...record.photos[0],
+        storageKey: `${orgId}/issues/${findingId}/${photoId}`,
+      }).success,
+    ).toBe(false);
+    expect(
+      findingPhotoMetaSchema.safeParse({
+        ...record.photos[0],
+        url: "https://example.com/photo.jpg",
+      }).success,
+    ).toBe(false);
+    expect(
+      findingMediaContentSchema.parse({
+        storageKey: `${orgId}/issues/${findingId}/${photoId}`,
+        contentType: "image/jpeg",
+        size: null,
+      }),
+    ).toEqual({
+      storageKey: `${orgId}/issues/${findingId}/${photoId}`,
+      contentType: "image/jpeg",
+      size: null,
+    });
+    expect(findingListFiltersSchema.parse({}).stage).toBeUndefined();
+    expect(findingListFiltersSchema.safeParse({ stage: "nope" }).success).toBe(
+      false,
+    );
   });
 });
 
