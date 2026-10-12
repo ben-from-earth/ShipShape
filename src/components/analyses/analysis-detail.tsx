@@ -227,7 +227,11 @@ export function AnalysisDetail({
       </section>
 
       <div className="flex gap-2 border-t border-line-soft bg-paper-raised px-[18px] py-3.5">
-        <Button variant="dark" className="flex-1">
+        <Button
+          variant="dark"
+          className="flex-1"
+          href={`/analyses/${encodeURIComponent(record.id)}`}
+        >
           Open analysis
         </Button>
         <Button variant="outline" className="flex-1">

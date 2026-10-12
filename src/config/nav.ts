@@ -33,6 +33,15 @@ export function crumbsForPath(pathname: string): Crumb[] {
     return [assetGroup, currentGroup, { label: "Engineering" }];
   }
 
+  if (pathname === "/analyses" || pathname.startsWith("/analyses/")) {
+    return [
+      assetGroup,
+      currentGroup,
+      { label: "Engineering", href: "/engineering" },
+      { label: "Analysis" },
+    ];
+  }
+
   if (pathname === "/docs" || pathname.startsWith("/docs/")) {
     return [assetGroup, currentGroup, { label: "Docs" }];
   }
@@ -80,5 +89,12 @@ export function crumbsForPath(pathname: string): Crumb[] {
 }
 
 export function isNavActive(pathname: string, href: AppHref): boolean {
+  if (
+    href === "/engineering" &&
+    (pathname === "/analyses" || pathname.startsWith("/analyses/"))
+  ) {
+    return true;
+  }
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }

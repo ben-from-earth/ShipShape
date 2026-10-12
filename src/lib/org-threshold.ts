@@ -42,9 +42,9 @@ export async function readLowMarginThreshold(
 }
 
 /**
- * Standalone cutoff lookup. The dashboard and analyses pages do not
- * call this: they use `TenantSnapshot.threshold` from the one tenant
- * read. Skips the database when `DATABASE_URL` is unset.
+ * Organization cutoff. Skips the database when `DATABASE_URL` is unset
+ * and returns `LOW_MARGIN_THRESHOLD` (0.10). Analysis pages call this
+ * through `src/features/dashboard/data.ts` and pass the number down.
  */
 export async function getLowMarginThreshold(): Promise<number> {
   await io();

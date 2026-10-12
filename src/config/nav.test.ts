@@ -53,6 +53,16 @@ describe("crumbsForPath", () => {
         (crumb) => crumb.label,
       ),
     ).toEqual(["Asset group", DEMO_ASSET_GROUP_NAME, "Repairs", "Repair"]);
+    expect(
+      crumbsForPath("/analyses/10000000-0000-4000-8000-000000000051").map(
+        (crumb) => crumb.label,
+      ),
+    ).toEqual([
+      "Asset group",
+      DEMO_ASSET_GROUP_NAME,
+      "Engineering",
+      "Analysis",
+    ]);
   });
 
   it("does not hard-code aircraft terms", () => {
@@ -68,6 +78,7 @@ describe("crumbsForPath", () => {
         "/findings/10000000-0000-4000-8000-000000000031",
         "/repairs",
         "/repairs/10000000-0000-4000-8000-000000000041",
+        "/analyses/10000000-0000-4000-8000-000000000051",
       ].flatMap((path) => crumbsForPath(path).map((crumb) => crumb.label)),
     ];
 
@@ -89,6 +100,18 @@ describe("isNavActive", () => {
     expect(
       isNavActive("/repairs/10000000-0000-4000-8000-000000000041", "/repairs"),
     ).toBe(true);
+    expect(
+      isNavActive(
+        "/analyses/10000000-0000-4000-8000-000000000051",
+        "/engineering",
+      ),
+    ).toBe(true);
+    expect(
+      isNavActive(
+        "/analyses/10000000-0000-4000-8000-000000000051",
+        "/findings",
+      ),
+    ).toBe(false);
     expect(isNavActive("/repairs", "/findings")).toBe(false);
     expect(
       isNavActive(
