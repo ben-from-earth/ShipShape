@@ -159,16 +159,18 @@ The extension and the media type have to agree, and both have to be on the list.
 
 `multipart/form-data`. Text values are named form fields. Photos are the repeated file field `photos`. There is no JSON part named `fields`.
 
-| Field           | Required | Column                  | Meaning                                                                                                      |
-| --------------- | -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `assetId`       | yes      | `issues.asset_id`       | Asset UUID in the organization                                                                               |
-| `description`   | yes      | `issues.description`    | What was found, 1–5000 characters                                                                            |
-| `zone`          | no       | `issues.zone`           | Area label, 1–200 characters. Meaning depends on the asset type                                              |
-| `locationLabel` | no       | `issues.location_label` | Human-readable place, 1–200 characters                                                                       |
-| `location`      | no       | `issues.location`       | JSON object, at most 2000 characters of text. Shape depends on the asset type. An array or other value fails |
-| `reportedBy`    | no       | `issues.reported_by`    | User UUID in the organization                                                                                |
-| `discoveredAt`  | no       | `issues.discovered_at`  | ISO-8601 timestamp with an offset                                                                            |
-| `photos`        | yes      | `issue_media`           | 1–10 files, the same field name repeated                                                                     |
+The intake form (PR #15) uses these names for the columns that exist. Its asset-group control is only a filter: the request has `assetId`, and the handler reads `assets.group_id` from that asset. Do not send `groupId`, `assetGroup`, or `assetGroupId`.
+
+| Field           | Required | Column                  | Meaning                                                                                                  |
+| --------------- | -------- | ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| `assetId`       | yes      | `issues.asset_id`       | Asset UUID in the organization. The form calls this the asset                                            |
+| `description`   | yes      | `issues.description`    | What was found, 1–5000 characters                                                                        |
+| `zone`          | no       | `issues.zone`           | The form's zone, 1–200 characters. Meaning depends on the asset type                                     |
+| `locationLabel` | no       | `issues.location_label` | The form's location text, 1–200 characters                                                               |
+| `location`      | no       | `issues.location`       | JSON object, at most 2000 characters of text. The form does not send this. An array or other value fails |
+| `reportedBy`    | no       | `issues.reported_by`    | User UUID in the organization. The form does not send this                                               |
+| `discoveredAt`  | no       | `issues.discovered_at`  | ISO-8601 timestamp with an offset. The form does not send this                                           |
+| `photos`        | yes      | `issue_media`           | 1–10 files, the same field name repeated                                                                 |
 
 `createFindingFieldsSchema` is those text fields. A blank optional field is omitted. Omitted `zone` and `locationLabel` are stored as null. Omitted `location` is stored as `{}` (the column default). Omitted `discoveredAt` is stored as the current time. Omitted `reportedBy` is stored as null. When `reportedBy` is set, that user must belong to the organization.
 
@@ -230,26 +232,28 @@ Failures use `apiErrorSchema`:
 
 `details` is optional. It lists field problems for a validation failure. Other failures omit it.
 
-| HTTP | `error.code`             | When                                                                                                           |
-| ---- | ------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| 400  | `invalid_org_id`         | `x-org-id` is missing or not a UUID                                                                            |
-| 400  | `unknown_organization`   | `x-org-id` is a UUID and no organization has that id                                                           |
-| 400  | `validation_failed`      | Not multipart, bad text fields, bad location JSON, no photos, empty photo, missing media type, or unknown user |
-| 404  | `asset_not_found`        | `assetId` is not an asset in that organization                                                                 |
-| 400  | `too_many_photos`        | More than 10 photos                                                                                            |
-| 413  | `photo_too_large`        | A photo is over 15 MB, or `Content-Length` cannot fit 10 photos of that size plus multipart framing            |
-| 415  | `unsupported_photo_type` | Extension or media type is not in the photo list, or they disagree                                             |
-| 500  | `internal_error`         | Anything else. `message` is `Something went wrong.` The response does not include the underlying error         |
+| HTTP | `error.code`             | When                                                                                                                                                                                |
+| ---- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 400  | `invalid_org_id`         | `x-org-id` is missing or not a UUID                                                                                                                                                 |
+| 400  | `unknown_organization`   | `x-org-id` is a UUID and no organization has that id                                                                                                                                |
+| 400  | `validation_failed`      | Not multipart, bad text fields, an unknown field such as `title`, `severity`, `notes`, or `groupId`, bad location JSON, no photos, empty photo, missing media type, or unknown user |
+| 404  | `asset_not_found`        | `assetId` is not an asset in that organization                                                                                                                                      |
+| 400  | `too_many_photos`        | More than 10 photos                                                                                                                                                                 |
+| 413  | `photo_too_large`        | A photo is over 15 MB, or `Content-Length` cannot fit 10 photos of that size plus multipart framing                                                                                 |
+| 415  | `unsupported_photo_type` | Extension or media type is not in the photo list, or they disagree                                                                                                                  |
+| 500  | `internal_error`         | Anything else. `message` is `Something went wrong.` The response does not include the underlying error                                                                              |
 
 Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findings.ts`. `internal_error` stays 500, as it does for documents.
 
-## Columns this contract does not add
+## Fields the intake form collects that this request does not accept
 
-`issues` has no title, summary, or severity column. `createFindingFieldsSchema` rejects those keys. They are not stored.
+`createFindingFieldsSchema` rejects these keys. They are not stored.
 
-- A short title, which the older `damageReportCreateSchema` calls `summary`, needs a new column such as `issues.summary` and a migration.
-- A severity needs a new column such as `issues.severity` and a migration.
-
-Do not accept either field until that migration exists.
+| Form control | Request key                             | Why it is rejected                                                                                                                              |
+| ------------ | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Asset group  | `groupId`, `assetGroup`, `assetGroupId` | UI filter only. Derive the group from `assets.group_id` on the `assetId` row                                                                    |
+| Title        | `title`, `summary`                      | `issues` has no title or summary column. A short title needs a new column such as `issues.summary` and a migration before the API can accept it |
+| Severity     | `severity`                              | `issues` has no severity column. This contract does not add one                                                                                 |
+| Notes        | `notes`                                 | `issues` has no notes column. The intake form no longer posts notes. This contract does not add one                                             |
 
 `issues.code` already exists. The sequence behind `nextval` does not. That sequence is a separate migration from Database Manager, not part of this contract, and not a `MAX(code) + 1` write.

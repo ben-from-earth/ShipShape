@@ -40,20 +40,23 @@ export const findingStageSchema = z.enum([
 export const findingLocationSchema = z.record(z.string(), z.json());
 
 /**
- * Multipart text fields for POST /api/findings. Names are the `issues`
- * columns a field technician can send. The server assigns id, stage,
- * createdAt, and updatedAt. Photos travel in the repeated `photos` file
- * field and are not part of this object.
+ * Multipart text fields for POST /api/findings. Names match the `issues`
+ * columns the intake form can set: `assetId`, `description`, `zone`, and
+ * `locationLabel` (the form's location text). The server assigns id,
+ * stage, createdAt, and updatedAt. Photos travel in the repeated `photos`
+ * file field and are not part of this object.
+ *
+ * The asset group is not a field. The handler derives `assets.group_id`
+ * from `assetId`. `groupId`, `assetGroup`, and `assetGroupId` are rejected.
  *
  * `code` is not a field. `issues.code` is the text form of `nextval` on a
  * Postgres sequence, added in a separate migration. The handler does not
  * accept a client code and does not use `MAX(code) + 1`.
  *
- * `issues` has no title, summary, or severity column. Those keys are
- * rejected here. Adding either one needs a migration first: a short title
- * (what `damageReportCreateSchema` calls `summary`) would be a new
- * `issues.summary` column, and severity would be a new `issues.severity`
- * column.
+ * `issues` has no title, notes, or severity column. Those keys are
+ * rejected. A short title (what `damageReportCreateSchema` calls
+ * `summary`) would need a new column such as `issues.summary` and a
+ * migration. Notes and severity are not added here.
  */
 export const createFindingFieldsSchema = z.strictObject({
   assetId: trimmed(idSchema),

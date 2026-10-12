@@ -151,6 +151,10 @@ describe("createFindingFieldsSchema", () => {
       { summary: "Cracked cover" },
       { title: "Cracked cover" },
       { severity: "high" },
+      { notes: "See the photo." },
+      { groupId: "10000000-0000-4000-8000-000000000021" },
+      { assetGroupId: "10000000-0000-4000-8000-000000000021" },
+      { assetGroup: "Demo group" },
       { code: "ISS-1002" },
       { code: "42" },
     ]) {
