@@ -12,13 +12,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { SEVERITIES, type Severity } from "@/config/severity";
-import { createFinding, FindingRequestError } from "@/features/findings/client";
 import {
   FINDING_PHOTO_MEDIA_TYPES,
+  MAX_FINDING_DESCRIPTION_LENGTH,
+  MAX_FINDING_LOCATION_LABEL_LENGTH,
   MAX_FINDING_PHOTOS,
-  type FindingCreated,
-} from "@/features/findings/contract";
+  MAX_FINDING_ZONE_LENGTH,
+  MIN_FINDING_PHOTOS,
+} from "@/config/findings";
+import { SEVERITIES, type Severity } from "@/config/severity";
+import { createFinding, FindingRequestError } from "@/features/findings/client";
+import type { CreateFindingResult } from "@/schemas";
 import {
   FINDING_ASSETS,
   FINDING_ASSET_GROUPS,
@@ -47,7 +51,6 @@ export function NewFindingForm() {
   const [groupId, setGroupId] = useState("");
   const [query, setQuery] = useState("");
   const [assetId, setAssetId] = useState("");
-  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [severity, setSeverity] = useState<Severity | "">("");
   const [zone, setZone] = useState("");
@@ -58,7 +61,7 @@ export function NewFindingForm() {
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [created, setCreated] = useState<FindingCreated | null>(null);
+  const [created, setCreated] = useState<CreateFindingResult | null>(null);
   const photosRef = useRef(photos);
 
   const group = FINDING_ASSET_GROUPS.find((item) => item.id === groupId);
@@ -94,7 +97,6 @@ export function NewFindingForm() {
   function draft(): FindingDraft {
     return {
       assetId,
-      title,
       description,
       severity,
       zone,
@@ -247,17 +249,6 @@ export function NewFindingForm() {
 
       <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">
         <Eyebrow>Finding</Eyebrow>
-        <Field label="Title" htmlFor="finding-title" error={errors.title}>
-          <input
-            id="finding-title"
-            className={inputClass}
-            value={title}
-            maxLength={200}
-            onChange={(event) => {
-              setTitle(event.target.value);
-            }}
-          />
-        </Field>
         <Field
           label="Description"
           htmlFor="finding-description"
@@ -267,7 +258,7 @@ export function NewFindingForm() {
             id="finding-description"
             className={cn(inputClass, "min-h-28 resize-y")}
             value={description}
-            maxLength={5000}
+            maxLength={MAX_FINDING_DESCRIPTION_LENGTH}
             onChange={(event) => {
               setDescription(event.target.value);
             }}
@@ -303,7 +294,7 @@ export function NewFindingForm() {
               id="finding-location"
               className={inputClass}
               value={locationLabel}
-              maxLength={200}
+              maxLength={MAX_FINDING_LOCATION_LABEL_LENGTH}
               onChange={(event) => {
                 setLocationLabel(event.target.value);
               }}
@@ -314,20 +305,20 @@ export function NewFindingForm() {
               id="finding-zone"
               className={inputClass}
               value={zone}
-              maxLength={200}
+              maxLength={MAX_FINDING_ZONE_LENGTH}
               onChange={(event) => {
                 setZone(event.target.value);
               }}
             />
           </Field>
         </div>
-        <FieldError message={errors.place} />
       </Card>
 
       <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">
         <Eyebrow>Photos</Eyebrow>
         <p className="text-body text-ink-muted">
-          Up to {MAX_FINDING_PHOTOS} photos. Use the camera or choose files.
+          {MIN_FINDING_PHOTOS} to {MAX_FINDING_PHOTOS} photos. Use the camera or
+          choose files.
         </p>
         <div className="flex flex-col gap-2 sm:flex-row">
           <label className="inline-flex min-h-11 cursor-pointer items-center justify-center border border-ink bg-ink px-4 text-ui font-medium text-white">

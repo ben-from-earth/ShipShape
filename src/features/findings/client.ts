@@ -1,14 +1,16 @@
-import { z } from "zod";
-
-import { isDemoData } from "@/config/demo";
-import { ORG_ID_HEADER, orgId } from "@/config/org";
-import { apiErrorDetailSchema, apiErrorSchema } from "@/schemas";
-
 import {
   MAX_FINDING_PHOTOS,
-  findingCreatedSchema,
-  type FindingCreated,
-} from "./contract";
+  canonicalFindingPhotoMediaType,
+} from "@/config/findings";
+import { isDemoData } from "@/config/demo";
+import { ORG_ID_HEADER, orgId } from "@/config/org";
+import {
+  apiErrorSchema,
+  createFindingResultSchema,
+  type ApiErrorCode,
+  type CreateFindingResult,
+} from "@/schemas";
+
 import { photoProblem, toFindingForm, type FindingDraft } from "./validate";
 
 const FINDINGS_PATH = "/api/findings";
@@ -23,14 +25,14 @@ export type FindingRequestKind = "network" | "http" | "parse";
 export class FindingRequestError extends Error {
   readonly kind: FindingRequestKind;
   readonly status: number | null;
-  readonly code: string | null;
+  readonly code: ApiErrorCode | null;
 
   constructor(
     message: string,
     options: {
       kind: FindingRequestKind;
       status?: number | null;
-      code?: string | null;
+      code?: ApiErrorCode | null;
       cause?: unknown;
     },
   ) {
@@ -45,38 +47,17 @@ export class FindingRequestError extends Error {
   }
 }
 
-/**
- * PR #16's finding codes are not on `apiErrorCodeSchema` until that
- * contract merges. Accept the same body with a string code so
- * `asset_not_found` and `too_many_photos` still map.
- */
-const findingErrorBodySchema = z.object({
-  error: z.object({
-    code: z.string().min(1),
-    message: z.string().min(1),
-    details: z.array(apiErrorDetailSchema).optional(),
-  }),
-});
-
 function messageFor(
   status: number,
-  code: string | null,
+  code: ApiErrorCode | null,
   apiMessage: string | null,
   detailPaths: readonly string[],
 ): string {
-  if (
-    code === "payload_too_large" ||
-    code === "photo_too_large" ||
-    status === 413
-  ) {
+  if (code === "payload_too_large" || status === 413) {
     return "Photo too large.";
   }
 
-  if (
-    code === "unsupported_media_type" ||
-    code === "unsupported_photo_type" ||
-    status === 415
-  ) {
+  if (code === "unsupported_media_type" || status === 415) {
     return "Photo type not supported.";
   }
 
@@ -100,11 +81,7 @@ function messageFor(
     return "Asset error.";
   }
 
-  if (
-    status === 400 ||
-    code === "validation_error" ||
-    code === "validation_failed"
-  ) {
+  if (status === 400 || code === "validation_error") {
     return "Validation error.";
   }
 
@@ -117,7 +94,7 @@ function messageFor(
 
 function httpFailure(
   status: number,
-  code: string | null = null,
+  code: ApiErrorCode | null = null,
   apiMessage: string | null = null,
   detailPaths: readonly string[] = [],
 ): FindingRequestError {
@@ -139,38 +116,45 @@ async function errorFromResponse(
   }
 
   const parsed = apiErrorSchema.safeParse(payload);
-  if (parsed.success) {
-    return httpFailure(
-      response.status,
-      parsed.data.error.code,
-      parsed.data.error.message,
-      parsed.data.error.details?.map((detail) => detail.path) ?? [],
-    );
-  }
-
-  const findingError = findingErrorBodySchema.safeParse(payload);
-  if (!findingError.success) {
+  if (!parsed.success) {
     return httpFailure(response.status);
   }
 
   return httpFailure(
     response.status,
-    findingError.data.error.code,
-    findingError.data.error.message,
-    findingError.data.error.details?.map((detail) => detail.path) ?? [],
+    parsed.data.error.code,
+    parsed.data.error.message,
+    parsed.data.error.details?.map((detail) => detail.path) ?? [],
   );
 }
 
-function demoCreated(draft: FindingDraft): FindingCreated {
-  return findingCreatedSchema.parse({
-    id: crypto.randomUUID(),
+function demoCreated(draft: FindingDraft): CreateFindingResult {
+  const id = crypto.randomUUID();
+  const createdAt = new Date().toISOString();
+  const fields = toFindingForm(draft);
+
+  return createFindingResultSchema.parse({
+    id,
     code: "ISS-DEMO",
     stage: "discovered",
-    createdAt: new Date().toISOString(),
-    photos: draft.photos.map((photo) => ({
-      id: crypto.randomUUID(),
-      mimeType: photo.type,
-    })),
+    severity: fields.severity,
+    createdAt,
+    photos: draft.photos.map((photo) => {
+      const mimeType = canonicalFindingPhotoMediaType(photo.type);
+      if (!mimeType) {
+        throw new Error("Photo type not supported.");
+      }
+      return {
+        id: crypto.randomUUID(),
+        issueId: id,
+        storageKey: `demo/${id}/${crypto.randomUUID()}`,
+        mimeType,
+        caption: null,
+        uploadedBy: null,
+        createdAt,
+        updatedAt: createdAt,
+      };
+    }),
   });
 }
 
@@ -181,7 +165,7 @@ function demoCreated(draft: FindingDraft): FindingCreated {
 export async function createFinding(
   draft: FindingDraft,
   files: readonly (Blob & { name: string; type: string })[],
-): Promise<FindingCreated> {
+): Promise<CreateFindingResult> {
   const form = toFindingForm(draft);
   const photoError = photoProblem(draft.photos);
   if (photoError) {
@@ -198,7 +182,6 @@ export async function createFinding(
 
   const body = new FormData();
   body.append("assetId", form.assetId);
-  body.append("title", form.title);
   body.append("description", form.description);
   body.append("severity", form.severity);
   if (form.zone) {
@@ -240,7 +223,7 @@ export async function createFinding(
     });
   }
 
-  const parsed = findingCreatedSchema.safeParse(payload);
+  const parsed = createFindingResultSchema.safeParse(payload);
   if (!parsed.success) {
     throw new FindingRequestError("Findings returned an unexpected response.", {
       kind: "parse",

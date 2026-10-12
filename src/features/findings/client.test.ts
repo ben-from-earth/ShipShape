@@ -2,13 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DEMO_ORGANIZATION_ID, ORG_ID_HEADER } from "@/config/org";
 
+import { MAX_FINDING_PHOTOS } from "@/config/findings";
+
 import { createFinding, FindingRequestError } from "./client";
-import { MAX_FINDING_PHOTOS } from "./contract";
 import type { FindingDraft } from "./validate";
 
 const draft: FindingDraft = {
   assetId: "10000000-0000-4000-8000-000000000022",
-  title: "Cracked support",
   description: "The support is cracked beside the access hatch.",
   severity: "high",
   zone: "bay 2",
@@ -20,11 +20,19 @@ const created = {
   id: "550e8400-e29b-41d4-a716-446655440010",
   code: "ISS-2041",
   stage: "discovered",
+  severity: "high",
   createdAt: "2026-10-12T20:00:00.000Z",
   photos: [
     {
       id: "550e8400-e29b-41d4-a716-446655440011",
+      issueId: "550e8400-e29b-41d4-a716-446655440010",
+      storageKey:
+        "10000000-0000-4000-8000-000000000001/issues/550e8400-e29b-41d4-a716-446655440010/550e8400-e29b-41d4-a716-446655440011",
       mimeType: "image/jpeg",
+      caption: null,
+      uploadedBy: null,
+      createdAt: "2026-10-12T20:00:00.000Z",
+      updatedAt: "2026-10-12T20:00:00.000Z",
     },
   ],
 };
@@ -51,13 +59,19 @@ describe("createFinding", () => {
       expect(init.body).toBeInstanceOf(FormData);
       const body = init.body as FormData;
       expect(body.get("assetId")).toBe(draft.assetId);
-      expect(body.get("title")).toBe(draft.title);
+      expect(body.get("description")).toBe(draft.description);
       expect(body.get("severity")).toBe("high");
       expect(body.get("zone")).toBe("bay 2");
       expect(body.get("locationLabel")).toBeNull();
+      expect(body.get("title")).toBeNull();
       expect(body.get("notes")).toBeNull();
+      expect(body.get("location")).toBeNull();
+      expect(body.get("reportedBy")).toBeNull();
+      expect(body.get("discoveredAt")).toBeNull();
+      expect(body.get("code")).toBeNull();
       expect(body.get("groupId")).toBeNull();
       expect(body.get("assetGroup")).toBeNull();
+      expect(body.get("assetGroupId")).toBeNull();
       const photos = body.getAll("photos");
       expect(photos).toHaveLength(1);
       expect(photos[0]).toBeInstanceOf(File);
@@ -77,11 +91,8 @@ describe("createFinding", () => {
     ["invalid_org_id", 400, "raw", "Organization error."],
     ["unknown_organization", 400, "raw", "Organization error."],
     ["validation_error", 400, "raw", "Validation error."],
-    ["validation_failed", 400, "raw", "Validation error."],
     ["payload_too_large", 413, "raw", "Photo too large."],
-    ["photo_too_large", 413, "raw", "Photo too large."],
     ["unsupported_media_type", 415, "raw", "Photo type not supported."],
-    ["unsupported_photo_type", 415, "raw", "Photo type not supported."],
     ["asset_not_found", 404, "raw", "Asset error."],
     ["too_many_photos", 400, "raw", `Add up to ${MAX_FINDING_PHOTOS} photos.`],
   ] as const)(
@@ -181,8 +192,11 @@ describe("createFinding", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.code).toBe("ISS-DEMO");
     expect(result.stage).toBe("discovered");
+    expect(result.severity).toBe("high");
     expect(result.photos).toHaveLength(1);
     expect(result.photos[0]?.mimeType).toBe("image/jpeg");
+    expect(result.photos[0]?.issueId).toBe(result.id);
+    expect(result.photos[0]?.caption).toBeNull();
   });
 
   it("refuses an unsupported photo in both modes without calling fetch", async () => {
