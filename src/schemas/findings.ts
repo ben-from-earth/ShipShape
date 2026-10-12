@@ -129,6 +129,81 @@ export const createFindingResultSchema = z.object({
     .max(MAX_FINDING_PHOTOS),
 });
 
+/**
+ * Optional filters for `listFindings`. `stage` is `findingStageSchema`.
+ * `severity` is `findingSeveritySchema` (`z.enum(SEVERITIES)`).
+ */
+export const findingListFiltersSchema = z.strictObject({
+  stage: findingStageSchema.optional(),
+  severity: findingSeveritySchema.optional(),
+  assetId: idSchema.optional(),
+});
+
+/** Asset group named on a finding's asset. Null when the asset has none in this org. */
+export const findingAssetGroupSummarySchema = z.strictObject({
+  id: idSchema,
+  name: z.string(),
+});
+
+/**
+ * Asset the finding belongs to. `id` is `issues.asset_id`.
+ * `assetGroup` is null when `assets.group_id` is null, or when that
+ * group belongs to another organization.
+ */
+export const findingAssetSummarySchema = z.strictObject({
+  id: idSchema,
+  identifier: z.string(),
+  name: z.string().nullable(),
+  assetGroup: findingAssetGroupSummarySchema.nullable(),
+});
+
+/**
+ * Photo metadata for a reader. `mediaId` is `issue_media.id` (the `id`
+ * on `findingPhotoSchema`). `contentType` is `issue_media.mime_type`
+ * (`findingPhotoSchema`'s `mimeType`). `issue_media` has no byte-length
+ * column, so `size` is null. This record has no public URL and no bytes.
+ */
+export const findingPhotoMetaSchema = z.strictObject({
+  mediaId: idSchema,
+  storageKey: findingPhotoSchema.shape.storageKey,
+  contentType: findingPhotoSchema.shape.mimeType,
+  size: z.number().int().nonnegative().nullable(),
+  createdAt: timestampSchema,
+});
+
+/**
+ * What `getFindingMedia` returns for `GET /api/findings/[id]/photos/[mediaId]`.
+ * Same storage key and content type as `findingPhotoMetaSchema`. `size`
+ * is null because the length is not stored. No public URL.
+ */
+export const findingMediaContentSchema = z.strictObject({
+  storageKey: findingPhotoSchema.shape.storageKey,
+  contentType: findingPhotoSchema.shape.mimeType,
+  size: z.number().int().nonnegative().nullable(),
+});
+
+/**
+ * One finding as stored. Columns that exist on `issues`: `id`, `code`,
+ * `assetId`, `description`, `severity`, `stage`, `zone`, `locationLabel`,
+ * `location`, `createdAt`. There is no title column and no notes column.
+ * `stage` is `findingStageSchema` (every `work_stage` value, not only
+ * `discovered`). `severity` is `findingSeveritySchema`.
+ */
+export const findingRecordSchema = z.strictObject({
+  id: idSchema,
+  code: z.string().trim().min(1).max(MAX_FINDING_CODE_LENGTH),
+  assetId: idSchema,
+  description: z.string(),
+  severity: findingSeveritySchema,
+  stage: findingStageSchema,
+  zone: z.string().nullable(),
+  locationLabel: z.string().nullable(),
+  location: findingLocationSchema,
+  createdAt: timestampSchema,
+  asset: findingAssetSummarySchema,
+  photos: z.array(findingPhotoMetaSchema),
+});
+
 export type FindingStage = z.infer<typeof findingStageSchema>;
 export type FindingSeverity = z.infer<typeof findingSeveritySchema>;
 export type FindingLocation = z.infer<typeof findingLocationSchema>;
@@ -138,6 +213,14 @@ export type InitialFindingStageTransition = z.infer<
   typeof initialFindingStageTransitionSchema
 >;
 export type CreateFindingResult = z.infer<typeof createFindingResultSchema>;
+export type FindingListFilters = z.infer<typeof findingListFiltersSchema>;
+export type FindingAssetGroupSummary = z.infer<
+  typeof findingAssetGroupSummarySchema
+>;
+export type FindingAssetSummary = z.infer<typeof findingAssetSummarySchema>;
+export type FindingPhotoMeta = z.infer<typeof findingPhotoMetaSchema>;
+export type FindingMediaContent = z.infer<typeof findingMediaContentSchema>;
+export type FindingRecord = z.infer<typeof findingRecordSchema>;
 
 function trimmed<T extends z.ZodType>(schema: T) {
   return z.preprocess(
