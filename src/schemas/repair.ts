@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { MAX_FINDING_CODE_LENGTH } from "@/config/findings";
 import {
   MAX_REPAIR_CODE_LENGTH,
   MAX_REPAIR_TITLE_LENGTH,
@@ -20,10 +21,26 @@ const repairTypeSchema = z
   .max(MAX_REPAIR_TYPE_LENGTH)
   .nullable();
 
+/** Finding the repair was opened from. `id` is `repairs.issue_id`. */
+export const repairFindingSchema = z.strictObject({
+  id: idSchema,
+  code: z.string().trim().min(1).max(MAX_FINDING_CODE_LENGTH),
+});
+
 /**
- * A repair row. `findingId` is `repairs.issue_id`. `createdBy` is the user
- * who opened it, or null for rows that existed before that column.
- * There is no storage key on this record.
+ * Asset that finding belongs to. `name` is null when `assets.name` is null.
+ */
+export const repairAssetSchema = z.strictObject({
+  id: idSchema,
+  identifier: z.string(),
+  name: z.string().nullable(),
+});
+
+/**
+ * A repair row plus the finding and asset from the same join.
+ * `findingId` is `repairs.issue_id`. `createdBy` is the user who opened it,
+ * or null for rows that existed before that column. `finding` and `asset`
+ * are not columns on `repairs`. There is no storage key on this record.
  */
 export const repairSchema = z.strictObject({
   id: idSchema,
@@ -35,6 +52,8 @@ export const repairSchema = z.strictObject({
   createdBy: idSchema.nullable(),
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
+  finding: repairFindingSchema,
+  asset: repairAssetSchema,
 });
 
 /**

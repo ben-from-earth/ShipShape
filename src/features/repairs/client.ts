@@ -173,6 +173,12 @@ function demoCreated(
     createdBy: null,
     createdAt,
     updatedAt: createdAt,
+    finding: { id: findingId, code: "ISS-1001" },
+    asset: {
+      id: "10000000-0000-4000-8000-000000000022",
+      identifier: "DEMO-T45-001",
+      name: "Demo airframe",
+    },
   });
 }
 

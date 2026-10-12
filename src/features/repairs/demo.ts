@@ -16,6 +16,7 @@ import type { RepairView } from "./view";
  */
 const DEMO_REPAIR_ID = "10000000-0000-4000-8000-000000000041";
 const DEMO_FINDING_ID = "10000000-0000-4000-8000-000000000031";
+const DEMO_ASSET_ID = "10000000-0000-4000-8000-000000000022";
 const DEMO_CREATED_AT = `${DEMO_AS_OF}T12:00:00.000Z`;
 
 const DEMO_REPAIRS: readonly RepairView[] = [
@@ -30,6 +31,12 @@ const DEMO_REPAIRS: readonly RepairView[] = [
       createdBy: null,
       createdAt: DEMO_CREATED_AT,
       updatedAt: DEMO_CREATED_AT,
+      finding: { id: DEMO_FINDING_ID, code: "ISS-1001" },
+      asset: {
+        id: DEMO_ASSET_ID,
+        identifier: "DEMO-T45-001",
+        name: "Demo airframe",
+      },
     }),
     findingCode: "ISS-1001",
     assetIdentifier: "DEMO-T45-001",

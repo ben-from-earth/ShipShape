@@ -10,6 +10,7 @@ import {
 } from "@/schemas";
 
 const findingId = "550e8400-e29b-41d4-a716-446655440031";
+const assetId = "550e8400-e29b-41d4-a716-446655440022";
 const repairId = "550e8400-e29b-41d4-a716-446655440051";
 const createdAt = "2026-10-12T21:04:00.000Z";
 
@@ -23,6 +24,8 @@ const repair = {
   createdBy: null,
   createdAt,
   updatedAt: createdAt,
+  finding: { id: findingId, code: "FND-1002" },
+  asset: { id: assetId, identifier: "A-0022", name: "Fitting" },
 };
 
 describe("createRepair schemas", () => {
@@ -56,6 +59,12 @@ describe("createRepair schemas", () => {
       }).success,
     ).toBe(false);
     expect(createRepairResultSchema.parse(repair)).toEqual(repair);
+    expect(
+      createRepairResultSchema.parse({
+        ...repair,
+        asset: { ...repair.asset, name: null },
+      }).asset.name,
+    ).toBeNull();
     expect(createRepairResultSchema).toBe(repairSchema);
   });
 });
