@@ -76,3 +76,18 @@ export type {
   DocumentSearchQuery,
   DocumentSearchResult,
 } from "./documents";
+
+export {
+  createFindingFieldsSchema,
+  createFindingResultSchema,
+  findingLocationSchema,
+  findingPhotoSchema,
+  findingStageSchema,
+} from "./findings";
+export type {
+  CreateFindingFields,
+  CreateFindingResult,
+  FindingLocation,
+  FindingPhoto,
+  FindingStage,
+} from "./findings";
