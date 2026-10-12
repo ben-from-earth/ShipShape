@@ -1,21 +1,33 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { MAX_DOCUMENT_UPLOAD_BYTES } from "@/config/documents";
 import { DEMO_ORGANIZATION_ID, ORG_ID_HEADER } from "@/config/org";
 
 import { DocsRequestError, searchDocuments, uploadDocument } from "./client";
 import { DEMO_SEARCH_HITS } from "./fixtures";
-import { MAX_DOCUMENT_UPLOAD_BYTES } from "./upload-rules";
+
+const READABLE_ERRORS = [
+  ["invalid_org_id", 400, "The organization id must be a UUID."],
+  ["unknown_organization", 400, "No organization exists with that id."],
+  ["payload_too_large", 413, "The file is larger than 10 MB."],
+  [
+    "unsupported_media_type",
+    415,
+    "Use a PDF, Word, plain text, or Markdown file.",
+  ],
+] as const;
 
 const seal = () =>
   new File(["# seal"], "Seal check.md", { type: "text/markdown" });
 
 const storedDocument = {
   id: "550e8400-e29b-41d4-a716-446655440099",
+  orgId: DEMO_ORGANIZATION_ID,
   title: "Seal check",
-  storageKey: "documents/seal-check.md",
   mediaType: "text/markdown",
-  uploadedBy: "Avery Chen",
-  createdAt: "2026-10-12T19:42:00.000Z",
+  storageKey: "documents/seal-check.md",
+  status: "indexed" as const,
+  chunkCount: 1,
 };
 
 afterEach(() => {
@@ -60,8 +72,8 @@ describe("searchDocuments", () => {
         {
           error: {
             code: "validation_error",
-            message: "x-org-id must be the organization UUID.",
-            details: [{ path: "x-org-id", message: "Invalid organization id" }],
+            message: "Request validation failed.",
+            details: [{ path: "query", message: "Too small" }],
           },
         },
         400,
@@ -73,7 +85,7 @@ describe("searchDocuments", () => {
       kind: "http",
       status: 400,
       code: "validation_error",
-      message: "x-org-id must be the organization UUID.",
+      message: "Request validation failed.",
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/documents/search",
@@ -99,7 +111,26 @@ describe("searchDocuments", () => {
     });
   });
 
-  it.each([400, 413, 415, 404, 409])(
+  it.each(READABLE_ERRORS)(
+    "maps %s to a readable message instead of the server text",
+    async (code, status, message) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          jsonResponse({ error: { code, message: "raw server text" } }, status),
+        ),
+      );
+
+      await expect(searchDocuments({ query: "hatch" })).rejects.toMatchObject({
+        kind: "http",
+        status,
+        code,
+        message,
+      });
+    },
+  );
+
+  it.each([400, 404, 409])(
     "rejects HTTP %s instead of returning demo hits",
     async (status) => {
       const fetchMock = vi.fn(async () => new Response("no", { status }));
@@ -192,7 +223,7 @@ describe("uploadDocument", () => {
       expect(init.headers).toEqual({ [ORG_ID_HEADER]: DEMO_ORGANIZATION_ID });
       expect(init.body).toBeInstanceOf(FormData);
       expect((init.body as FormData).get("file")).toBeInstanceOf(File);
-      return jsonResponse(storedDocument);
+      return jsonResponse(storedDocument, 201);
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -206,7 +237,46 @@ describe("uploadDocument", () => {
     );
   });
 
-  it.each([400, 413, 415, 404, 409])(
+  it.each(READABLE_ERRORS)(
+    "maps %s to a readable message instead of the server text",
+    async (code, status, message) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          jsonResponse({ error: { code, message: "raw server text" } }, status),
+        ),
+      );
+
+      await expect(uploadDocument(seal())).rejects.toMatchObject({
+        kind: "http",
+        status,
+        code,
+        message,
+      });
+    },
+  );
+
+  it.each([
+    [413, "The file is larger than 10 MB."],
+    [415, "Use a PDF, Word, plain text, or Markdown file."],
+  ] as const)(
+    "maps HTTP %s with no error schema to a readable message",
+    async (status, message) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => new Response("no", { status })),
+      );
+
+      await expect(uploadDocument(seal())).rejects.toMatchObject({
+        kind: "http",
+        status,
+        code: null,
+        message,
+      });
+    },
+  );
+
+  it.each([400, 404, 409])(
     "rejects HTTP %s instead of a demo upload",
     async (status) => {
       const fetchMock = vi.fn(
@@ -227,30 +297,6 @@ describe("uploadDocument", () => {
       expect(fetchMock).toHaveBeenCalledOnce();
     },
   );
-
-  it("shows the api error message for a 413 body", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        jsonResponse(
-          {
-            error: {
-              code: "payload_too_large",
-              message: "The file is larger than 10 MB.",
-            },
-          },
-          413,
-        ),
-      ),
-    );
-
-    await expect(uploadDocument(seal())).rejects.toMatchObject({
-      kind: "http",
-      status: 413,
-      code: "payload_too_large",
-      message: "The file is larger than 10 MB.",
-    });
-  });
 
   it("rejects a network failure instead of a demo upload", async () => {
     vi.stubGlobal(
@@ -288,9 +334,13 @@ describe("uploadDocument", () => {
     const document = await uploadDocument(seal());
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(document.title).toBe("Seal check");
-    expect(document.mediaType).toBe("text/markdown");
-    expect(document.uploadedBy).toBe("Demo");
+    expect(document).toMatchObject({
+      title: "Seal check",
+      mediaType: "text/markdown",
+      orgId: DEMO_ORGANIZATION_ID,
+      status: "indexed",
+      chunkCount: 1,
+    });
     expect(document.id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
     );

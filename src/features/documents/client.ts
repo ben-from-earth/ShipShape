@@ -1,14 +1,15 @@
 import { isDemoData } from "@/config/demo";
 import { documentOrgId, ORG_ID_HEADER } from "@/config/org";
 import {
-  documentSchema,
+  apiErrorSchema,
   documentSearchQuerySchema,
   documentSearchResultSchema,
-  type Document,
+  documentUploadResultSchema,
+  type ApiErrorCode,
   type DocumentSearchResult,
+  type DocumentUploadResult,
 } from "@/schemas";
 
-import { apiErrorSchema } from "./api-error";
 import { documentFromFile, rankDemoHits } from "./derive";
 import { DEMO_SEARCH_HITS } from "./fixtures";
 import { uploadIssue } from "./upload-rules";
@@ -27,14 +28,14 @@ export class DocsRequestError extends Error {
   readonly kind: DocsRequestKind;
   readonly status: number | null;
   /** `apiErrorSchema` code when the body matched, otherwise null. */
-  readonly code: string | null;
+  readonly code: ApiErrorCode | null;
 
   constructor(
     message: string,
     options: {
       kind: DocsRequestKind;
       status?: number | null;
-      code?: string | null;
+      code?: ApiErrorCode | null;
       cause?: unknown;
     },
   ) {
@@ -58,10 +59,45 @@ function unreachable(action: DocsAction, cause: unknown): DocsRequestError {
   });
 }
 
-function httpFailure(action: DocsAction, status: number): DocsRequestError {
-  return new DocsRequestError(`${action} failed (${status}).`, {
+function messageFor(
+  action: DocsAction,
+  status: number,
+  code: ApiErrorCode | null,
+  apiMessage: string | null,
+): string {
+  if (code === "invalid_org_id") {
+    return "The organization id must be a UUID.";
+  }
+
+  if (code === "unknown_organization") {
+    return "No organization exists with that id.";
+  }
+
+  if (code === "payload_too_large" || status === 413) {
+    return "The file is larger than 10 MB.";
+  }
+
+  if (code === "unsupported_media_type" || status === 415) {
+    return "Use a PDF, Word, plain text, or Markdown file.";
+  }
+
+  if (apiMessage) {
+    return apiMessage;
+  }
+
+  return `${action} failed (${status}).`;
+}
+
+function httpFailure(
+  action: DocsAction,
+  status: number,
+  code: ApiErrorCode | null = null,
+  apiMessage: string | null = null,
+): DocsRequestError {
+  return new DocsRequestError(messageFor(action, status, code, apiMessage), {
     kind: "http",
     status,
+    code,
   });
 }
 
@@ -82,11 +118,12 @@ async function errorFromResponse(
     return httpFailure(action, response.status);
   }
 
-  return new DocsRequestError(parsed.data.error.message, {
-    kind: "http",
-    status: response.status,
-    code: parsed.data.error.code,
-  });
+  return httpFailure(
+    action,
+    response.status,
+    parsed.data.error.code,
+    parsed.data.error.message,
+  );
 }
 
 function parseFailure(
@@ -163,28 +200,36 @@ export async function searchDocuments(input: {
 
 /**
  * POST /api/documents with the file as multipart field `file`.
- * A successful response is `documentSchema`. Demo documents are
- * returned only when `isDemoData()` is on, and then `fetch` is not called.
+ * A successful response is `documentUploadResultSchema`. Demo results
+ * are returned only when `isDemoData()` is on, and then `fetch` is not called.
  */
 export async function uploadDocument(
   file: Blob & { name: string; type: string },
-): Promise<Document> {
+): Promise<DocumentUploadResult> {
   const issue = uploadIssue(file);
   if (issue) {
     throw new Error(issue);
   }
 
   if (isDemoData()) {
-    const document = documentFromFile(file, {
+    const drafted = documentFromFile(file, {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
     });
 
-    if (!document) {
-      throw new Error("Unsupported document type");
+    if (!drafted) {
+      throw new Error("Use a PDF, Word, plain text, or Markdown file.");
     }
 
-    return documentSchema.parse(document);
+    return documentUploadResultSchema.parse({
+      id: drafted.id,
+      orgId: documentOrgId(),
+      title: drafted.title,
+      mediaType: drafted.mediaType,
+      storageKey: drafted.storageKey,
+      status: "indexed",
+      chunkCount: 1,
+    });
   }
 
   const action = "Document upload" as const;
@@ -204,7 +249,7 @@ export async function uploadDocument(
   }
 
   const payload = await readJson(response, action);
-  const parsed = documentSchema.safeParse(payload);
+  const parsed = documentUploadResultSchema.safeParse(payload);
 
   if (!parsed.success) {
     throw parseFailure(action, response.status, parsed.error);

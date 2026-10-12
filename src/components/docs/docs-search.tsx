@@ -6,17 +6,29 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import {
+  DOCUMENT_UPLOAD_EXTENSIONS,
+  DOCUMENT_UPLOAD_MEDIA_TYPES,
+  MAX_DOCUMENT_UPLOAD_BYTES,
+} from "@/config/documents";
+import {
   DocsRequestError,
   searchDocuments,
   uploadDocument,
 } from "@/features/documents/client";
 import { formatPageRange, scorePercent } from "@/features/documents/derive";
 import { SEARCH_EXAMPLES } from "@/features/documents/fixtures";
-import { UPLOAD_ACCEPT, uploadIssue } from "@/features/documents/upload-rules";
-import type { Document, DocumentSearchResult } from "@/schemas";
+import { uploadIssue } from "@/features/documents/upload-rules";
+import type { DocumentSearchResult, DocumentUploadResult } from "@/schemas";
 import { cn } from "@/lib/utils";
 
 type Phase = "idle" | "loading" | "done" | "error";
+
+const UPLOAD_ACCEPT = [
+  ...DOCUMENT_UPLOAD_EXTENSIONS,
+  ...DOCUMENT_UPLOAD_MEDIA_TYPES,
+].join(",");
+
+const UPLOAD_LIMIT_LABEL = `${MAX_DOCUMENT_UPLOAD_BYTES / (1024 * 1024)} MB`;
 
 function visibleError(caught: unknown, fallback: string): string {
   if (caught instanceof DocsRequestError) {
@@ -35,7 +47,7 @@ export function DocsSearch({ map }: { map: ReactNode }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<DocumentSearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [uploads, setUploads] = useState<Document[]>([]);
+  const [uploads, setUploads] = useState<DocumentUploadResult[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -68,7 +80,7 @@ export function DocsSearch({ map }: { map: ReactNode }) {
   async function takeFiles(files: FileList | File[]) {
     const list = Array.from(files);
     setUploadError(null);
-    const accepted: Document[] = [];
+    const accepted: DocumentUploadResult[] = [];
     let requestError: string | null = null;
 
     for (const file of list) {
@@ -199,7 +211,7 @@ function DropZone({
   onFiles,
 }: {
   dragging: boolean;
-  uploads: readonly Document[];
+  uploads: readonly DocumentUploadResult[];
   error: string | null;
   onDragging: (dragging: boolean) => void;
   onFiles: (files: FileList | File[]) => void;
@@ -226,7 +238,7 @@ function DropZone({
       >
         <span className="text-ui font-semibold">Drop a publication</span>
         <span className="max-w-measure text-body text-ink-muted">
-          PDF, Word, plain text, or Markdown, up to 10 MB.
+          PDF, Word, plain text, or Markdown, up to {UPLOAD_LIMIT_LABEL}.
         </span>
         <input
           type="file"
