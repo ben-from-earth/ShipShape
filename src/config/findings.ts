@@ -43,8 +43,8 @@ export const MAX_FINDING_CODE_LENGTH = 64;
  * HTTP status for finding failures. Shared codes (`validation_error`,
  * `payload_too_large`, `unsupported_media_type`, `invalid_org_id`,
  * `unknown_organization`) match document routes. Finding-only codes are
- * `asset_not_found`, `too_many_photos`, and `not_found`. `internal_error`
- * stays 500.
+ * `asset_not_found`, `too_many_photos`, `not_found`, `invalid_transition`,
+ * and `conflict`. `internal_error` stays 500.
  */
 export const FINDING_ERROR_HTTP_STATUS = {
   invalid_org_id: 400,
@@ -55,6 +55,8 @@ export const FINDING_ERROR_HTTP_STATUS = {
   payload_too_large: 413,
   unsupported_media_type: 415,
   not_found: 404,
+  invalid_transition: 422,
+  conflict: 409,
 } as const;
 
 export type FindingErrorCode = keyof typeof FINDING_ERROR_HTTP_STATUS;

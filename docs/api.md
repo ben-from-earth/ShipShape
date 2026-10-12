@@ -247,7 +247,43 @@ Failures use `apiErrorSchema`:
 | 415  | `unsupported_media_type` | Extension or media type is not in the photo list, they disagree, or the leading bytes do not match the stored type                                                                                     |
 | 500  | `internal_error`         | Anything else. `message` is `Something went wrong.` The response does not include the underlying error                                                                                                 |
 
-Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findings.ts`. Findings add `asset_not_found`, `too_many_photos`, and `not_found`. `validation_error`, `payload_too_large`, and `unsupported_media_type` are the codes document routes already use. `internal_error` stays 500.
+Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findings.ts`. Findings add `asset_not_found`, `too_many_photos`, `not_found`, `invalid_transition`, and `conflict`. `validation_error`, `payload_too_large`, and `unsupported_media_type` are the codes document routes already use. `internal_error` stays 500.
+
+## POST /api/findings/{id}/stage
+
+Moves one finding to another `work_stage`. `application/json` body:
+
+```json
+{ "toStage": "repair_defined" }
+```
+
+`toStage` is `findingStageSchema`, the same values as the `work_stage` enum. Any other value, a missing `toStage`, or an extra field is `validation_error` and `advanceStage` is not called.
+
+`id` is `issues.id` and must be a UUID. A non-UUID is `validation_error`. `x-org-id` is the same temporary organization header as the other finding routes.
+
+`actorId` is not a body field. Until requests carry a session (#13) it is null, the same stand-in POST /api/findings uses for `uploadedBy`. Null is passed to `advanceStage` and stored as NULL on `changed_by`. A value that is neither null nor a UUID is `validation_error` and `advanceStage` is not called. A UUID that is not a user fails the `changed_by` foreign key. That throw is `internal_error`. The response does not include the database error.
+
+`200` is the `ok` result, returned directly:
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440031",
+  "stage": "repair_defined",
+  "transitionedAt": "2026-10-12T21:04:00.000Z"
+}
+```
+
+`id` is `transition.issueId`. `stage` is the new stage. `transitionedAt` is `transition.changedAt`.
+
+| HTTP | `error.code`           | When                                                                                                   |
+| ---- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| 400  | `invalid_org_id`       | `x-org-id` is missing or not a UUID                                                                    |
+| 400  | `unknown_organization` | `x-org-id` is a UUID and no organization has that id                                                   |
+| 400  | `validation_error`     | `id` is not a UUID, `toStage` is not a `work_stage` value, or `actorId` is neither null nor a UUID     |
+| 404  | `not_found`            | The finding is missing or its asset is in another organization                                         |
+| 422  | `invalid_transition`   | The move is not the next stage or an allowed send-back                                                 |
+| 409  | `conflict`             | The stage changed after it was read                                                                    |
+| 500  | `internal_error`       | Anything else, including a `changed_by` user that does not exist. `message` is `Something went wrong.` |
 
 ## Fields the intake form collects that this request does not accept
 

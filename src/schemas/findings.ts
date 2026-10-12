@@ -230,6 +230,33 @@ export type FindingPhotoMeta = z.infer<typeof findingPhotoMetaSchema>;
 export type FindingMediaContent = z.infer<typeof findingMediaContentSchema>;
 export type FindingRecord = z.infer<typeof findingRecordSchema>;
 
+/**
+ * Body of POST /api/findings/{id}/stage.
+ * `toStage` is `findingStageSchema`, the same values as `work_stage`.
+ * The actor is not a field. Until sessions exist (#13) it is handled
+ * the same way `uploadedBy` is on POST /api/findings.
+ */
+export const advanceFindingStageFieldsSchema = z.strictObject({
+  toStage: findingStageSchema,
+});
+
+/**
+ * 200 body from POST /api/findings/{id}/stage.
+ * `id` is `stage_transitions.issue_id`. `transitionedAt` is `changed_at`.
+ */
+export const advanceFindingStageResultSchema = z.strictObject({
+  id: idSchema,
+  stage: findingStageSchema,
+  transitionedAt: timestampSchema,
+});
+
+export type AdvanceFindingStageFields = z.infer<
+  typeof advanceFindingStageFieldsSchema
+>;
+export type AdvanceFindingStageResult = z.infer<
+  typeof advanceFindingStageResultSchema
+>;
+
 function trimmed<T extends z.ZodType>(schema: T) {
   return z.preprocess(
     (value) => (typeof value === "string" ? value.trim() : value),
