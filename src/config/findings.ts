@@ -145,7 +145,9 @@ const HEIF_BRANDS = new Set(["heif", "mif1", "msf1"]);
 /**
  * Stored media type implied by the photo's leading bytes, or null.
  * JPEG is `FF D8 FF`. PNG is the 8-byte signature. WebP is `RIFF`/`WEBP`.
- * HEIC and HEIF are an `ftyp` box; the major brand wins.
+ * HEIC and HEIF are an `ftyp` box. A `heic` brand in the major brand or
+ * the compatible brands is `image/heic`. Otherwise `heif`, `mif1`, or
+ * `msf1` in that same list is `image/heif`.
  */
 export function sniffedFindingPhotoMediaType(
   bytes: Uint8Array,
@@ -181,26 +183,60 @@ export function sniffedFindingPhotoMediaType(
   return heifMediaType(bytes);
 }
 
+/**
+ * True when the leading bytes match the stored media type.
+ * `mif1` and `msf1` are generic HEIF majors, so they also match
+ * `image/heic`. A compatible brand counts the same as the major brand.
+ */
+export function photoBytesMatchMediaType(
+  bytes: Uint8Array,
+  mediaType: FindingPhotoMediaType,
+): boolean {
+  if (mediaType === "image/heic" || mediaType === "image/heif") {
+    return ftypMatches(bytes, mediaType);
+  }
+  return sniffedFindingPhotoMediaType(bytes) === mediaType;
+}
+
 function heifMediaType(bytes: Uint8Array): FindingPhotoMediaType | null {
+  const brands = ftypBrands(bytes);
+  let heif = false;
+  for (const brand of brands) {
+    if (HEIC_BRANDS.has(brand)) {
+      return "image/heic";
+    }
+    if (HEIF_BRANDS.has(brand)) {
+      heif = true;
+    }
+  }
+  return heif ? "image/heif" : null;
+}
+
+function ftypMatches(
+  bytes: Uint8Array,
+  mediaType: FindingPhotoMediaType,
+): boolean {
+  const brands = ftypBrands(bytes);
+  if (brands.some((brand) => brandMediaType(brand) === mediaType)) {
+    return true;
+  }
+  const major = brands[0];
+  return major === "mif1" || major === "msf1";
+}
+
+/** Major brand first, then each compatible brand in the `ftyp` box. */
+function ftypBrands(bytes: Uint8Array): string[] {
   if (bytes.length < 12 || ascii(bytes, 4, 4) !== "ftyp") {
-    return null;
+    return [];
   }
 
   const boxSize = readUint32(bytes, 0);
   const limit = Math.min(bytes.length, boxSize > 7 ? boxSize : bytes.length);
-  const major = ascii(bytes, 8, 4);
-  const majorType = brandMediaType(major);
-  if (majorType) {
-    return majorType;
-  }
-
+  const brands = [ascii(bytes, 8, 4)];
   for (let offset = 16; offset + 4 <= limit; offset += 4) {
-    const brandType = brandMediaType(ascii(bytes, offset, 4));
-    if (brandType) {
-      return brandType;
-    }
+    brands.push(ascii(bytes, offset, 4));
   }
-  return null;
+  return brands;
 }
 
 function brandMediaType(brand: string): FindingPhotoMediaType | null {

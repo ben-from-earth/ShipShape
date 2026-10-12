@@ -266,7 +266,10 @@ class MultipartParser {
     if (!part) {
       return;
     }
-    const bytes = concatChunks(part.chunks);
+    const bytes =
+      part.kind === "photo"
+        ? concatChunks(part.chunks, part.size)
+        : concatChunks(part.chunks);
     if (part.kind === "field") {
       this.fields[part.name] = textDecoder.decode(bytes);
       return;
@@ -333,11 +336,13 @@ function dispositionParameter(
   disposition: string,
   name: string,
 ): string | null {
-  const quoted = new RegExp(`${name}="([^"]*)"`, "i").exec(disposition);
+  const parameter = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const atBoundary = `(?:^|;)\\s*${parameter}`;
+  const quoted = new RegExp(`${atBoundary}="([^"]*)"`, "i").exec(disposition);
   if (quoted?.[1] !== undefined) {
     return quoted[1];
   }
-  const plain = new RegExp(`${name}=([^;]+)`, "i").exec(disposition);
+  const plain = new RegExp(`${atBoundary}=([^;]+)`, "i").exec(disposition);
   if (plain?.[1] === undefined) {
     return null;
   }
@@ -371,6 +376,18 @@ function concat(left: Uint8Array, right: Uint8Array) {
   return out;
 }
 
-function concatChunks(chunks: Uint8Array[]): Uint8Array {
-  return chunks.reduce(concat, new Uint8Array(0));
+function concatChunks(chunks: Uint8Array[], knownSize?: number): Uint8Array {
+  let length = knownSize ?? 0;
+  if (knownSize === undefined) {
+    for (const chunk of chunks) {
+      length += chunk.byteLength;
+    }
+  }
+  const out = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
 }

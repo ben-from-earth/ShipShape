@@ -39,6 +39,15 @@ function withBreak(parts: Uint8Array[]): Uint8Array {
   return concat(chunks);
 }
 
+function streamOf(body: Uint8Array): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(body);
+      controller.close();
+    },
+  });
+}
+
 function countingStream(first: Uint8Array, extra: Uint8Array) {
   let pulls = 0;
   const stream = new ReadableStream<Uint8Array>({
@@ -103,6 +112,69 @@ describe("readFindingMultipart", () => {
       }),
     ).rejects.toMatchObject({ code: "too_many_photos", status: 400 });
     expect(source.pulls()).toBe(1);
+  });
+
+  it("assembles a photo that arrives in small chunks", async () => {
+    const body = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    const head = encoder.encode(
+      `--${boundary}\r\nContent-Disposition: form-data; name="photos"; filename="bay.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`,
+    );
+    const tail = encoder.encode(`\r\n--${boundary}--`);
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(head);
+        for (let offset = 0; offset < body.byteLength; offset += 3) {
+          controller.enqueue(
+            body.subarray(offset, Math.min(offset + 3, body.byteLength)),
+          );
+        }
+        controller.enqueue(tail);
+        controller.close();
+      },
+    });
+
+    const parsed = await readFindingMultipart({
+      stream,
+      contentType: `multipart/form-data; boundary=${boundary}`,
+    });
+
+    expect(parsed.photos).toEqual([
+      { fileName: "bay.jpg", mediaType: "image/jpeg", bytes: body },
+    ]);
+  });
+
+  it("reads name when filename is the earlier parameter", async () => {
+    const quoted = await readFindingMultipart({
+      stream: streamOf(
+        concat([
+          encoder.encode(
+            `--${boundary}\r\nContent-Disposition: form-data; filename="x.jpg"; name="photos"\r\nContent-Type: image/jpeg\r\n\r\n`,
+          ),
+          jpeg,
+          encoder.encode(`\r\n--${boundary}--`),
+        ]),
+      ),
+      contentType: `multipart/form-data; boundary=${boundary}`,
+    });
+    const plain = await readFindingMultipart({
+      stream: streamOf(
+        concat([
+          encoder.encode(
+            `--${boundary}\r\nContent-Disposition: form-data; filename=x.jpg; name=photos\r\nContent-Type: image/jpeg\r\n\r\n`,
+          ),
+          jpeg,
+          encoder.encode(`\r\n--${boundary}--`),
+        ]),
+      ),
+      contentType: `multipart/form-data; boundary=${boundary}`,
+    });
+
+    expect(quoted.photos).toEqual([
+      { fileName: "x.jpg", mediaType: "image/jpeg", bytes: jpeg },
+    ]);
+    expect(plain.photos).toEqual([
+      { fileName: "x.jpg", mediaType: "image/jpeg", bytes: jpeg },
+    ]);
   });
 
   it("stops pulling once a photo passes 15 MB", async () => {

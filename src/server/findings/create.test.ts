@@ -116,6 +116,27 @@ function photo(
 }
 
 describe("createFinding", () => {
+  it("stores a HEIC photo whose major brand is mif1 and heic is compatible", async () => {
+    const deps = dependencies();
+    const bytes = new Uint8Array([
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x69, 0x66, 0x31,
+      0x00, 0x00, 0x00, 0x00, 0x68, 0x65, 0x69, 0x63,
+    ]);
+
+    const result = await createFinding(
+      {
+        orgId,
+        fields,
+        photos: [photo("bay.heic", "image/heic", bytes)],
+      },
+      deps,
+    );
+
+    expect(result.photos[0]?.mimeType).toBe("image/heic");
+    expect(deps.events.some((event) => event.startsWith("put"))).toBe(true);
+    expect(deps.inserted).toHaveLength(1);
+  });
+
   it("stores org-scoped photos and returns the discovered finding", async () => {
     const deps = dependencies();
 

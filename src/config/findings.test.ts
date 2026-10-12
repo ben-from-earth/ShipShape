@@ -21,6 +21,7 @@ import {
   canonicalFindingPhotoMediaType,
   findingPhotoFileExtension,
   findingPhotoMediaTypeForExtension,
+  photoBytesMatchMediaType,
   sniffedFindingPhotoMediaType,
 } from "@/config/findings";
 
@@ -111,6 +112,38 @@ describe("finding photo config", () => {
         ]),
       ),
     ).toBe("image/heif");
+    expect(
+      sniffedFindingPhotoMediaType(
+        new Uint8Array([
+          0x00, 0x00, 0x00, 0x0c, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x73, 0x66,
+          0x31,
+        ]),
+      ),
+    ).toBe("image/heif");
+    const mif1Heic = new Uint8Array([
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x69, 0x66, 0x31,
+      0x00, 0x00, 0x00, 0x00, 0x68, 0x65, 0x69, 0x63,
+    ]);
+    expect(sniffedFindingPhotoMediaType(mif1Heic)).toBe("image/heic");
+    expect(photoBytesMatchMediaType(mif1Heic, "image/heic")).toBe(true);
+    expect(
+      photoBytesMatchMediaType(
+        new Uint8Array([
+          0x00, 0x00, 0x00, 0x0c, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x69, 0x66,
+          0x31,
+        ]),
+        "image/heic",
+      ),
+    ).toBe(true);
+    expect(
+      photoBytesMatchMediaType(
+        new Uint8Array([
+          0x00, 0x00, 0x00, 0x0c, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x73, 0x66,
+          0x31,
+        ]),
+        "image/heic",
+      ),
+    ).toBe(true);
     expect(sniffedFindingPhotoMediaType(new Uint8Array([1, 2, 3]))).toBeNull();
   });
 

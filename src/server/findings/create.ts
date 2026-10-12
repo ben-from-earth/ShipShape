@@ -7,7 +7,7 @@ import {
   canonicalFindingPhotoMediaType,
   findingPhotoFileExtension,
   findingPhotoMediaTypeForExtension,
-  sniffedFindingPhotoMediaType,
+  photoBytesMatchMediaType,
   type FindingPhotoMediaType,
 } from "@/config/findings";
 import { getDb } from "@/db";
@@ -261,7 +261,7 @@ function assertPhoto(photo: FindingPhotoUpload): FindingPhotoMediaType {
       "The file extension does not match its media type.",
     );
   }
-  if (sniffedFindingPhotoMediaType(photo.bytes) !== mediaType) {
+  if (!photoBytesMatchMediaType(photo.bytes, mediaType)) {
     throw new FindingRequestError(
       "unsupported_media_type",
       "The file contents do not match its media type.",
