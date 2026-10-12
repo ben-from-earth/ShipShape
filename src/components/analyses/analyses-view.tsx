@@ -5,6 +5,7 @@ import { useState, useSyncExternalStore } from "react";
 import { PageHeading } from "@/components/shell/page-heading";
 import { Button } from "@/components/ui/button";
 import { MarginValue } from "@/components/ui/margin-value";
+import { LOW_MARGIN_THRESHOLD } from "@/config/analysis";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
@@ -80,9 +81,15 @@ function sortValue(
 export function AnalysesView({
   records,
   defaultSelectedId,
+  marginThreshold = LOW_MARGIN_THRESHOLD,
+  asOf,
 }: {
   records: readonly AnalysisRecord[];
   defaultSelectedId: string;
+  /** Organization cutoff. Defaults to `LOW_MARGIN_THRESHOLD`. */
+  marginThreshold?: number;
+  /** UTC day for overdue, due labels, and due-date sort. */
+  asOf: string;
 }) {
   const [filter, setFilter] = useState<AnalysisFilter>("all");
   const [query, setQuery] = useState("");
@@ -94,7 +101,11 @@ export function AnalysesView({
     : defaultSelectedId;
 
   const counts = statusCounts(records);
-  const visible = sortAnalyses(filterAnalyses(records, filter, query), sort);
+  const visible = sortAnalyses(
+    filterAnalyses(records, filter, query),
+    sort,
+    asOf,
+  );
   const selected =
     records.find((record) => record.id === selectedId) ?? records[0];
 
@@ -191,6 +202,8 @@ export function AnalysesView({
                     record={record}
                     selected={record.id === selected?.id}
                     onSelect={selectAnalysis}
+                    marginThreshold={marginThreshold}
+                    asOf={asOf}
                   />
                 </li>
               ))}
@@ -202,10 +215,14 @@ export function AnalysesView({
               sort={sort}
               onSort={setSort}
               onSelect={selectAnalysis}
+              marginThreshold={marginThreshold}
+              asOf={asOf}
             />
           )}
         </div>
-        {selected ? <AnalysisDetail record={selected} /> : null}
+        {selected ? (
+          <AnalysisDetail record={selected} marginThreshold={marginThreshold} />
+        ) : null}
       </div>
     </div>
   );
@@ -215,12 +232,16 @@ function AnalysisCard({
   record,
   selected,
   onSelect,
+  marginThreshold,
+  asOf,
 }: {
   record: AnalysisRecord;
   selected: boolean;
   onSelect: (id: string) => void;
+  marginThreshold: number;
+  asOf: string;
 }) {
-  const overdue = isOverdue(record);
+  const overdue = isOverdue(record, asOf);
   const analyst = PEOPLE[record.analyst];
 
   return (
@@ -256,6 +277,7 @@ function AnalysisCard({
           </span>
           <MarginValue
             margin={minMargin(record.cases)}
+            threshold={marginThreshold}
             className="text-ms font-semibold"
           />
         </span>
@@ -285,7 +307,7 @@ function AnalysisCard({
             overdue ? "text-accent uppercase" : "text-ink-muted",
           )}
         >
-          {dueLabel(record)}
+          {dueLabel(record, asOf)}
         </span>
       </span>
     </button>
@@ -298,12 +320,16 @@ function AnalysisTable({
   sort,
   onSort,
   onSelect,
+  marginThreshold,
+  asOf,
 }: {
   records: readonly AnalysisRecord[];
   selectedId: string | undefined;
   sort: AnalysisSort;
   onSort: (sort: AnalysisSort) => void;
   onSelect: (id: string) => void;
+  marginThreshold: number;
+  asOf: string;
 }) {
   return (
     <div className="overflow-x-auto border border-line bg-surface">
@@ -352,7 +378,7 @@ function AnalysisTable({
         <tbody>
           {records.map((record) => {
             const selected = record.id === selectedId;
-            const overdue = isOverdue(record);
+            const overdue = isOverdue(record, asOf);
 
             return (
               <tr
@@ -390,7 +416,10 @@ function AnalysisTable({
                   />
                 </td>
                 <td className="px-3 py-2.5 text-xs">
-                  <MarginValue margin={minMargin(record.cases)} />
+                  <MarginValue
+                    margin={minMargin(record.cases)}
+                    threshold={marginThreshold}
+                  />
                 </td>
                 <td
                   className={cn(
@@ -398,7 +427,7 @@ function AnalysisTable({
                     overdue ? "text-accent uppercase" : "text-ink-muted",
                   )}
                 >
-                  {dueLabel(record)}
+                  {dueLabel(record, asOf)}
                 </td>
               </tr>
             );

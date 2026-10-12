@@ -20,6 +20,11 @@ export type OpenItem = {
   attentionOrder: number | null;
   rework: boolean;
   waitingOnSupplier: boolean;
+  /**
+   * Days past the due date. Omitted on demo rows, which keep the
+   * canned "Overdue 4 d" attention label.
+   */
+  overdueDays?: number;
 };
 
 export type StageMeta = {
@@ -100,6 +105,8 @@ export type DashboardModel = {
   period: DashboardPeriod;
   asOf: string;
   asOfLabel: string;
+  /** Cutoff from the tenant snapshot. Pages pass this to `MarginValue`. */
+  marginThreshold: number;
   assetGroupName: string;
   kpis: Kpi[];
   pipeline: PipelineStage[];

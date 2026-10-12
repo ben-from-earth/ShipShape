@@ -40,3 +40,21 @@ export function formatShortDate(isoDate: string): string {
 
   return `${month} ${day}`;
 }
+
+/** `2026-10-06` → `Oct 6, 2026`. */
+export function formatAsOfLabel(isoDate: string): string {
+  const [year, monthRaw, dayRaw] = isoDate.split("-");
+  const month = MONTHS[Number(monthRaw) - 1];
+  const day = Number(dayRaw);
+
+  if (!month || !year || !Number.isFinite(day)) {
+    return isoDate;
+  }
+
+  return `${month} ${day}, ${year}`;
+}
+
+/** UTC calendar day for an instant. `Date` values are not current-time reads. */
+export function isoDateUtc(instant: Date): string {
+  return instant.toISOString().slice(0, 10);
+}

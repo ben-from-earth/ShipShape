@@ -53,6 +53,15 @@ export type AnalysisRecord = {
   cases: readonly AnalysisCase[];
   log: readonly { time: string; text: string }[];
   catalogOrder: number;
+  /**
+   * Display names for database rows. Demo fixtures omit this and the
+   * page keeps looking people up by initials.
+   */
+  roster?: {
+    analyst: { name: string; color: string };
+    checker: { name: string; color: string } | null;
+    approver: { name: string; color: string };
+  };
 };
 
 export type LifecycleState =

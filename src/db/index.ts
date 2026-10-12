@@ -6,7 +6,7 @@ import * as relations from "./relations";
 import * as schema from "./schema";
 
 /** Tables plus relations, so `getDb().query` can follow foreign keys. */
-const databaseSchema = { ...schema, ...relations };
+export const databaseSchema = { ...schema, ...relations };
 
 function createDb() {
   const databaseUrl = process.env.DATABASE_URL;

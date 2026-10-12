@@ -199,7 +199,7 @@ export function itemsNeedingAttention(
 
 function flagLabelFor(item: OpenItem & { flag: AttentionFlag }): string {
   if (item.flag === "overdue") {
-    return "Overdue 4 d";
+    return `Overdue ${item.overdueDays ?? 4} d`;
   }
 
   return FLAG_LABEL[item.flag];

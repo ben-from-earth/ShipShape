@@ -1,6 +1,6 @@
 import type { AnalysisRecord, Person, PersonId } from "./types";
 
-export const PEOPLE: Record<PersonId, Person> = {
+const FIXTURE_PEOPLE: Record<PersonId, Person> = {
   JM: { id: "JM", name: "J. Morales", color: "#1e2d55" },
   AK: { id: "AK", name: "A. Kowalski", color: "#6b4f2a" },
   RT: { id: "RT", name: "R. Tanaka", color: "#2f5d50" },
@@ -8,6 +8,56 @@ export const PEOPLE: Record<PersonId, Person> = {
   SO: { id: "SO", name: "S. Okafor", color: "#8a3a2a" },
   MB: { id: "MB", name: "M. Brennan", color: "#3d4a5c" },
 };
+
+const PERSON_COLORS = [
+  "#1e2d55",
+  "#6b4f2a",
+  "#2f5d50",
+  "#5a3d6b",
+  "#8a3a2a",
+  "#3d4a5c",
+] as const;
+
+function isPersonId(id: string): id is PersonId {
+  return Object.prototype.hasOwnProperty.call(FIXTURE_PEOPLE, id);
+}
+
+/** Stable color for an initials pair, matching the demo palette when known. */
+export function colorForInitials(initials: string): string {
+  if (isPersonId(initials)) {
+    return FIXTURE_PEOPLE[initials].color;
+  }
+
+  let hash = 0;
+  for (const char of initials) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  }
+
+  return PERSON_COLORS[hash % PERSON_COLORS.length] ?? "#3d4a5c";
+}
+
+/** Fixture person, or a generated one so an unknown initials pair still renders. */
+export function personById(id: string): Person {
+  if (isPersonId(id)) {
+    return FIXTURE_PEOPLE[id];
+  }
+
+  return {
+    id: id as PersonId,
+    name: id,
+    color: colorForInitials(id),
+  };
+}
+
+export const PEOPLE: Record<PersonId, Person> = new Proxy(FIXTURE_PEOPLE, {
+  get(target, prop, receiver) {
+    if (typeof prop !== "string") {
+      return Reflect.get(target, prop, receiver);
+    }
+
+    return personById(prop);
+  },
+});
 
 const UNASSIGNED_COLOR = "#b5b1a8";
 
