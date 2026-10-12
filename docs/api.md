@@ -339,7 +339,7 @@ Opens one repair on a finding. `application/json` body. The handler does not acc
 
 `actorId` is not a body field. Until requests carry a session (#13) it is null, the same stand-in POST /api/findings uses for `uploadedBy`. Null is passed to `createRepair` and stored as NULL on `created_by`. A value that is neither null nor a UUID is `validation_error` and `createRepair` is not called. A UUID that is not a user fails the `created_by` foreign key. That throw is `internal_error`. The response does not include the database error.
 
-`201` is the `ok` repair, the same fields as the repair row:
+`201` is the `ok` repair, the same record as `getRepair`:
 
 ```json
 {
@@ -351,11 +351,20 @@ Opens one repair on a finding. `application/json` body. The handler does not acc
   "status": "open",
   "createdBy": null,
   "createdAt": "2026-10-12T21:04:00.000Z",
-  "updatedAt": "2026-10-12T21:04:00.000Z"
+  "updatedAt": "2026-10-12T21:04:00.000Z",
+  "finding": {
+    "id": "550e8400-e29b-41d4-a716-446655440031",
+    "code": "ISS-1002"
+  },
+  "asset": {
+    "id": "550e8400-e29b-41d4-a716-446655440022",
+    "identifier": "A-0022",
+    "name": "Fitting"
+  }
 }
 ```
 
-`code` is allocated by `repair_code_seq` through `nextRepairCodeSql()`. `findingId` is `repairs.issue_id`. `createdBy` is `repairs.created_by`.
+`code` is allocated by `repair_code_seq` through `nextRepairCodeSql()`. `findingId` is `repairs.issue_id`. `createdBy` is `repairs.created_by`. `finding` is that finding's `id` and `code`. `asset` is that finding's asset `id`, `identifier`, and `name`. `name` is null when the asset has no name.
 
 | HTTP | `error.code`           | When                                                                                                   |
 | ---- | ---------------------- | ------------------------------------------------------------------------------------------------------ |
