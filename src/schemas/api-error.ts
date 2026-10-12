@@ -5,8 +5,8 @@ import { z } from "zod";
  *
  * Document and finding routes share `validation_error`, `payload_too_large`,
  * `unsupported_media_type`, `invalid_org_id`, `unknown_organization`, and
- * `internal_error`. Finding routes also use `asset_not_found` and
- * `too_many_photos`.
+ * `internal_error`. Finding routes also use `asset_not_found`,
+ * `too_many_photos`, and `not_found`.
  */
 export const apiErrorCodeSchema = z.enum([
   "validation_error",
@@ -16,6 +16,7 @@ export const apiErrorCodeSchema = z.enum([
   "too_many_photos",
   "payload_too_large",
   "unsupported_media_type",
+  "not_found",
   "internal_error",
 ]);
 

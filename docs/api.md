@@ -247,7 +247,7 @@ Failures use `apiErrorSchema`:
 | 415  | `unsupported_media_type` | Extension or media type is not in the photo list, or they disagree                                                                                                                                     |
 | 500  | `internal_error`         | Anything else. `message` is `Something went wrong.` The response does not include the underlying error                                                                                                 |
 
-Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findings.ts`. Findings add only `asset_not_found` and `too_many_photos`. `validation_error`, `payload_too_large`, and `unsupported_media_type` are the codes document routes already use. `internal_error` stays 500.
+Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findings.ts`. Findings add `asset_not_found`, `too_many_photos`, and `not_found`. `validation_error`, `payload_too_large`, and `unsupported_media_type` are the codes document routes already use. `internal_error` stays 500.
 
 ## Fields the intake form collects that this request does not accept
 
@@ -260,3 +260,27 @@ Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findi
 | Notes        | `notes`                                 | Dropped. Description is the write-up. Do not send `notes`                                                                                       |
 
 `issues.code` is allocated by `issue_code_seq` through `nextIssueCodeSql()`. This contract does not allocate it with `MAX(code) + 1`.
+
+## GET /api/findings/{id}/photos/{mediaId}
+
+Streams one photo. The handler does not redirect to a public URL or a signed URL. `x-org-id` is the same temporary organization header as the other finding and document routes.
+
+`id` is the finding (`issues.id`). `mediaId` is `issue_media.id`. Both must be UUIDs. The finding belongs to the organization only through `assets.org_id` on `issues.asset_id`. The media row must use that finding as `issue_id`. One query applies both checks. A missing finding, a finding whose asset is in another organization, and a media id that belongs to a different finding all return the same 404. The body does not say which check failed.
+
+`200` is the object from `ObjectStorage.read`, using the `storage_key` stored on the row. The response headers are:
+
+| Header                   | Value                   |
+| ------------------------ | ----------------------- |
+| `Content-Type`           | `issue_media.mime_type` |
+| `Cache-Control`          | `private`               |
+| `X-Content-Type-Options` | `nosniff`               |
+
+If the row matches but the stored object is missing, the response is the same 404.
+
+| HTTP | `error.code`           | When                                                                                                      |
+| ---- | ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| 400  | `invalid_org_id`       | `x-org-id` is missing or not a UUID                                                                       |
+| 400  | `unknown_organization` | `x-org-id` is a UUID and no organization has that id                                                      |
+| 400  | `validation_error`     | `id` or `mediaId` is not a UUID                                                                           |
+| 404  | `not_found`            | The finding is not in the organization, the media is not on that finding, or the stored bytes are missing |
+| 500  | `internal_error`       | Anything else. `message` is `Something went wrong.`                                                       |

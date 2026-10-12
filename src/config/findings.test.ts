@@ -89,6 +89,7 @@ describe("finding photo config", () => {
       too_many_photos: 400,
       payload_too_large: 413,
       unsupported_media_type: 415,
+      not_found: 404,
     });
   });
 
