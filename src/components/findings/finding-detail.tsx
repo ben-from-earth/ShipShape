@@ -6,8 +6,7 @@ import { RepairStatusPill } from "@/components/repairs/status-pill";
 import { PageHeading } from "@/components/shell/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { StatusPill } from "@/components/ui/status-pill";
-import { STAGE_LABEL, formatFindingDate } from "@/features/findings/display";
+import { formatFindingDate } from "@/features/findings/display";
 import type { RepairView } from "@/features/repairs/view";
 import {
   findingLocationLine,
@@ -17,6 +16,7 @@ import type { FindingRecord } from "@/schemas";
 
 import { FindingPhoto } from "./finding-photo";
 import { SeverityPill } from "./severity-pill";
+import { StageActions } from "./stage-actions";
 
 export function FindingDetail({
   record,
@@ -44,7 +44,7 @@ export function FindingDetail({
             <SeverityPill severity={record.severity} />
           </Fact>
           <Fact label="Stage">
-            <StatusPill label={STAGE_LABEL[record.stage]} tone="outline" />
+            <StageActions findingId={record.id} stage={record.stage} />
           </Fact>
           <Fact label="Asset">
             <span className="text-body">
