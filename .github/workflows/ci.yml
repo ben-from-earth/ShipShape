@@ -50,3 +50,75 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  migrations:
+    name: Check and apply migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: shipshape
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d shipshape"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shipshape
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install psql
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Check migrations match the schema
+        run: |
+          set -euo pipefail
+          pnpm db:check
+          pnpm exec drizzle-kit generate --name ci_drift
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "drizzle-kit generate produced a diff. Commit the updated migration."
+            git status --porcelain
+            git diff
+            exit 1
+          fi
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      - name: Prove pgvector and the cosine HNSW index
+        run: |
+          set -euo pipefail
+          extension="$(psql "$DATABASE_URL" -tA -v ON_ERROR_STOP=1 -c "SELECT extname FROM pg_extension WHERE extname = 'vector'")"
+          test "$extension" = "vector"
+          embedding_type="$(psql "$DATABASE_URL" -tA -v ON_ERROR_STOP=1 -c "SELECT format_type(a.atttypid, a.atttypmod) FROM pg_attribute a JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relname = 'document_chunks' AND a.attname = 'embedding' AND NOT a.attisdropped")"
+          test "$embedding_type" = "vector(384)"
+          indexdef="$(psql "$DATABASE_URL" -tA -v ON_ERROR_STOP=1 -c "SELECT indexdef FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'chunks_embedding_hnsw'")"
+          printf '%s\n' "$indexdef"
+          printf '%s' "$indexdef" | grep -q 'USING hnsw'
+          printf '%s' "$indexdef" | grep -q 'vector_cosine_ops'
+          chunk_columns="$(psql "$DATABASE_URL" -tA -v ON_ERROR_STOP=1 -c "SELECT string_agg(column_name, ',' ORDER BY column_name) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'document_chunks' AND column_name IN ('index', 'text', 'start_offset', 'end_offset', 'page_start', 'page_end')")"
+          test "$chunk_columns" = "end_offset,index,page_end,page_start,start_offset,text"
+          table_count="$(psql "$DATABASE_URL" -tA -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'")"
+          test "$table_count" = "17"

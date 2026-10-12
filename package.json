@@ -17,6 +17,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:check": "drizzle-kit check",
+    "db:seed": "tsx src/db/seed.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
@@ -41,14 +43,17 @@
     "@next/env": "^16.4.0",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "eslint-config-prettier": "^10.1.8",
+    "pg": "^8.23.1",
     "prettier": "^3.9.10",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^5.0.4"
   },

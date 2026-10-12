@@ -10,7 +10,7 @@ import { idSchema, shortTextSchema, timestampSchema } from "./common";
 export const DOCUMENT_EMBEDDING_MODEL = "all-MiniLM-L6-v2";
 export const DOCUMENT_EMBEDDING_DIMENSIONS = 384;
 
-/** An uploaded reference document, before any vector index exists. */
+/** An uploaded reference document. Chunks and embeddings live on document_chunks. */
 export const documentCreateSchema = z.object({
   title: shortTextSchema,
   storageKey: z.string().trim().min(1).max(500),
