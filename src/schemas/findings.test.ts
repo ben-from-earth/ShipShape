@@ -417,6 +417,52 @@ describe("finding API errors", () => {
         error: { code: "not_a_code", message: "nope" },
       }).success,
     ).toBe(false);
+    expect(
+      apiErrorSchema.parse({
+        error: {
+          code: "invalid_transition",
+          message: "That move is not allowed.",
+        },
+      }).error.code,
+    ).toBe("invalid_transition");
+    expect(
+      apiErrorSchema.parse({
+        error: { code: "conflict", message: "The stage changed." },
+      }).error.code,
+    ).toBe("conflict");
+  });
+});
+
+describe("advanceFindingStageResultSchema", () => {
+  const moved = {
+    id: findingId,
+    stage: "repair_defined" as const,
+    transitionedAt: storedAt,
+  };
+
+  it("accepts the 200 stage body and rejects a bad stage", () => {
+    expect(advanceFindingStageResultSchema.parse(moved)).toEqual(moved);
+    expect(
+      advanceFindingStageResultSchema.safeParse({
+        ...moved,
+        stage: "submitted",
+      }).success,
+    ).toBe(false);
+    expect(
+      advanceFindingStageResultSchema.safeParse({
+        ...moved,
+        transitionedAt: "yesterday",
+      }).success,
+    ).toBe(false);
+    expect(
+      advanceFindingStageResultSchema.safeParse({ id: findingId }).success,
+    ).toBe(false);
+    expect(
+      advanceFindingStageResultSchema.safeParse({
+        ...moved,
+        changedAt: storedAt,
+      }).success,
+    ).toBe(false);
   });
 });
 
