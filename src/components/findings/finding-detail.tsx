@@ -7,12 +7,12 @@ import { PageHeading } from "@/components/shell/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatFindingDate } from "@/features/findings/display";
-import type { RepairView } from "@/features/repairs/view";
 import {
   findingLocationLine,
   findingZoneLine,
 } from "@/features/findings/place";
-import type { FindingRecord } from "@/schemas";
+import { repairAssetLabel } from "@/features/repairs/display";
+import type { FindingRecord, Repair } from "@/schemas";
 
 import { CreateRepair } from "./create-repair";
 import { FindingPhoto } from "./finding-photo";
@@ -24,7 +24,7 @@ export function FindingDetail({
   repairs,
 }: {
   record: FindingRecord;
-  repairs: readonly RepairView[];
+  repairs: readonly Repair[];
 }) {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -92,6 +92,9 @@ export function FindingDetail({
                   </span>
                   <span className="min-w-0 flex-1 truncate text-body">
                     {repair.title}
+                  </span>
+                  <span className="text-body text-ink-muted">
+                    {repairAssetLabel(repair.asset)}
                   </span>
                   <RepairStatusPill status={repair.status} />
                   <time

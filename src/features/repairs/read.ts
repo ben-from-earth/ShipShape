@@ -10,7 +10,6 @@ import { idSchema, type Repair, type RepairListFilters } from "@/schemas";
 
 import { getRepair, listRepairs } from "./data";
 import { getDemoRepair, listDemoRepairs } from "./demo";
-import type { RepairView } from "./view";
 
 /**
  * Repairs for the page. Demo rows are used only when `isDemoData()` is on.
@@ -19,7 +18,7 @@ import type { RepairView } from "./view";
  */
 export async function listRepairViews(
   filters?: RepairListFilters,
-): Promise<RepairView[]> {
+): Promise<Repair[]> {
   await io();
 
   if (isDemoData()) {
@@ -35,11 +34,11 @@ export async function listRepairViews(
     return [];
   }
 
-  return attachFindings(await listRepairs(orgId, filters, db));
+  return listRepairs(orgId, filters, db);
 }
 
 /** Null when the id is not a uuid, the row is missing, or it is another org. */
-export async function getRepairView(id: string): Promise<RepairView | null> {
+export async function getRepairView(id: string): Promise<Repair | null> {
   await io();
 
   if (!idSchema.safeParse(id).success) {
@@ -58,13 +57,7 @@ export async function getRepairView(id: string): Promise<RepairView | null> {
     return null;
   }
 
-  const repair = await getRepair(orgId, id, db);
-  if (!repair) {
-    return null;
-  }
-
-  const [view] = attachFindings([repair]);
-  return view ?? null;
+  return getRepair(orgId, id, db);
 }
 
 async function tenantOrgId(
@@ -76,13 +69,4 @@ async function tenantOrgId(
     .orderBy(...oldestOrganizationOrder())
     .limit(1);
   return rows[0]?.id ?? null;
-}
-
-function attachFindings(repairs: readonly Repair[]): RepairView[] {
-  return repairs.map((repair) => ({
-    ...repair,
-    findingCode: repair.finding.code,
-    assetIdentifier: repair.asset.identifier,
-    assetName: repair.asset.name,
-  }));
 }

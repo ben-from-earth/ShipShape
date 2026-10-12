@@ -5,17 +5,12 @@ import { PageHeading } from "@/components/shell/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatFindingDate } from "@/features/findings/display";
-import type { RepairView } from "@/features/repairs/view";
+import { repairAssetLabel } from "@/features/repairs/display";
+import type { Repair } from "@/schemas";
 
 import { RepairStatusPill } from "./status-pill";
 
-export function RepairDetail({ record }: { record: RepairView }) {
-  const asset = record.assetIdentifier
-    ? record.assetName
-      ? `${record.assetIdentifier} · ${record.assetName}`
-      : record.assetIdentifier
-    : "—";
-
+export function RepairDetail({ record }: { record: Repair }) {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeading
@@ -39,14 +34,14 @@ export function RepairDetail({ record }: { record: RepairView }) {
           </Fact>
           <Fact label="Finding">
             <Link
-              href={`/findings/${record.findingId}`}
+              href={`/findings/${record.finding.id}`}
               className="font-mono text-ui text-ink no-underline hover:text-accent"
             >
-              {record.findingCode ?? "Finding"}
+              {record.finding.code}
             </Link>
           </Fact>
           <Fact label="Asset">
-            <span className="text-body">{asset}</span>
+            <span className="text-body">{repairAssetLabel(record.asset)}</span>
           </Fact>
           <Fact label="Created">
             <time dateTime={record.createdAt} className="text-body">
