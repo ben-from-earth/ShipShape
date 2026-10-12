@@ -56,7 +56,9 @@ src/app/(app)/            Shell: dashboard, engineering, docs, tools
 src/components/           Shared UI and the application header
 src/config/               Shared constants (margin threshold, navigation)
 src/schemas/              Zod schemas shared by the UI and the server
+src/schemas/documents.ts  Chunk and search shapes for reference documents
 src/server/<domain>/      Server-side parsing for one workflow step
+src/server/documents/     Extract, chunk, and embed uploaded documents
 src/db/schema.ts          Drizzle tables (placeholder today)
 src/db/index.ts           Neon client. Call getDb() when you need it.
 drizzle.config.ts         Drizzle Kit config. Reads DATABASE_URL.
@@ -64,13 +66,13 @@ drizzle.config.ts         Drizzle Kit config. Reads DATABASE_URL.
 
 Server domains:
 
-| Directory                   | Workflow step                      |
-| --------------------------- | ---------------------------------- |
-| `src/server/damage-reports` | Field report with photos           |
-| `src/server/repairs`        | Repair opened from a damage report |
-| `src/server/analyses`       | Stress and strength analysis       |
-| `src/server/reviews`        | Review and approval                |
-| `src/server/documents`      | Uploaded reference documents       |
+| Directory                   | Workflow step                                 |
+| --------------------------- | --------------------------------------------- |
+| `src/server/damage-reports` | Field report with photos                      |
+| `src/server/repairs`        | Repair opened from a damage report            |
+| `src/server/analyses`       | Stress and strength analysis                  |
+| `src/server/reviews`        | Review and approval                           |
+| `src/server/documents`      | Uploaded reference documents and local search |
 
 Import schemas from `@/schemas` in both client and server code:
 
@@ -92,7 +94,7 @@ import { parseDamageReportCreate } from "@/server/damage-reports";
 
 **Tables are a placeholder.** `src/db/schema.ts` exports `schemaPlaceholder` so Drizzle Kit has a schema file to read. Replace that table with damage reports, repairs, analyses, reviews, and documents before storing product data.
 
-**Document search comes later.** Embeddings run locally. A later change adds one `embed()` function that loads `all-MiniLM-L6-v2` with Transformers.js and returns 384-dimension vectors for pgvector on Neon. `DOCUMENT_EMBEDDING_MODEL` and `DOCUMENT_EMBEDDING_DIMENSIONS` in `src/schemas/document.ts` record that contract for the table that will store the vectors.
+**Document search runs locally and does not touch the database yet.** `extractText()` reads PDF with unpdf, DOCX with mammoth, and plain text or Markdown as UTF-8. `chunkText()` splits that text into overlapping chunks of about 500 tokens, keeping page numbers and character offsets when the format has them. `embed()` and `embedText()` are the only functions that load `Xenova/all-MiniLM-L6-v2` through Transformers.js. They mean-pool and L2-normalize to the 384-dimension vectors named by `DOCUMENT_EMBEDDING_DIMENSIONS`. Chunk and search payloads live in `src/schemas/documents.ts`. Storing vectors in pgvector and serving search over HTTP come later; this change does not write to the database or add a route. `pnpm test` mocks the model. Set `RUN_EMBEDDING_MODEL=1` to run the optional test that downloads it.
 
 **Low margins use one cutoff until organizations store their own.** `LOW_MARGIN_THRESHOLD` in `src/config/analysis.ts` is `0.10`. A later setting, `organizations.low_margin_threshold`, replaces it per organization. Negative margins stay red either way.
 
