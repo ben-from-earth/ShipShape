@@ -22,7 +22,9 @@ pnpm install
 cp .env.example .env.local
 ```
 
-Put a Neon connection string in `DATABASE_URL` inside `.env.local`. That is the only environment variable. `pnpm dev`, `pnpm build`, and `GET /api/health` work before it is set. `getDb()` connects on first use. The pooled string works for the app and `pnpm db:seed`. `pnpm db:migrate` needs the direct string. See [docs/database.md](docs/database.md).
+Put a Neon connection string in `DATABASE_URL` inside `.env.local`. `pnpm dev`, `pnpm build`, and `GET /api/health` work before it is set. `getDb()` connects on first use. The pooled string works for the app and `pnpm db:seed`. `pnpm db:migrate` needs the direct string. See [docs/database.md](docs/database.md).
+
+Uploaded files are written under `.data/documents`. Set `DOCUMENT_STORAGE_DIR` to use a different directory. Both variables are listed in `.env.example`.
 
 ```bash
 pnpm dev
@@ -54,14 +56,15 @@ The app is at [http://localhost:3000](http://localhost:3000). The health check i
 ```text
 src/app/                  Next.js App Router pages and route handlers
 src/app/api/health/       Liveness check
+src/app/api/documents/    Upload and search route handlers
 src/app/(app)/            Shell: dashboard, engineering, docs, tools
 src/components/           Shared UI and the application header
 src/features/             Page view models, demo fixtures, and derived counts
-src/config/               Shared constants (margin threshold, navigation)
+src/config/               Shared constants (margin threshold, navigation, uploads)
 src/schemas/              Zod schemas shared by the UI and the server
 src/schemas/documents.ts  Chunk and search shapes for reference documents
 src/server/<domain>/      Server-side parsing for one workflow step
-src/server/documents/     Extract, chunk, and embed uploaded documents
+src/server/documents/     Ingest, extract, chunk, embed, and search documents
 src/db/schema.ts          Drizzle tables
 src/db/relations.ts       Drizzle relations for db.query
 src/db/index.ts           Neon client. Call getDb() when you need it.
@@ -101,7 +104,7 @@ import { parseDamageReportCreate } from "@/server/damage-reports";
 
 **Tables cover the repair workflow.** `src/db/schema.ts` holds organizations, people, generic assets, issues, repairs, analyses, reviews, and documents. Assets are not aircraft-specific: `asset_type` is a free label and type-specific fields live in JSON. The table list, migration rules, and restore steps are in [docs/database.md](docs/database.md).
 
-**Document search embeds locally and stores chunks in Postgres.** `extractText()` reads PDF with unpdf, DOCX with mammoth, and plain text or Markdown as UTF-8. `chunkText()` splits that text into overlapping chunks of about 500 tokens, keeping a page span and character offsets. `embed()` and `embedText()` are the only functions that load `Xenova/all-MiniLM-L6-v2` through Transformers.js. They mean-pool and L2-normalize to the 384-dimension vectors named by `DOCUMENT_EMBEDDING_DIMENSIONS`. `document_chunks` stores that `DocumentChunk` shape (`index`, `text`, `startOffset`, `endOffset`, `pageStart`, `pageEnd`) plus the embedding, with a cosine HNSW index. Serving search over HTTP comes later. `pnpm test` mocks the model. Set `RUN_EMBEDDING_MODEL=1` to run the optional test that downloads it.
+**Document search embeds locally and stores chunks in Postgres.** `extractText()` reads PDF with unpdf, DOCX with mammoth, and plain text or Markdown as UTF-8. `chunkText()` splits that text into overlapping chunks of about 500 tokens, keeping a page span and character offsets. `embed()` and `embedText()` are the only functions that load `Xenova/all-MiniLM-L6-v2` through Transformers.js. They mean-pool and L2-normalize to the 384-dimension vectors named by `DOCUMENT_EMBEDDING_DIMENSIONS`. `document_chunks` stores that `DocumentChunk` shape (`index`, `text`, `startOffset`, `endOffset`, `pageStart`, `pageEnd`) plus the embedding, with a cosine HNSW index. `POST /api/documents` indexes an upload and `POST /api/documents/search` queries it. The request shapes, error body, and limits are in [docs/api.md](docs/api.md). `pnpm test` mocks the model. Set `RUN_EMBEDDING_MODEL=1` to run the optional test that downloads it.
 
 **Dashboard and the analysis list read demo fixtures.** `getDashboard()` and `listAnalyses()` in `src/features/<domain>/data.ts` return promises of typed view models. The server pages await them. Swapping the fixture reads for queries later does not require a page or component change. Stage counts, item age, and minimum margin live in `derive.ts` and are covered by Vitest. `MarginValue` takes an optional `threshold` that defaults to `LOW_MARGIN_THRESHOLD`.
 

@@ -3,24 +3,27 @@ import "server-only";
 import mammoth from "mammoth";
 import { extractText as extractPdfText, getDocumentProxy } from "unpdf";
 
-/** Media types extractText accepts. Markdown is read as text, not rendered. */
-export const SUPPORTED_DOCUMENT_MEDIA_TYPES = [
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain",
-  "text/markdown",
-] as const;
+import {
+  DOCUMENT_UPLOAD_TYPES,
+  canonicalUploadMediaType,
+  mediaTypeForExtension,
+} from "@/config/documents";
 
-const DOCX_MEDIA_TYPE =
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+/** Canonical media types extractText stores. Aliases live in DOCUMENT_UPLOAD_TYPES. */
+export const SUPPORTED_DOCUMENT_MEDIA_TYPES = DOCUMENT_UPLOAD_TYPES.map(
+  (type) => type.mediaTypes[0],
+);
 
-/** Markdown aliases some clients send. They are stored as text/markdown. */
-const TEXT_MEDIA_TYPES = new Set<string>([
-  "text/plain",
-  "text/markdown",
-  "text/x-markdown",
-  "application/markdown",
-]);
+const PDF_MEDIA_TYPE = requiredMediaType(".pdf");
+const DOCX_MEDIA_TYPE = requiredMediaType(".docx");
+
+function requiredMediaType(extension: string): string {
+  const mediaType = mediaTypeForExtension(extension);
+  if (mediaType === null) {
+    throw new Error(`No upload media type for ${extension}`);
+  }
+  return mediaType;
+}
 
 export class UnsupportedDocumentMediaTypeError extends Error {
   readonly mediaType: string;
@@ -62,9 +65,12 @@ export async function extractText(
     throw new Error("Cannot extract text from an empty document");
   }
 
-  const mediaType = normalizeMediaType(mimeType);
+  const mediaType = canonicalDocumentMediaType(mimeType);
+  if (mediaType === null) {
+    throw new UnsupportedDocumentMediaTypeError(mimeType);
+  }
 
-  if (mediaType === "application/pdf") {
+  if (mediaType === PDF_MEDIA_TYPE) {
     return extractPdf(data);
   }
 
@@ -72,19 +78,18 @@ export async function extractText(
     return extractDocx(data);
   }
 
-  if (TEXT_MEDIA_TYPES.has(mediaType)) {
-    return {
-      mediaType: mediaType === "text/plain" ? mediaType : "text/markdown",
-      segments: [{ page: null, text: decodeUtf8(data) }],
-    };
-  }
-
-  throw new UnsupportedDocumentMediaTypeError(mimeType);
+  return {
+    mediaType,
+    segments: [{ page: null, text: decodeUtf8(data) }],
+  };
 }
 
-function normalizeMediaType(mimeType: string): string {
-  const [base] = mimeType.split(";");
-  return base?.trim().toLowerCase() ?? "";
+/**
+ * Media type extractText will store, or null when the type is unsupported.
+ * Delegates to the shared upload list so aliases stay in one place.
+ */
+export function canonicalDocumentMediaType(mimeType: string): string | null {
+  return canonicalUploadMediaType(mimeType);
 }
 
 function decodeUtf8(data: Uint8Array): string {
@@ -110,7 +115,7 @@ async function extractPdf(data: Uint8Array): Promise<ExtractedDocument> {
       }
 
       return {
-        mediaType: "application/pdf",
+        mediaType: PDF_MEDIA_TYPE,
         segments: extracted.text.map((text, index) => ({
           page: index + 1,
           text,

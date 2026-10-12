@@ -107,6 +107,12 @@ jobs:
       - name: Apply migrations
         run: pnpm db:migrate
 
+      - name: Search documents against pgvector
+        run: pnpm test src/server/documents/search.integration.test.ts
+        env:
+          SHIPSHAPE_INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shipshape
+          REQUIRE_PGVECTOR_INTEGRATION: "1"
+
       - name: Prove pgvector and the cosine HNSW index
         run: |
           set -euo pipefail
