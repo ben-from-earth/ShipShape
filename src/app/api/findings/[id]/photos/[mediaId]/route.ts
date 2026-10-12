@@ -10,6 +10,8 @@ import { readOrgId } from "@/server/http/api";
 /**
  * Streams one finding photo. The bytes stay on this response.
  * Nothing here creates a public URL or a signed URL.
+ * `getFindingMedia` decides whether the finding and media id match.
+ * This handler does not query `issue_media` itself.
  *
  * `GET` reads the request, so prerendering bails out. `unstable_rethrow`
  * lets that bailout leave the error handler.
@@ -23,7 +25,6 @@ export async function GET(
     await assertOrganizationExists(orgId);
     const { id, mediaId } = await context.params;
     const photo = await openFindingPhoto({
-      orgId,
       findingId: id,
       mediaId,
     });

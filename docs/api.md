@@ -265,17 +265,17 @@ Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findi
 
 Streams one photo. The handler does not redirect to a public URL or a signed URL. `x-org-id` is the same temporary organization header as the other finding and document routes.
 
-`id` is the finding (`issues.id`). `mediaId` is `issue_media.id`. Both must be UUIDs. The finding belongs to the organization only through `assets.org_id` on `issues.asset_id`. The media row must use that finding as `issue_id`. One query applies both checks. A missing finding, a finding whose asset is in another organization, and a media id that belongs to a different finding all return the same 404. The body does not say which check failed.
+`id` is the finding (`issues.id`). `mediaId` is `issue_media.id`. Both must be UUIDs. The handler loads the photo with `getFindingMedia(findingId, mediaId)`, which returns `{ storageKey, contentType, size }` or null. Null means the media is not on that finding, or the finding is outside the organization. This route does not query `issue_media` or `assets` itself. A missing finding, another organization, and a media id from a different finding all return the same 404. The body does not say which check failed.
 
-`200` is the object from `ObjectStorage.read`, using the `storage_key` stored on the row. The response headers are:
+`200` streams `ObjectStorage.read(storageKey)`. `Content-Type` is `contentType` from that reader (the stored `issue_media.mime_type`). `size` is not a response header. The response headers are:
 
-| Header                   | Value                   |
-| ------------------------ | ----------------------- |
-| `Content-Type`           | `issue_media.mime_type` |
-| `Cache-Control`          | `private`               |
-| `X-Content-Type-Options` | `nosniff`               |
+| Header                   | Value                  |
+| ------------------------ | ---------------------- |
+| `Content-Type`           | reader's `contentType` |
+| `Cache-Control`          | `private`              |
+| `X-Content-Type-Options` | `nosniff`              |
 
-If the row matches but the stored object is missing, the response is the same 404.
+If the reader returns a row but the stored object is missing, the response is the same 404.
 
 | HTTP | `error.code`           | When                                                                                                      |
 | ---- | ---------------------- | --------------------------------------------------------------------------------------------------------- |

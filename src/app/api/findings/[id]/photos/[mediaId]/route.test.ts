@@ -84,10 +84,10 @@ describe("GET /api/findings/[id]/photos/[mediaId]", () => {
     expect(body).toEqual(bytes);
     expect(organizationExists).toHaveBeenCalledWith(orgId);
     expect(open).toHaveBeenCalledWith({
-      orgId,
       findingId,
       mediaId,
     });
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it("returns the same 404 for the wrong organization and a mismatched photo", async () => {

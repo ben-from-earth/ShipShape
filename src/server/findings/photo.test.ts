@@ -1,25 +1,25 @@
-import { PgDialect } from "drizzle-orm/pg-core";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { Database } from "@/db";
 import type { ObjectStorage } from "@/server/storage";
 
+import { getFindingMedia, type FindingMediaContent } from "./media";
 import {
   FINDING_PHOTO_NOT_FOUND_MESSAGE,
   FindingPhotoNotFoundError,
-  findFindingPhoto,
   openFindingPhoto,
-  type FindingPhotoRecord,
-  type OpenFindingPhotoInput,
 } from "./photo";
 
-const orgId = "550e8400-e29b-41d4-a716-446655440000";
-const otherOrgId = "550e8400-e29b-41d4-a716-446655440099";
+vi.mock("./media", () => ({
+  getFindingMedia: vi.fn(),
+}));
+
 const findingId = "550e8400-e29b-41d4-a716-446655440031";
 const otherFindingId = "550e8400-e29b-41d4-a716-446655440041";
 const mediaId = "550e8400-e29b-41d4-a716-446655440032";
 const otherMediaId = "550e8400-e29b-41d4-a716-446655440042";
 const bytes = new Uint8Array([1, 2, 3, 4]);
+
+const readMedia = vi.mocked(getFindingMedia);
 
 function streamOf(body: Uint8Array): ReadableStream<Uint8Array> {
   return new ReadableStream({
@@ -30,15 +30,10 @@ function streamOf(body: Uint8Array): ReadableStream<Uint8Array> {
   });
 }
 
-function photoKey(input: OpenFindingPhotoInput): string {
-  return `${input.orgId}/${input.findingId}/${input.mediaId}`;
-}
-
-function dependencies(
-  library: Map<string, FindingPhotoRecord>,
+function storageWith(
   read: ObjectStorage["read"] = vi.fn(async () => streamOf(bytes)),
-) {
-  const storage = {
+): ObjectStorage {
+  return {
     async put(key: string) {
       return { key };
     },
@@ -47,103 +42,46 @@ function dependencies(
     },
     read,
     async delete() {},
-  } satisfies ObjectStorage;
-
-  return {
-    storage,
-    findPhoto: async (input: OpenFindingPhotoInput) =>
-      library.get(photoKey(input)) ?? null,
   };
 }
 
-describe("findFindingPhoto", () => {
-  it("requires the asset organization and the finding on the media row", async () => {
-    let where: unknown;
-    const joins: unknown[] = [];
-    const chain = {
-      from() {
-        return chain;
-      },
-      innerJoin(_table: unknown, condition: unknown) {
-        joins.push(condition);
-        return chain;
-      },
-      where(condition: unknown) {
-        where = condition;
-        return chain;
-      },
-      async limit() {
-        return [
-          {
-            storageKey: `${orgId}/issues/${findingId}/${mediaId}`,
-            mimeType: "image/jpeg",
-          },
-        ];
-      },
-    };
-    const db = {
-      select() {
-        return chain;
-      },
-    } as unknown as Database;
+const stored: FindingMediaContent = {
+  storageKey: "stored/photo",
+  contentType: "image/jpeg",
+  size: null,
+};
 
-    const row = await findFindingPhoto(db, {
-      orgId,
-      findingId,
-      mediaId,
-    });
-
-    const dialect = new PgDialect();
-    const query = dialect.sqlToQuery(
-      where as Parameters<PgDialect["sqlToQuery"]>[0],
-    );
-    const joinSql = joins.map(
-      (condition) =>
-        dialect.sqlToQuery(condition as Parameters<PgDialect["sqlToQuery"]>[0])
-          .sql,
-    );
-    expect(query.sql).toContain("org_id");
-    expect(query.sql).toContain('"issues"."id"');
-    expect(query.sql).toContain('"issue_media"."id"');
-    expect(joinSql.some((sql) => sql.includes("issue_id"))).toBe(true);
-    expect(query.params).toEqual([mediaId, findingId, orgId]);
-    expect(row).toEqual({
-      storageKey: `${orgId}/issues/${findingId}/${mediaId}`,
-      mimeType: "image/jpeg",
-    });
-  });
+beforeEach(() => {
+  readMedia.mockReset();
+  readMedia.mockResolvedValue(stored);
 });
 
 describe("openFindingPhoto", () => {
-  const library = new Map<string, FindingPhotoRecord>([
-    [
-      photoKey({ orgId, findingId, mediaId }),
-      { storageKey: "stored/photo", mimeType: "image/jpeg" },
-    ],
-  ]);
-
-  it("streams the stored object with its media type", async () => {
+  it("streams the object from getFindingMedia with its content type", async () => {
     const read = vi.fn(async () => streamOf(bytes));
     const result = await openFindingPhoto(
-      { orgId, findingId, mediaId },
-      dependencies(library, read),
+      { findingId, mediaId },
+      { storage: storageWith(read) },
     );
     const body = new Uint8Array(
       await new Response(result.stream).arrayBuffer(),
     );
 
+    expect(readMedia).toHaveBeenCalledWith(findingId, mediaId);
     expect(read).toHaveBeenCalledWith("stored/photo");
     expect(result.mediaType).toBe("image/jpeg");
     expect(body).toEqual(bytes);
   });
 
-  it("returns the same not_found for another organization", async () => {
+  it("returns the same not_found when getFindingMedia returns null for another organization", async () => {
+    readMedia.mockResolvedValue(null);
     const read = vi.fn(async () => streamOf(bytes));
     const error = await openFindingPhoto(
-      { orgId: otherOrgId, findingId, mediaId },
-      dependencies(library, read),
+      { findingId, mediaId },
+      { storage: storageWith(read) },
     ).catch((caught: unknown) => caught);
 
+    expect(readMedia).toHaveBeenCalledWith(findingId, mediaId);
     expect(error).toBeInstanceOf(FindingPhotoNotFoundError);
     expect(error).toMatchObject({
       code: "not_found",
@@ -154,16 +92,20 @@ describe("openFindingPhoto", () => {
   });
 
   it("returns the same not_found when the media is on another finding", async () => {
+    readMedia.mockResolvedValue(null);
     const read = vi.fn(async () => streamOf(bytes));
+    const storage = storageWith(read);
     const mismatchedMedia = await openFindingPhoto(
-      { orgId, findingId, mediaId: otherMediaId },
-      dependencies(library, read),
+      { findingId, mediaId: otherMediaId },
+      { storage },
     ).catch((caught: unknown) => caught);
     const mismatchedFinding = await openFindingPhoto(
-      { orgId, findingId: otherFindingId, mediaId },
-      dependencies(library, read),
+      { findingId: otherFindingId, mediaId },
+      { storage },
     ).catch((caught: unknown) => caught);
 
+    expect(readMedia).toHaveBeenNthCalledWith(1, findingId, otherMediaId);
+    expect(readMedia).toHaveBeenNthCalledWith(2, otherFindingId, mediaId);
     expect(mismatchedMedia).toMatchObject({
       code: "not_found",
       status: 404,
@@ -174,6 +116,33 @@ describe("openFindingPhoto", () => {
       status: 404,
       message: FINDING_PHOTO_NOT_FOUND_MESSAGE,
     });
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("returns the same not_found when the stored object is missing", async () => {
+    const read = vi.fn(async () => null);
+    const error = await openFindingPhoto(
+      { findingId, mediaId },
+      { storage: storageWith(read) },
+    ).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      code: "not_found",
+      status: 404,
+      message: FINDING_PHOTO_NOT_FOUND_MESSAGE,
+    });
+    expect(read).toHaveBeenCalledWith("stored/photo");
+  });
+
+  it("rejects a non-uuid before calling getFindingMedia", async () => {
+    const read = vi.fn(async () => streamOf(bytes));
+    const error = await openFindingPhoto(
+      { findingId: "not-a-uuid", mediaId },
+      { storage: storageWith(read) },
+    ).catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({ code: "validation_error", status: 400 });
+    expect(readMedia).not.toHaveBeenCalled();
     expect(read).not.toHaveBeenCalled();
   });
 });

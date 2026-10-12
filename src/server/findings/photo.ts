@@ -1,10 +1,6 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
-
 import { FINDING_ERROR_HTTP_STATUS } from "@/config/findings";
-import { getDb, type Database } from "@/db";
-import { assets, issueMedia, issues } from "@/db/schema";
 import { apiErrorSchema, idSchema } from "@/schemas";
 import {
   detailsFromZod,
@@ -13,12 +9,14 @@ import {
 import { INTERNAL_ERROR_MESSAGE } from "@/server/http/api";
 import { createLocalDiskStorage, type ObjectStorage } from "@/server/storage";
 
+import { getFindingMedia, type FindingMediaContent } from "./media";
+
 export const FINDING_PHOTO_NOT_FOUND_MESSAGE = "That photo was not found.";
 
 /**
  * One 404 for every miss: unknown finding, another organization's asset,
  * or a media row that belongs to a different finding. The message does
- * not say which.
+ * not say which. `getFindingMedia` reports all of those as null.
  */
 export class FindingPhotoNotFoundError extends Error {
   readonly code = "not_found" as const;
@@ -30,71 +28,41 @@ export class FindingPhotoNotFoundError extends Error {
   }
 }
 
-export type FindingPhotoRecord = {
-  storageKey: string;
-  mimeType: string;
-};
-
 export type OpenFindingPhotoInput = {
-  orgId: string;
   findingId: string;
   mediaId: string;
 };
 
+export type GetFindingMedia = (
+  findingId: string,
+  mediaId: string,
+) => Promise<FindingMediaContent | null>;
+
 export type OpenFindingPhotoDependencies = {
-  findPhoto: (
-    input: OpenFindingPhotoInput,
-  ) => Promise<FindingPhotoRecord | null>;
+  getFindingMedia: GetFindingMedia;
   storage: ObjectStorage;
 };
 
-/**
- * The photo is returned only when the finding's asset is in the
- * organization and the media row points at that finding.
- */
-export async function findFindingPhoto(
-  db: Database,
-  input: OpenFindingPhotoInput,
-): Promise<FindingPhotoRecord | null> {
-  const rows = await db
-    .select({
-      storageKey: issueMedia.storageKey,
-      mimeType: issueMedia.mimeType,
-    })
-    .from(issueMedia)
-    .innerJoin(issues, eq(issues.id, issueMedia.issueId))
-    .innerJoin(assets, eq(assets.id, issues.assetId))
-    .where(
-      and(
-        eq(issueMedia.id, input.mediaId),
-        eq(issues.id, input.findingId),
-        eq(assets.orgId, input.orgId),
-      ),
-    )
-    .limit(1);
-
-  return rows[0] ?? null;
-}
-
-/** Stream a photo after the organization and finding checks. */
+/** Stream a photo after `getFindingMedia` accepts the finding and media id. */
 export async function openFindingPhoto(
   input: OpenFindingPhotoInput,
-  dependencies: OpenFindingPhotoDependencies = defaultDependencies(),
+  dependencies: Partial<OpenFindingPhotoDependencies> = {},
 ): Promise<{ stream: ReadableStream<Uint8Array>; mediaType: string }> {
-  const orgId = requireUuid(input.orgId, "orgId");
   const findingId = requireUuid(input.findingId, "id");
   const mediaId = requireUuid(input.mediaId, "mediaId");
-  const photo = await dependencies.findPhoto({ orgId, findingId, mediaId });
+  const readMedia = dependencies.getFindingMedia ?? getFindingMedia;
+  const storage = dependencies.storage ?? createLocalDiskStorage();
+  const photo = await readMedia(findingId, mediaId);
   if (!photo) {
     throw new FindingPhotoNotFoundError();
   }
 
-  const stream = await dependencies.storage.read(photo.storageKey);
+  const stream = await storage.read(photo.storageKey);
   if (!stream) {
     throw new FindingPhotoNotFoundError();
   }
 
-  const mediaType = photo.mimeType.trim();
+  const mediaType = photo.contentType.trim();
   return {
     stream,
     mediaType: mediaType.length > 0 ? mediaType : "application/octet-stream",
@@ -131,14 +99,6 @@ export function findingPhotoErrorResponse(error: unknown): Response {
     },
     { status: 500 },
   );
-}
-
-function defaultDependencies(): OpenFindingPhotoDependencies {
-  const db = getDb();
-  return {
-    findPhoto: (input) => findFindingPhoto(db, input),
-    storage: createLocalDiskStorage(),
-  };
 }
 
 function requireUuid(value: string, path: string): string {
