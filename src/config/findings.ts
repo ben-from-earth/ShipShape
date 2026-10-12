@@ -129,6 +129,107 @@ export function canonicalFindingPhotoMediaType(
   return match?.mediaTypes[0] ?? null;
 }
 
+const HEIC_BRANDS = new Set([
+  "heic",
+  "heix",
+  "hevc",
+  "hevx",
+  "heim",
+  "heis",
+  "hevm",
+  "hevs",
+]);
+
+const HEIF_BRANDS = new Set(["heif", "mif1", "msf1"]);
+
+/**
+ * Stored media type implied by the photo's leading bytes, or null.
+ * JPEG is `FF D8 FF`. PNG is the 8-byte signature. WebP is `RIFF`/`WEBP`.
+ * HEIC and HEIF are an `ftyp` box; the major brand wins.
+ */
+export function sniffedFindingPhotoMediaType(
+  bytes: Uint8Array,
+): FindingPhotoMediaType | null {
+  if (
+    bytes.length >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  ) {
+    return "image/jpeg";
+  }
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+  if (
+    bytes.length >= 12 &&
+    ascii(bytes, 0, 4) === "RIFF" &&
+    ascii(bytes, 8, 4) === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return heifMediaType(bytes);
+}
+
+function heifMediaType(bytes: Uint8Array): FindingPhotoMediaType | null {
+  if (bytes.length < 12 || ascii(bytes, 4, 4) !== "ftyp") {
+    return null;
+  }
+
+  const boxSize = readUint32(bytes, 0);
+  const limit = Math.min(bytes.length, boxSize > 7 ? boxSize : bytes.length);
+  const major = ascii(bytes, 8, 4);
+  const majorType = brandMediaType(major);
+  if (majorType) {
+    return majorType;
+  }
+
+  for (let offset = 16; offset + 4 <= limit; offset += 4) {
+    const brandType = brandMediaType(ascii(bytes, offset, 4));
+    if (brandType) {
+      return brandType;
+    }
+  }
+  return null;
+}
+
+function brandMediaType(brand: string): FindingPhotoMediaType | null {
+  if (HEIC_BRANDS.has(brand)) {
+    return "image/heic";
+  }
+  if (HEIF_BRANDS.has(brand)) {
+    return "image/heif";
+  }
+  return null;
+}
+
+function ascii(bytes: Uint8Array, offset: number, length: number): string {
+  let text = "";
+  for (let index = 0; index < length; index += 1) {
+    text += String.fromCharCode(bytes[offset + index] ?? 0);
+  }
+  return text;
+}
+
+function readUint32(bytes: Uint8Array, offset: number): number {
+  return (
+    ((bytes[offset] ?? 0) << 24) |
+    ((bytes[offset + 1] ?? 0) << 16) |
+    ((bytes[offset + 2] ?? 0) << 8) |
+    (bytes[offset + 3] ?? 0)
+  );
+}
+
 /** Extension of a file name, including the dot, or "" when there is none. */
 export function findingPhotoFileExtension(fileName: string): string {
   const base = fileName.replaceAll("\\", "/").split("/").pop() ?? "";

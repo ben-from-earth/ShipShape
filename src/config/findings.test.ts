@@ -21,6 +21,7 @@ import {
   canonicalFindingPhotoMediaType,
   findingPhotoFileExtension,
   findingPhotoMediaTypeForExtension,
+  sniffedFindingPhotoMediaType,
 } from "@/config/findings";
 
 describe("finding photo config", () => {
@@ -78,6 +79,39 @@ describe("finding photo config", () => {
     expect(findingPhotoMediaTypeForExtension(".gif")).toBeNull();
     expect(findingPhotoFileExtension("photos\\Bay 3.HEIC")).toBe(".heic");
     expect(findingPhotoFileExtension("no-extension")).toBe("");
+    expect(
+      sniffedFindingPhotoMediaType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0])),
+    ).toBe("image/jpeg");
+    expect(
+      sniffedFindingPhotoMediaType(
+        new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      ),
+    ).toBe("image/png");
+    expect(
+      sniffedFindingPhotoMediaType(
+        new Uint8Array([
+          0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42,
+          0x50,
+        ]),
+      ),
+    ).toBe("image/webp");
+    expect(
+      sniffedFindingPhotoMediaType(
+        new Uint8Array([
+          0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69,
+          0x63,
+        ]),
+      ),
+    ).toBe("image/heic");
+    expect(
+      sniffedFindingPhotoMediaType(
+        new Uint8Array([
+          0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x69, 0x66,
+          0x31,
+        ]),
+      ),
+    ).toBe("image/heif");
+    expect(sniffedFindingPhotoMediaType(new Uint8Array([1, 2, 3]))).toBeNull();
   });
 
   it("maps finding error codes to HTTP status", () => {
