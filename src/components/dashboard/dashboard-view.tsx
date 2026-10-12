@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
 import { PageHeading } from "@/components/shell/page-heading";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { MarginValue } from "@/components/ui/margin-value";
 import { LOW_MARGIN_THRESHOLD } from "@/config/analysis";
@@ -100,12 +101,17 @@ export function DashboardView({
         eyebrow={`Repair program · As of ${model.asOfLabel}`}
         title="Dashboard"
         actions={
-          <SegmentedControl
-            label="Reporting period"
-            value={period}
-            options={PERIODS}
-            onChange={setPeriod}
-          />
+          <>
+            <Button href="/findings/new" variant="dark" size="sm">
+              New finding
+            </Button>
+            <SegmentedControl
+              label="Reporting period"
+              value={period}
+              options={PERIODS}
+              onChange={setPeriod}
+            />
+          </>
         }
       />
 
