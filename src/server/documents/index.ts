@@ -10,7 +10,12 @@ export { embed, embedText } from "./embed";
 export {
   SUPPORTED_DOCUMENT_MEDIA_TYPES,
   UnsupportedDocumentMediaTypeError,
+  canonicalDocumentMediaType,
   extractText,
 } from "./extract";
 export type { ExtractedDocument, ExtractedSegment } from "./extract";
+export { ingestDocument } from "./ingest";
+export type { IngestDependencies, IngestDocumentInput } from "./ingest";
 export { parseDocumentCreate } from "./parse";
+export { searchDocuments } from "./search";
+export type { SearchDependencies } from "./search";

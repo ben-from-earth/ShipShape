@@ -23,5 +23,20 @@ export const documentSchema = documentCreateSchema.extend({
   createdAt: timestampSchema,
 });
 
+/**
+ * Response from POST /api/documents. The file is indexed before this is
+ * returned, so status is indexed and at least one chunk was stored.
+ */
+export const documentUploadResultSchema = z.object({
+  id: idSchema,
+  orgId: idSchema,
+  title: shortTextSchema,
+  mediaType: z.string().trim().min(1).max(100),
+  storageKey: z.string().trim().min(1).max(500),
+  status: z.literal("indexed"),
+  chunkCount: z.number().int().positive(),
+});
+
 export type DocumentCreate = z.infer<typeof documentCreateSchema>;
 export type Document = z.infer<typeof documentSchema>;
+export type DocumentUploadResult = z.infer<typeof documentUploadResultSchema>;

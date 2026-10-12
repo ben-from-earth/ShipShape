@@ -47,8 +47,20 @@ export {
   DOCUMENT_EMBEDDING_MODEL,
   documentCreateSchema,
   documentSchema,
+  documentUploadResultSchema,
 } from "./document";
-export type { Document, DocumentCreate } from "./document";
+export type {
+  Document,
+  DocumentCreate,
+  DocumentUploadResult,
+} from "./document";
+
+export {
+  apiErrorCodeSchema,
+  apiErrorDetailSchema,
+  apiErrorSchema,
+} from "./api-error";
+export type { ApiError, ApiErrorCode, ApiErrorDetail } from "./api-error";
 
 export {
   documentChunkSchema,
