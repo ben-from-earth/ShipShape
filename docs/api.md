@@ -129,7 +129,7 @@ The pgvector integration test is skipped unless `SHIPSHAPE_INTEGRATION_DATABASE_
 
 A finding is an `issues` row: damage a field technician reports on an asset, plus the photos stored as `issue_media`. Assets are any repairable thing. `asset_type` is a free label, and nothing in this contract is specific to one kind of asset.
 
-`POST /api/findings` is the contract only. This change does not add a route handler and does not write to the database.
+`POST /api/findings` is implemented by `src/app/api/findings/route.ts`. It writes the `issues` row, its `issue_media` rows, and the initial `stage_transitions` row. A database or storage failure is an error response. The route does not substitute demo data.
 
 Send the organization on the request:
 
