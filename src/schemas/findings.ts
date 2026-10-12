@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   FINDING_PHOTO_STORED_MEDIA_TYPES,
+  FINDING_SEVERITIES,
   MAX_FINDING_CAPTION_LENGTH,
   MAX_FINDING_CODE_LENGTH,
   MAX_FINDING_DESCRIPTION_LENGTH,
@@ -39,12 +40,20 @@ export const findingStageSchema = z.enum([
  */
 export const findingLocationSchema = z.record(z.string(), z.json());
 
+/** Required on create. Values are `FINDING_SEVERITIES` in src/config/findings.ts. */
+export const findingSeveritySchema = z.enum(FINDING_SEVERITIES);
+
 /**
- * Multipart text fields for POST /api/findings. Names match the `issues`
- * columns the intake form can set: `assetId`, `description`, `zone`, and
- * `locationLabel` (the form's location text). The server assigns id,
- * stage, createdAt, and updatedAt. Photos travel in the repeated `photos`
- * file field and are not part of this object.
+ * Multipart text fields for POST /api/findings. Names match the intake
+ * form where `issues` already has a column: `assetId`, `description`,
+ * `zone`, and `locationLabel` (the form's location text). `severity` is
+ * required too. `issues` has no severity column yet; Database Manager
+ * adds a Postgres enum that matches `FINDING_SEVERITIES` in the sequence
+ * migration. The server assigns id, stage, createdAt, and updatedAt.
+ * Photos travel in the repeated `photos` file field and are not part of
+ * this object.
+ *
+ * Notes are not a field. Description is the write-up.
  *
  * The asset group is not a field. The handler derives `assets.group_id`
  * from `assetId`. `groupId`, `assetGroup`, and `assetGroupId` are rejected.
@@ -53,14 +62,14 @@ export const findingLocationSchema = z.record(z.string(), z.json());
  * Postgres sequence, added in a separate migration. The handler does not
  * accept a client code and does not use `MAX(code) + 1`.
  *
- * `issues` has no title, notes, or severity column. Those keys are
- * rejected. A short title (what `damageReportCreateSchema` calls
- * `summary`) would need a new column such as `issues.summary` and a
- * migration. Notes and severity are not added here.
+ * `issues` has no title or summary column. Those keys are rejected. A
+ * short title (what `damageReportCreateSchema` calls `summary`) would
+ * need a new column such as `issues.summary` and a migration.
  */
 export const createFindingFieldsSchema = z.strictObject({
   assetId: trimmed(idSchema),
   description: z.string().trim().min(1).max(MAX_FINDING_DESCRIPTION_LENGTH),
+  severity: findingSeveritySchema,
   zone: optionalText(MAX_FINDING_ZONE_LENGTH),
   locationLabel: optionalText(MAX_FINDING_LOCATION_LABEL_LENGTH),
   location: optionalLocation(),
@@ -112,6 +121,7 @@ export const createFindingResultSchema = z.object({
   id: idSchema,
   code: z.string().trim().min(1).max(MAX_FINDING_CODE_LENGTH),
   stage: z.literal("discovered"),
+  severity: findingSeveritySchema,
   createdAt: timestampSchema,
   photos: z
     .array(findingPhotoSchema)
@@ -120,6 +130,7 @@ export const createFindingResultSchema = z.object({
 });
 
 export type FindingStage = z.infer<typeof findingStageSchema>;
+export type FindingSeverity = z.infer<typeof findingSeveritySchema>;
 export type FindingLocation = z.infer<typeof findingLocationSchema>;
 export type CreateFindingFields = z.infer<typeof createFindingFieldsSchema>;
 export type FindingPhoto = z.infer<typeof findingPhotoSchema>;

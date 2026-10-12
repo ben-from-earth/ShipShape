@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   FINDING_ERROR_HTTP_STATUS,
+  FINDING_SEVERITIES,
   MAX_FINDING_DESCRIPTION_LENGTH,
   MAX_FINDING_LOCATION_JSON_LENGTH,
   MAX_FINDING_PHOTOS,
@@ -16,6 +17,7 @@ import {
   createFindingResultSchema,
   findingLocationSchema,
   findingPhotoSchema,
+  findingSeveritySchema,
   findingStageSchema,
   initialFindingStageTransitionSchema,
 } from "@/schemas";
@@ -28,6 +30,7 @@ const photoId = "550e8400-e29b-41d4-a716-446655440032";
 const fields = {
   assetId,
   description: "The cover is cracked along the fastener line.",
+  severity: "high" as const,
   zone: "bay 3",
   locationLabel: "upper fitting",
   location: '{"bay":"3","position":"upper"}',
@@ -61,6 +64,7 @@ describe("createFindingFieldsSchema", () => {
     expect(parsed.description).toBe(
       "The cover is cracked along the fastener line.",
     );
+    expect(parsed.severity).toBe("high");
     expect(parsed.zone).toBe("bay 3");
     expect(parsed.locationLabel).toBe("upper fitting");
     expect(parsed.location).toEqual({ bay: "3", position: "upper" });
@@ -73,6 +77,7 @@ describe("createFindingFieldsSchema", () => {
     const parsed = createFindingFieldsSchema.parse({
       assetId,
       description: "Cracked cover.",
+      severity: "low",
       zone: "   ",
       locationLabel: "",
       location: "  ",
@@ -89,6 +94,7 @@ describe("createFindingFieldsSchema", () => {
     const withObject = createFindingFieldsSchema.parse({
       assetId,
       description: "Cracked cover.",
+      severity: "medium",
       location: { bay: "3", nested: { side: "LH" }, readings: [1, 2] },
     });
     expect(withObject.location).toEqual({
@@ -126,8 +132,19 @@ describe("createFindingFieldsSchema", () => {
       createFindingFieldsSchema.safeParse({
         assetId,
         description: "x".repeat(MAX_FINDING_DESCRIPTION_LENGTH),
+        severity: "critical",
       }).success,
     ).toBe(true);
+    expect(
+      createFindingFieldsSchema.safeParse({
+        assetId,
+        description: "Cracked cover.",
+      }).success,
+    ).toBe(false);
+    for (const severity of FINDING_SEVERITIES) {
+      expect(findingSeveritySchema.parse(severity)).toBe(severity);
+    }
+    expect(findingSeveritySchema.safeParse("urgent").success).toBe(false);
     expect(
       createFindingFieldsSchema.safeParse({
         ...fields,
@@ -150,7 +167,6 @@ describe("createFindingFieldsSchema", () => {
     for (const extra of [
       { summary: "Cracked cover" },
       { title: "Cracked cover" },
-      { severity: "high" },
       { notes: "See the photo." },
       { groupId: "10000000-0000-4000-8000-000000000021" },
       { assetGroupId: "10000000-0000-4000-8000-000000000021" },
@@ -170,6 +186,7 @@ describe("createFindingFieldsSchema", () => {
         createFindingFieldsSchema.safeParse({
           assetId,
           description: "Cracked cover.",
+          severity: "high",
           location,
         }).success,
       ).toBe(false);
@@ -179,6 +196,7 @@ describe("createFindingFieldsSchema", () => {
       createFindingFieldsSchema.safeParse({
         assetId,
         description: "Cracked cover.",
+        severity: "high",
         location: `{"note":"${"n".repeat(MAX_FINDING_LOCATION_JSON_LENGTH)}"}`,
       }).success,
     ).toBe(false);
@@ -186,6 +204,7 @@ describe("createFindingFieldsSchema", () => {
     const empty = createFindingFieldsSchema.parse({
       assetId,
       description: "Cracked cover.",
+      severity: "high",
       location: "{}",
     });
     expect(empty.location).toEqual({});
@@ -245,6 +264,7 @@ describe("createFindingResultSchema", () => {
     id: findingId,
     code: "1002",
     stage: "discovered" as const,
+    severity: "high" as const,
     createdAt: storedAt,
     photos: [photo],
   };
@@ -253,6 +273,7 @@ describe("createFindingResultSchema", () => {
     const parsed = createFindingResultSchema.parse(created);
 
     expect(parsed.stage).toBe("discovered");
+    expect(parsed.severity).toBe("high");
     expect(parsed.code).toBe("1002");
     expect(parsed.photos).toHaveLength(1);
     expect(parsed.photos[0]?.issueId).toBe(findingId);
@@ -293,6 +314,10 @@ describe("createFindingResultSchema", () => {
   it("requires discovered and between 1 and 10 photos", () => {
     expect(
       createFindingResultSchema.safeParse({ ...created, stage: "closed" })
+        .success,
+    ).toBe(false);
+    expect(
+      createFindingResultSchema.safeParse({ ...created, severity: "urgent" })
         .success,
     ).toBe(false);
     expect(

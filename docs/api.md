@@ -164,7 +164,8 @@ The intake form (PR #15) uses these names for the columns that exist. Its asset-
 | Field           | Required | Column                  | Meaning                                                                                                  |
 | --------------- | -------- | ----------------------- | -------------------------------------------------------------------------------------------------------- |
 | `assetId`       | yes      | `issues.asset_id`       | Asset UUID in the organization. The form calls this the asset                                            |
-| `description`   | yes      | `issues.description`    | What was found, 1–5000 characters                                                                        |
+| `description`   | yes      | `issues.description`    | What was found, 1–5000 characters. This is the write-up; there is no notes field                         |
+| `severity`      | yes      | `issues.severity`       | `low`, `medium`, `high`, or `critical` (`FINDING_SEVERITIES`). The column is not in the database yet     |
 | `zone`          | no       | `issues.zone`           | The form's zone, 1–200 characters. Meaning depends on the asset type                                     |
 | `locationLabel` | no       | `issues.location_label` | The form's location text, 1–200 characters                                                               |
 | `location`      | no       | `issues.location`       | JSON object, at most 2000 characters of text. The form does not send this. An array or other value fails |
@@ -172,7 +173,9 @@ The intake form (PR #15) uses these names for the columns that exist. Its asset-
 | `discoveredAt`  | no       | `issues.discovered_at`  | ISO-8601 timestamp with an offset. The form does not send this                                           |
 | `photos`        | yes      | `issue_media`           | 1–10 files, the same field name repeated                                                                 |
 
-`createFindingFieldsSchema` is those text fields. A blank optional field is omitted. Omitted `zone` and `locationLabel` are stored as null. Omitted `location` is stored as `{}` (the column default). Omitted `discoveredAt` is stored as the current time. Omitted `reportedBy` is stored as null. When `reportedBy` is set, that user must belong to the organization.
+`createFindingFieldsSchema` is those text fields. `severity` is required and is `findingSeveritySchema`, a `z.enum` of `FINDING_SEVERITIES` in `src/config/findings.ts`: `low`, `medium`, `high`, `critical`. `issues` has no severity column yet. Database Manager adds a Postgres enum with those labels, in that order, in the sequence migration. The database enum must match `FINDING_SEVERITIES`. This contract does not add the column.
+
+A blank optional field is omitted. Omitted `zone` and `locationLabel` are stored as null. Omitted `location` is stored as `{}` (the column default). Omitted `discoveredAt` is stored as the current time. Omitted `reportedBy` is stored as null. When `reportedBy` is set, that user must belong to the organization. Notes are not a field. Description covers that text. A `notes` key is rejected.
 
 The client does not send `code`. `createFindingFieldsSchema` rejects it. The handler does not assign `MAX(code) + 1`. `issues.code` is the text form of `nextval` on a Postgres sequence. Database Manager adds that sequence in a separate migration. This contract does not add it. The 201 body returns the text that `nextval` stored, at most 64 characters. The sample below uses `"1002"`. A value such as the demo seed's `ISS-1001` is still valid text if that migration formats the sequence that way. `created_at` and `updated_at` come from the database.
 
@@ -195,6 +198,7 @@ Local development can use `createLocalDiskStorage()`. Replacing that with anothe
   "id": "550e8400-e29b-41d4-a716-446655440031",
   "code": "1002",
   "stage": "discovered",
+  "severity": "high",
   "createdAt": "2026-10-12T20:15:00.000Z",
   "photos": [
     {
@@ -232,16 +236,16 @@ Failures use `apiErrorSchema`:
 
 `details` is optional. It lists field problems for a validation failure. Other failures omit it.
 
-| HTTP | `error.code`             | When                                                                                                                                                                                |
-| ---- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 400  | `invalid_org_id`         | `x-org-id` is missing or not a UUID                                                                                                                                                 |
-| 400  | `unknown_organization`   | `x-org-id` is a UUID and no organization has that id                                                                                                                                |
-| 400  | `validation_failed`      | Not multipart, bad text fields, an unknown field such as `title`, `severity`, `notes`, or `groupId`, bad location JSON, no photos, empty photo, missing media type, or unknown user |
-| 404  | `asset_not_found`        | `assetId` is not an asset in that organization                                                                                                                                      |
-| 400  | `too_many_photos`        | More than 10 photos                                                                                                                                                                 |
-| 413  | `photo_too_large`        | A photo is over 15 MB, or `Content-Length` cannot fit 10 photos of that size plus multipart framing                                                                                 |
-| 415  | `unsupported_photo_type` | Extension or media type is not in the photo list, or they disagree                                                                                                                  |
-| 500  | `internal_error`         | Anything else. `message` is `Something went wrong.` The response does not include the underlying error                                                                              |
+| HTTP | `error.code`             | When                                                                                                                                                                                                   |
+| ---- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 400  | `invalid_org_id`         | `x-org-id` is missing or not a UUID                                                                                                                                                                    |
+| 400  | `unknown_organization`   | `x-org-id` is a UUID and no organization has that id                                                                                                                                                   |
+| 400  | `validation_failed`      | Not multipart, bad text fields, a missing or unknown severity, an unknown field such as `title`, `notes`, or `groupId`, bad location JSON, no photos, empty photo, missing media type, or unknown user |
+| 404  | `asset_not_found`        | `assetId` is not an asset in that organization                                                                                                                                                         |
+| 400  | `too_many_photos`        | More than 10 photos                                                                                                                                                                                    |
+| 413  | `photo_too_large`        | A photo is over 15 MB, or `Content-Length` cannot fit 10 photos of that size plus multipart framing                                                                                                    |
+| 415  | `unsupported_photo_type` | Extension or media type is not in the photo list, or they disagree                                                                                                                                     |
+| 500  | `internal_error`         | Anything else. `message` is `Something went wrong.` The response does not include the underlying error                                                                                                 |
 
 Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findings.ts`. `internal_error` stays 500, as it does for documents.
 
@@ -253,7 +257,6 @@ Status for each finding code is `FINDING_ERROR_HTTP_STATUS` in `src/config/findi
 | ------------ | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Asset group  | `groupId`, `assetGroup`, `assetGroupId` | UI filter only. Derive the group from `assets.group_id` on the `assetId` row                                                                    |
 | Title        | `title`, `summary`                      | `issues` has no title or summary column. A short title needs a new column such as `issues.summary` and a migration before the API can accept it |
-| Severity     | `severity`                              | `issues` has no severity column. This contract does not add one                                                                                 |
-| Notes        | `notes`                                 | `issues` has no notes column. The intake form no longer posts notes. This contract does not add one                                             |
+| Notes        | `notes`                                 | Dropped. Description is the write-up. Do not send `notes`                                                                                       |
 
 `issues.code` already exists. The sequence behind `nextval` does not. That sequence is a separate migration from Database Manager, not part of this contract, and not a `MAX(code) + 1` write.
