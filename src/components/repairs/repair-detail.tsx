@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
+import { CreateAnalysis } from "@/components/analyses/create-analysis";
 import { PageHeading } from "@/components/shell/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,7 +11,14 @@ import type { Repair } from "@/schemas";
 
 import { RepairStatusPill } from "./status-pill";
 
-export function RepairDetail({ record }: { record: Repair }) {
+export function RepairDetail({
+  record,
+  marginThreshold,
+}: {
+  record: Repair;
+  /** Organization cutoff passed in from the server page. */
+  marginThreshold: number;
+}) {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeading
@@ -59,6 +67,13 @@ export function RepairDetail({ record }: { record: Repair }) {
             </span>
           </Fact>
         </dl>
+      </Card>
+
+      <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">
+        <CreateAnalysis
+          repairId={record.id}
+          marginThreshold={marginThreshold}
+        />
       </Card>
     </div>
   );
