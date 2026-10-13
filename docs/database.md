@@ -62,7 +62,7 @@ await db.batch([
 ]);
 ```
 
-`src/db/issue-code.integration.test.ts` checks concurrent calls against a loopback database only. CI runs it on the `pgvector/pgvector:pg17` service after migrations are applied. `openIntegrationDatabase` refuses any host that is not loopback, so a Neon URL is never opened.
+`src/db/issue-code.integration.test.ts` checks concurrent calls against a loopback database only. CI runs it on the `pgvector/pgvector:pg18` service after migrations are applied. `openIntegrationDatabase` refuses any host that is not loopback, so a Neon URL is never opened.
 
 ## Issue severity
 
@@ -94,7 +94,7 @@ Creating a repair does not change `issues.stage` and does not write `stage_trans
 
 `getRepair(orgId, id)` returns the record or null. `listRepairs(orgId, filters?)` takes optional `findingId` and `status`. Each call is one query: `repairs` joined to `issues` joined to `assets`, with `assets.org_id` in the filter. The select includes `issues.code` and the asset `id`, `identifier`, and `name`, so the finding and asset are not loaded with a follow-up query. Rows are ordered by `repairs.created_at` descending, then `repairs.id` descending. A repair whose finding is in another organization is absent from both.
 
-`src/features/repairs/data.integration.test.ts` runs in CI against the loopback `pgvector/pgvector:pg17` service after migrations.
+`src/features/repairs/data.integration.test.ts` runs in CI against the loopback `pgvector/pgvector:pg18` service after migrations.
 
 Migration `0003_repair_codes` adds `repairs.status` as `NOT NULL DEFAULT 'open'`, which backfills every existing row and stays the default for inserts that omit it. It adds nullable `created_by`, an index on `issue_id`, and `repair_code_seq`. It does not drop or rename a column.
 
@@ -132,7 +132,7 @@ Creating an analysis does not change `issues.stage` and does not write `stage_tr
 
 `getAnalysis(orgId, id, db?)` returns the record or null. The margin and load case are the lowest `analysis_cases.margin` for that analysis, the same minimum the dashboard uses. An analysis whose repair belongs to another organization is null.
 
-`src/features/analyses/write.integration.test.ts` runs in CI against the loopback `pgvector/pgvector:pg17` service after migrations.
+`src/features/analyses/write.integration.test.ts` runs in CI against the loopback `pgvector/pgvector:pg18` service after migrations.
 
 Migration `0004_analysis_codes` adds nullable `analyses.created_by`, the index `analyses_revision_idx` on `repair_revision_id` (analyses reference a repair through that foreign key), and `analysis_code_seq`. It backfills the sequence with `setval` past existing prefix-digit codes, with a floor of `1001`. `analyses.status` and `analyses.code` already existed. The migration does not drop or rename a column.
 
@@ -150,7 +150,7 @@ Each photo on a finding record is `mediaId` (the `issue_media` row `id`), `conte
 
 `getFinding` returns null when the id is missing or the issue's asset belongs to another organization. `getFindingMedia(findingId, mediaId)` returns `{ storageKey, contentType, size }` or null when that media row is not on that finding, or the finding is outside the organization.
 
-`src/features/findings/readers.integration.test.ts` runs in CI against the loopback `pgvector/pgvector:pg17` service after migrations. `openIntegrationDatabase` refuses any host that is not loopback.
+`src/features/findings/readers.integration.test.ts` runs in CI against the loopback `pgvector/pgvector:pg18` service after migrations. `openIntegrationDatabase` refuses any host that is not loopback.
 
 `updated_at` is `now()` in the database, and Drizzle refreshes it on update. Append-only tables (`stage_transitions`, `activity_log`) and rows that are replaced as a set (`analysis_people`, `document_chunks`) do not have it. A raw SQL update does not touch `updated_at`.
 
@@ -171,9 +171,9 @@ Schema lives in `src/db/schema.ts`. SQL lives in `migrations/`. `drizzle.config.
 1. Edit `src/db/schema.ts`.
 2. Run `pnpm db:generate` and read the new SQL. The first migration already starts with `CREATE EXTENSION IF NOT EXISTS vector`. Drizzle Kit does not emit that statement; if you regenerate from an empty `migrations/` folder, put it back at the top of the first file, with a statement breakpoint after it.
 3. Run `pnpm db:check`.
-4. Open a pull request. CI applies the migrations to a throwaway `pgvector/pgvector:pg17` database and fails if `drizzle-kit generate` would write a new diff. Pull requests do not get Neon credentials.
+4. Open a pull request. CI applies the migrations to a throwaway `pgvector/pgvector:pg18` database and fails if `drizzle-kit generate` would write a new diff. Pull requests do not get Neon credentials.
 
-After the pull request merges to `main`, `.github/workflows/migrate.yml` runs when `migrations/` changes (and on manual dispatch). It dumps the Neon database with `pg_dump` from the `postgres:17` image, uploads that dump as an artifact kept for 30 days, and only then runs `pnpm db:migrate`. The GitHub secret `DATABASE_URL` must be the direct connection string. The workflow uses a single concurrency group so two migrations never run at once. It does not wait on a manual approval environment.
+After the pull request merges to `main`, `.github/workflows/migrate.yml` runs when `migrations/` changes (and on manual dispatch). It dumps the Neon database with `pg_dump` from the `postgres:18` image, uploads that dump as an artifact kept for 30 days, and only then runs `pnpm db:migrate`. The GitHub secret `DATABASE_URL` must be the direct connection string. The workflow uses a single concurrency group so two migrations never run at once. It does not wait on a manual approval environment.
 
 `pnpm db:seed` loads one demo organization, a T-45 asset group, and a short issue-to-review chain. Running it again does not duplicate those rows.
 
@@ -187,7 +187,7 @@ Take the dump artifact from the previous production migrate (or confirm a Neon p
 
 The migrate workflow's artifact is named `neon-pre-migrate-<git sha>`. It is a `pg_dump` custom-format archive taken **before** that migration. Restoring it returns the database to that moment and discards writes made after the dump, including the migration itself.
 
-Use a PostgreSQL 17 client, and a direct Neon connection string:
+Use a PostgreSQL 18 client, and a direct Neon connection string:
 
 ```bash
 pg_restore --clean --if-exists --no-owner --no-privileges \
