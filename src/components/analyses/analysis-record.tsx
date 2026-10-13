@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { ANALYSIS_STATUS_LABEL } from "@/features/analyses/form";
+import type { ReviewHistory } from "@/features/analyses/review-history";
 import type { Analysis, AnalysisDbStatus } from "@/schemas";
 
 import { LoadCaseMargins } from "./load-cases";
+import { ReviewPanel } from "./review-panel";
 
 const STATUS_TONE: Record<
   AnalysisDbStatus,
@@ -24,10 +26,12 @@ const STATUS_TONE: Record<
 export function AnalysisRecordView({
   record,
   marginThreshold,
+  reviews,
 }: {
   record: Analysis;
   /** Organization cutoff passed in from the server page. */
   marginThreshold: number;
+  reviews: readonly ReviewHistory[];
 }) {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -85,6 +89,14 @@ export function AnalysisRecordView({
           loadCase={record.loadCase}
           margin={record.margin}
           marginThreshold={marginThreshold}
+        />
+      </Card>
+
+      <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">
+        <ReviewPanel
+          analysisId={record.id}
+          status={record.status}
+          reviews={reviews}
         />
       </Card>
     </div>

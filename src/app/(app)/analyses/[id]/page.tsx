@@ -4,6 +4,7 @@ import { Suspense } from "react";
 
 import { AnalysisRecordView } from "@/components/analyses/analysis-record";
 import { getAnalysisPage } from "@/features/analyses/page";
+import { listAnalysisReviews } from "@/features/analyses/reviews";
 import { getLowMarginThreshold } from "@/features/dashboard/data";
 
 export const metadata: Metadata = {
@@ -26,9 +27,10 @@ export default function AnalysisPage({
 
 async function AnalysisLoader({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [record, marginThreshold] = await Promise.all([
+  const [record, marginThreshold, reviews] = await Promise.all([
     getAnalysisPage(id),
     getLowMarginThreshold(),
+    listAnalysisReviews(id),
   ]);
 
   if (!record) {
@@ -36,6 +38,10 @@ async function AnalysisLoader({ params }: { params: Promise<{ id: string }> }) {
   }
 
   return (
-    <AnalysisRecordView record={record} marginThreshold={marginThreshold} />
+    <AnalysisRecordView
+      record={record}
+      marginThreshold={marginThreshold}
+      reviews={reviews}
+    />
   );
 }

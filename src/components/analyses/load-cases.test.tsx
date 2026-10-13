@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
 
 import type { Analysis } from "@/schemas";
 
@@ -81,7 +85,11 @@ describe("LoadCaseMargins", () => {
 describe("AnalysisRecordView", () => {
   it("shows the code, repair revision, method, load case, and status", () => {
     const html = renderToStaticMarkup(
-      <AnalysisRecordView record={record} marginThreshold={0.25} />,
+      <AnalysisRecordView
+        record={record}
+        marginThreshold={0.25}
+        reviews={[]}
+      />,
     );
 
     expect(html).toContain("AN-1001");

@@ -60,5 +60,6 @@ describe("analysis page imports", () => {
     expect(page).toContain("marginThreshold={marginThreshold}");
     expect(reader).toContain("getAnalysis(orgId, id, db)");
     expect(reader).toContain("isDemoData()");
+    expect(page).toContain("listAnalysisReviews(id)");
   });
 });
