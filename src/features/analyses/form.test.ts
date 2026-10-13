@@ -76,7 +76,7 @@ describe("analysisFormErrors", () => {
     });
   });
 
-  it("imports the conclusion list and does not omit repairId", () => {
+  it("imports analysisCreateBodySchema and requires a margin", () => {
     expect(ANALYSIS_CONCLUSIONS).toEqual([
       "adequate",
       "inadequate",
@@ -86,10 +86,16 @@ describe("analysisFormErrors", () => {
       join(dirname(fileURLToPath(import.meta.url)), "form.ts"),
       "utf8",
     );
-    expect(source).not.toContain(".omit(");
     expect(source).toContain("analysisCreateBodySchema");
-    expect(source).toContain(
-      'import { analysisCreateBodySchema } from "@/schemas"',
-    );
+    expect(source).toContain('from "@/schemas"');
+    expect(source).not.toContain("export const analysisCreateBodySchema");
+    expect(source).not.toContain(".omit(");
+    const fields = toAnalysisFields({
+      ...empty,
+      title: "Check the joint",
+      margin: "0.18",
+    });
+    expect(Object.keys(fields).sort()).toEqual(["margin", "title"]);
+    expect(fields).not.toHaveProperty("repairId");
   });
 });

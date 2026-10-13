@@ -33,8 +33,8 @@ const emptyDraft: AnalysisDraft = {
 };
 
 /**
- * Create analysis on a repair. Posts to `/api/repairs/[id]/analyses`.
- * The body uses the local stand-in until `analysisCreateBodySchema` is exported from `@/schemas`.
+ * Create analysis on a repair. Posts `analysisCreateBodySchema` fields to
+ * `/api/repairs/[id]/analyses`. Title and margin are required.
  */
 export function CreateAnalysis({
   repairId,
@@ -108,6 +108,7 @@ export function CreateAnalysis({
       </div>
       {open ? (
         <form
+          noValidate
           className="flex flex-col gap-4 border border-line bg-surface p-4"
           onSubmit={(event) => {
             void onSubmit(event);
@@ -117,6 +118,8 @@ export function CreateAnalysis({
             <input
               id="analysis-title"
               name="title"
+              required
+              aria-required="true"
               value={draft.title}
               className={inputClass}
               onChange={(event) => {
@@ -156,6 +159,8 @@ export function CreateAnalysis({
             <input
               id="analysis-margin"
               name="margin"
+              required
+              aria-required="true"
               inputMode="decimal"
               value={draft.margin}
               placeholder="0.10"

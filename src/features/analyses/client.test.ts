@@ -174,6 +174,17 @@ describe("createAnalysis", () => {
     });
   });
 
+  it("requires a margin before demo mode or fetch", async () => {
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
+    const fetchMock = vi.fn(async () => jsonResponse(created));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createAnalysis(repairId, { ...draft, margin: "" }),
+    ).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("returns a local 201 and does not call fetch when demo mode is on", async () => {
     vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
     const fetchMock = vi.fn(async () => jsonResponse(created));

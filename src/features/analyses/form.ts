@@ -1,30 +1,12 @@
-import { z } from "zod";
-
 import {
   analysisConclusionSchema,
-  analysisCreateSchema,
+  analysisCreateBodySchema,
   analysisDbStatusSchema,
-  analysisMarginSchema,
+  type AnalysisCreateBody,
   type AnalysisDbStatus,
 } from "@/schemas";
 
-/**
- * POST body for `/api/repairs/[id]/analyses`.
- *
- * TODO: replace this stand-in with
- * `import { analysisCreateBodySchema } from "@/schemas"`
- * when the analyses route exports it from `src/schemas/analyses.ts`.
- * `repairId` stays the path id and is not a field on this object.
- */
-export const analysisCreateBodySchema = z.strictObject({
-  title: analysisCreateSchema.shape.title,
-  method: analysisCreateSchema.shape.method,
-  loadCase: analysisCreateSchema.shape.loadCase,
-  margin: analysisMarginSchema,
-  status: analysisCreateSchema.shape.status,
-  dueDate: analysisCreateSchema.shape.dueDate,
-  revision: analysisCreateSchema.shape.revision,
-});
+export type { AnalysisCreateBody };
 
 /** Conclusions from `analysisConclusionSchema`. The create body does not send one. */
 export const ANALYSIS_CONCLUSIONS = analysisConclusionSchema.options;
@@ -50,8 +32,6 @@ export type AnalysisDraft = {
 };
 
 export type AnalysisFormField = keyof AnalysisDraft;
-
-export type AnalysisCreateBody = z.infer<typeof analysisCreateBodySchema>;
 
 const MARGIN_TEXT = /^[+-]?(?:\d+\.?\d*|\.\d+)$/;
 
