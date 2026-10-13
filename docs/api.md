@@ -123,7 +123,7 @@ Failures use `apiErrorSchema`:
 
 `pnpm test` mocks `embed()` and the database. It does not read `DATABASE_URL` and does not connect to Neon.
 
-The pgvector integration test is skipped unless `SHIPSHAPE_INTEGRATION_DATABASE_URL` is set. That URL must be a normal Postgres connection string, not a `neon.tech` host. CI sets it to the `pgvector/pgvector:pg17` service after `0000_initial` is applied, and runs `src/server/documents/search.integration.test.ts` there. The test still mocks the embedding model and checks cosine order, organization scope, snippets, and a full page for a small organization beside a larger one against the real `vector(384)` column.
+The pgvector integration test is skipped unless `SHIPSHAPE_INTEGRATION_DATABASE_URL` is set. That URL must be a normal Postgres connection string, not a `neon.tech` host. CI sets it to the `pgvector/pgvector:pg18` service after `0000_initial` is applied, and runs `src/server/documents/search.integration.test.ts` there. The test still mocks the embedding model and checks cosine order, organization scope, snippets, and a full page for a small organization beside a larger one against the real `vector(384)` column.
 
 # Findings API
 

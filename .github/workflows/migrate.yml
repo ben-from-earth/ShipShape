@@ -44,14 +44,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # postgres:17 matches Neon Postgres 17. An older pg_dump refuses the server.
-      - name: Check pg_dump matches Neon Postgres 17
+      # postgres:18 matches Neon Postgres 18. An older pg_dump refuses the server.
+      - name: Check pg_dump matches Neon Postgres 18
         run: |
           set -euo pipefail
-          version="$(docker run --rm --entrypoint pg_dump postgres:17 --version)"
+          version="$(docker run --rm --entrypoint pg_dump postgres:18 --version)"
           echo "$version"
           major="$(printf '%s\n' "$version" | awk '{print $3}' | cut -d. -f1)"
-          test "$major" = "17"
+          test "$major" = "18"
 
       - name: Dump Neon database
         env:
@@ -66,7 +66,7 @@ jobs:
             -e DATABASE_URL \
             -v "$PWD:/backup" \
             -u "$(id -u):$(id -g)" \
-            postgres:17 \
+            postgres:18 \
             -c 'pg_dump --dbname="$DATABASE_URL" --format=custom --no-owner --no-privileges --file=/backup/neon-pre-migrate.dump'
           test -s neon-pre-migrate.dump
           header="$(head -c 5 neon-pre-migrate.dump)"
