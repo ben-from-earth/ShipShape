@@ -387,6 +387,31 @@ export async function listAttachments(
   );
 }
 
+export async function getAttachment(
+  db: EngineeringDb,
+  analysisId: string,
+  attachmentId: string,
+): Promise<AnalysisAttachment | null> {
+  const result = await db.execute<Record<string, unknown>>(sql`
+    SELECT
+      id,
+      analysis_id AS "analysisId",
+      document_id AS "documentId",
+      storage_key AS "storageKey",
+      file_name AS "fileName",
+      url,
+      content_type AS "contentType",
+      size,
+      uploaded_by AS "uploadedBy",
+      created_at AS "createdAt"
+    FROM analysis_attachments
+    WHERE analysis_id = ${analysisId}::uuid
+      AND id = ${attachmentId}::uuid
+  `);
+  const found = rows(result)[0];
+  return found ? analysisAttachmentSchema.parse(attachmentFrom(found)) : null;
+}
+
 async function classifyMiss(
   db: EngineeringDb,
   input: {

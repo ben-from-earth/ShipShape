@@ -18,6 +18,7 @@ import {
   createAnalysis,
   createEngineer,
   getAnalysis,
+  getAttachment,
   listAnalyses,
   listAttachments,
   listComments,
@@ -298,6 +299,11 @@ describe.skipIf(!enabled)("tenant engineering data", () => {
       size: 1200,
     });
     expect(await listAttachments(db, analysis.id)).toEqual([attachment]);
+    expect(attachment).not.toBeNull();
+    expect(
+      await getAttachment(db, analysis.id, attachment?.id ?? randomUUID()),
+    ).toEqual(attachment);
+    expect(await getAttachment(db, analysis.id, randomUUID())).toBeNull();
     expect(
       await addComment(db, { analysisId: randomUUID(), body: "Missing." }),
     ).toBe(null);

@@ -458,4 +458,8 @@ Returns attachments for the analysis. A missing analysis is `404` `not_found`.
 
 ### POST /api/analyses/{id}/attachments
 
-Multipart file upload, the same storage path as `POST /api/documents`. The stored document is then passed to `addAttachment` with `uploadedBy` set to the engineer. `201` is the attachment. A missing analysis is `404` `not_found`. `payload_too_large` and `unsupported_media_type` use `apiErrorSchema`.
+`multipart/form-data` with a `file` field. The handler calls `putAttachment`, then `addAttachment` with `storageKey`, `fileName`, `contentType`, `size`, and `uploadedBy` set to the engineer. `201` is that storage-key attachment. A missing analysis is `404` `not_found`. A file larger than `maxAttachmentBytes` (default 25 MB, override with `ATTACHMENT_MAX_BYTES`) is `413` `payload_too_large`.
+
+### GET /api/analyses/{id}/attachments/{attachmentId}/file
+
+Streams `getAttachmentFile` for an attachment that has a `storageKey`. `Content-Type` is the stored type. `Cache-Control` is `private`. `X-Content-Type-Options` is `nosniff`. A missing analysis, a missing attachment, or an attachment without a `storageKey` is `404` `not_found`.
