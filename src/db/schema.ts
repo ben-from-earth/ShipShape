@@ -558,11 +558,33 @@ export const engineers = pgTable(
     name: text("name").notNull(),
     email: text("email").notNull(),
     role: engineerRole("role").notNull(),
+    /** scrypt password hash. Null until the engineer has a password. */
+    passwordHash: text("password_hash"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (table) => [uniqueIndex("engineers_email_uq").on(sql`lower(${table.email})`)],
+);
+
+/** Engineer sign-in. The cookie stores the raw token; the row stores its hash. */
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: id(),
+    tokenHash: text("token_hash").notNull(),
+    engineerId: uuid("engineer_id")
+      .notNull()
+      .references(() => engineers.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("sessions_token_hash_uq").on(table.tokenHash),
+    index("sessions_engineer_idx").on(table.engineerId),
+  ],
 );
 
 /**

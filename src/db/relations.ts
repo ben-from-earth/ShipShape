@@ -9,6 +9,7 @@ import {
   analysisPeople,
   engineeringAnalyses,
   engineers,
+  sessions,
   assetGroups,
   assets,
   documentChunks,
@@ -243,6 +244,14 @@ export const engineersRelations = relations(engineers, ({ many }) => ({
   }),
   comments: many(analysisComments),
   uploads: many(analysisAttachments),
+  sessions: many(sessions),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  engineer: one(engineers, {
+    fields: [sessions.engineerId],
+    references: [engineers.id],
+  }),
 }));
 
 export const engineeringAnalysesRelations = relations(

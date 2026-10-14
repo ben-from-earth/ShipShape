@@ -243,6 +243,9 @@ export const demoDocument: InferInsertModel<typeof documents> = {
 const demoChunkText =
   "Demo note: inspect the fastener line before closing the repair.";
 
+/** Shared local password for every seeded engineer. Not for production. */
+export const DEMO_ENGINEER_PASSWORD = "dev-password";
+
 /** Directory rows created by `pnpm db:seed` through `createEngineer`. */
 export const demoEngineers = [
   { name: "Demo Analyst", email: "analyst@example.com", role: "analyst" },

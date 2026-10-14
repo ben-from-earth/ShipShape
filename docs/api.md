@@ -374,9 +374,29 @@ Opens one repair on a finding. `application/json` body. The handler does not acc
 | 404  | `not_found`            | The finding is missing or its asset is in another organization                                         |
 | 500  | `internal_error`       | Anything else, including a `created_by` user that does not exist. `message` is `Something went wrong.` |
 
+## Auth
+
+Engineer sign-in. `x-org-id` selects the tenant database. Passwords are hashed with Node `scrypt`. The session cookie is `engineer_session`: `HttpOnly`, `Secure`, `SameSite=Lax`, and it expires in 30 days. The database stores the SHA-256 hash of the token, not the token.
+
+`pnpm db:seed` sets the password `dev-password` on `analyst@example.com`, `reviewer@example.com`, and `approver@example.com`. That password is for local development only.
+
+Outside production (`NODE_ENV !== 'production'`), analysis routes still accept `x-engineer-id` when the session cookie is absent. Production ignores that header.
+
+### POST /api/auth/sign-in
+
+`application/json` body is `signInBodySchema`: `email` and `password`. A bad email or password is `401` `unauthenticated` with `Email or password is incorrect.` The response is the engineer record and a `Set-Cookie` header.
+
+### POST /api/auth/sign-out
+
+Deletes the session for the cookie and clears it. `204` with an empty body.
+
+### GET /api/auth/me
+
+Returns the signed-in engineer. A missing or expired session is `401` `unauthenticated`.
+
 ## Analyses
 
-`x-org-id` selects the tenant database through `getTenantDb`. `x-engineer-id` is the temporary engineer header until sessions exist (#13). A missing header or an unknown engineer is `401` `unauthenticated`. An unknown JSON key is `400` `validation_error` with path `body`.
+`x-org-id` selects the tenant database through `getTenantDb`. The acting engineer comes from the session cookie. A missing or unknown engineer is `401` `unauthenticated`. An unknown JSON key is `400` `validation_error` with path `body`.
 
 ### POST /api/analyses
 

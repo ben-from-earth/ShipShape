@@ -3,20 +3,38 @@ import "server-only";
 
 import type { EngineeringDb } from "@/db/engineering";
 import { engineerSchema, idSchema, type Engineer } from "@/schemas";
+import { readSessionToken } from "@/server/auth/cookie";
+import { findEngineerBySessionToken } from "@/server/auth/store";
 
 import { AnalysisRequestError } from "./errors";
 
-/** Temporary stand-in for the session engineer. Swap this for #13. */
+/**
+ * Dev and test stand-in. Production ignores this header and uses the
+ * session cookie from POST /api/auth/sign-in.
+ */
 export const ENGINEER_ID_HEADER = "x-engineer-id";
 
 /**
- * Reads `x-engineer-id` and loads that engineer.
- * A missing header and an unknown engineer are both 401.
+ * Loads the engineer for this request. A session cookie wins. Outside
+ * production, a missing cookie falls back to `x-engineer-id`.
  */
 export async function readRequestEngineer(
   request: Request,
   db: EngineeringDb,
 ): Promise<Engineer> {
+  const token = readSessionToken(request);
+  if (token) {
+    const engineer = await findEngineerBySessionToken(db, token);
+    if (!engineer) {
+      throw new AnalysisRequestError("unauthenticated", "Sign in is required.");
+    }
+    return engineer;
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new AnalysisRequestError("unauthenticated", "Sign in is required.");
+  }
+
   const header = request.headers.get(ENGINEER_ID_HEADER);
   const parsed = idSchema.safeParse(header ?? "");
   if (!parsed.success) {

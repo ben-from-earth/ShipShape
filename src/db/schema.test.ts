@@ -221,6 +221,7 @@ describe("database schema", () => {
       "repairRevisions",
       "repairs",
       "reviews",
+      "sessions",
       "stageTransitions",
       "toolRuns",
       "users",

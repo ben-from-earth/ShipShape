@@ -55,4 +55,32 @@ describe("readRequestEngineer", () => {
     );
     expect(execute).toHaveBeenCalledOnce();
   });
+
+  it("loads the engineer from the session cookie", async () => {
+    const execute = vi.fn(async () => [engineer]);
+    const requestWithCookie = new Request("http://localhost/api/analyses", {
+      headers: { cookie: "engineer_session=raw-token" },
+    });
+
+    await expect(
+      readRequestEngineer(requestWithCookie, { execute } as never),
+    ).resolves.toEqual(engineer);
+  });
+
+  it("ignores x-engineer-id in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const execute = vi.fn();
+      const response = analysisErrorResponse(
+        await readRequestEngineer(request(), { execute } as never).catch(
+          (error: unknown) => error,
+        ),
+      );
+
+      expect(response.status).toBe(401);
+      expect(execute).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });

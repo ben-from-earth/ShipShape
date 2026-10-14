@@ -62,6 +62,22 @@ export async function createEngineer(
   return engineerSchema.parse(engineerFrom(row(result, "Engineer insert")));
 }
 
+export async function setEngineerPassword(
+  db: EngineeringDb,
+  engineerId: string,
+  passwordHash: string,
+): Promise<void> {
+  const result = await db.execute<Record<string, unknown>>(sql`
+    UPDATE engineers
+    SET password_hash = ${passwordHash}
+    WHERE id = ${engineerId}::uuid
+    RETURNING id
+  `);
+  if (!rows(result)[0]) {
+    throw new Error("Engineer was not found.");
+  }
+}
+
 export async function listEngineers(db: EngineeringDb): Promise<Engineer[]> {
   const result = await db.execute<Record<string, unknown>>(sql`
     SELECT id, name, email, role, created_at AS "createdAt"
