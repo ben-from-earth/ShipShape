@@ -22,6 +22,8 @@
     "db:seed": "tsx --conditions=react-server src/db/seed.ts",
     "tenant:add": "tsx src/db/tenant-cli.ts add",
     "tenant:list": "tsx src/db/tenant-cli.ts list",
+    "tenant:backup": "tsx src/db/tenant-cli.ts backup",
+    "tenant:restore": "tsx src/db/tenant-cli.ts restore",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
