@@ -5,12 +5,14 @@ import { io } from "next/cache";
 import { isDemoData } from "@/config/demo";
 import {
   analysisStatusSchema,
+  analysisSummarySchema,
   idSchema,
   type AnalysisStatus,
+  type AnalysisSummary,
   type Engineer,
 } from "@/schemas";
 
-import { type AnalysisBoardRecord, type AnalysisBoardSummary } from "./board";
+import { type AnalysisBoardRecord } from "./board";
 import {
   DEMO_ACTOR,
   DEMO_ANALYSIS_AS_OF,
@@ -18,7 +20,7 @@ import {
   findDemoAnalysis,
   listDemoAnalyses,
 } from "./board-demo";
-import { averageApprovalDays, dueBadge, isDueThisWeek } from "./timing";
+import { averageApprovalDays, dueBadge } from "./timing";
 
 /**
  * Analyses for the list and dashboard.
@@ -64,7 +66,7 @@ export async function getAnalysisBoard(id: string): Promise<{
 }
 
 export async function analysisBoardSummary(): Promise<{
-  summary: AnalysisBoardSummary;
+  summary: AnalysisSummary;
   asOf: string;
 }> {
   const { records, asOf } = await listAnalysisBoard();
@@ -73,24 +75,26 @@ export async function analysisBoardSummary(): Promise<{
       status,
       records.filter((record) => record.analysis.status === status).length,
     ]),
-  ) as Record<AnalysisStatus, number>;
+  ) as AnalysisSummary["counts"];
 
   return {
     asOf,
-    summary: {
+    summary: analysisSummarySchema.parse({
       counts,
       overdue: records.filter(
         (record) =>
           dueBadge(record.analysis.dueDate, record.analysis.status, asOf) ===
           "overdue",
       ).length,
-      dueThisWeek: records.filter((record) =>
-        isDueThisWeek(record.analysis.dueDate, record.analysis.status, asOf),
+      dueSoon: records.filter(
+        (record) =>
+          dueBadge(record.analysis.dueDate, record.analysis.status, asOf) ===
+          "due-soon",
       ).length,
-      averageApprovalDays: averageApprovalDays(
+      avgDaysToApproval: averageApprovalDays(
         records.map((record) => record.analysis),
       ),
-    },
+    }),
   };
 }
 

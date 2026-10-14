@@ -6,6 +6,7 @@ import {
   BoardApiError,
   ENGINEER_ID_HEADER,
   analysisStatusMessage,
+  fetchAnalysisSummary,
   listBoardAnalyses,
   transitionAnalysis,
 } from "./board-api";
@@ -45,6 +46,48 @@ describe("analysis board API", () => {
         [ENGINEER_ID_HEADER]: engineerId,
       },
       body: undefined,
+    });
+  });
+
+  it("loads the dashboard summary with the same headers", async () => {
+    const summary = {
+      counts: {
+        unassigned: 1,
+        assigned: 0,
+        in_progress: 0,
+        waiting_for_review: 0,
+        in_review: 0,
+        approved: 0,
+      },
+      overdue: 1,
+      dueSoon: 0,
+      avgDaysToApproval: null,
+    };
+    const fetchMock = vi.fn(async () => jsonResponse(summary));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchAnalysisSummary(engineerId)).resolves.toEqual(summary);
+    expect(fetchMock).toHaveBeenCalledWith("/api/analyses/summary", {
+      method: "GET",
+      headers: {
+        [ORG_ID_HEADER]: DEMO_ORGANIZATION_ID,
+        [ENGINEER_ID_HEADER]: engineerId,
+      },
+      body: undefined,
+    });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse(
+          { error: { code: "unauthenticated", message: "missing" } },
+          401,
+        ),
+      ),
+    );
+    await expect(fetchAnalysisSummary(engineerId)).rejects.toMatchObject({
+      status: 401,
+      message: "Sign in as an engineer.",
     });
   });
 
