@@ -58,4 +58,4 @@ CREATE INDEX "analysis_comments_analysis_idx" ON "analysis_comments" USING btree
 CREATE UNIQUE INDEX "engineering_analyses_code_uq" ON "engineering_analyses" USING btree ("code");--> statement-breakpoint
 CREATE INDEX "engineering_analyses_status_idx" ON "engineering_analyses" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "engineering_analyses_due_date_idx" ON "engineering_analyses" USING btree ("due_date");--> statement-breakpoint
-CREATE UNIQUE INDEX "engineers_email_uq" ON "engineers" USING btree ("email");
+CREATE UNIQUE INDEX "engineers_email_uq" ON "engineers" USING btree (lower("email"));

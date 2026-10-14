@@ -27,7 +27,7 @@ Twenty-one tables. Drizzle relations in `src/db/relations.ts` back `getDb().quer
 | `activity_log`         | Append-only activity feed.                                                                                                                                                                                               |
 | `documents`            | Uploaded reference file and its indexing status.                                                                                                                                                                         |
 | `document_chunks`      | Chunk text plus a 384-dimension L2-normalized embedding from all-MiniLM-L6-v2. Cosine HNSW index on `embedding`. Columns match `DocumentChunk`: `index`, `text`, `start_offset`, `end_offset`, `page_start`, `page_end`. |
-| `engineers`            | Directory inside one tenant database. `role` is `analyst`, `reviewer`, or `approver`. Email is unique. No `org_id`.                                                                                                      |
+| `engineers`            | Directory inside one tenant database. `role` is `analyst`, `reviewer`, or `approver`. Email is unique ignoring case (`lower(email)`). No `org_id`.                                                                       |
 | `engineering_analyses` | Standalone analysis (`analysisSchema`). The repair-scoped `analyses` table is unchanged. Status is the six-step workflow. `assignee_id` references `engineers`.                                                          |
 | `analysis_comments`    | Comment on a standalone analysis. `author_id` references `engineers` and may be null.                                                                                                                                    |
 | `analysis_attachments` | A `document_id` or file metadata (`file_name`, `url`, `content_type`, `size`), not both.                                                                                                                                 |
@@ -178,7 +178,7 @@ The control database is a separate Postgres database. `drizzle.control.config.ts
 
 On-prem, the customer runs their own Postgres. Register that URL (encrypted) as a tenant, then run `pnpm db:migrate:all` so their database gets the tenant schema. We do not host that database.
 
-The engineering writers in `src/db/engineering.ts` take a tenant database handle. `transitionAnalysis` updates one row only when `status` is still the action's `from` status and the actor's stored role passes `canPerform`. `approve` sets `approved_at`. A concurrent second move finds the new status and returns `invalid_state`.
+The engineering writers in `src/db/engineering.ts` take a tenant database handle. `transitionAnalysis` updates one row only when `status` is still the action's `from` status and the actor's stored role passes `canPerform`. `assign` also requires the new assignee to be an engineer whose `ENGINEER_ROLE_RANK` is at least `analyst`; a missing or lower-ranked assignee returns `invalid_assignee` and writes nothing. `approve` sets `approved_at`. A concurrent second move finds the new status and returns `invalid_state`.
 
 ## Migration workflow
 

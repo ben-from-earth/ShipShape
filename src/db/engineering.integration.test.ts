@@ -303,6 +303,70 @@ describe.skipIf(!enabled)("tenant engineering data", () => {
     ).toBe(null);
   });
 
+  it("rejects an assign when the assignee is missing and writes nothing", async () => {
+    const reviewer = await createEngineer(db, {
+      name: "Ren Reviewer",
+      email: "ren-assign@example.com",
+      role: "reviewer",
+    });
+    const approver = await createEngineer(db, {
+      name: "Pat Approver",
+      email: "pat-assign@example.com",
+      role: "approver",
+    });
+    const analysis = await createAnalysis(db, { title: "Needs an owner" });
+
+    expect(
+      await transitionAnalysis({
+        db,
+        analysisId: analysis.id,
+        actorId: reviewer.id,
+        action: "assign",
+        assigneeId: randomUUID(),
+      }),
+    ).toEqual({ kind: "invalid_assignee" });
+    expect(await getAnalysis(db, analysis.id)).toMatchObject({
+      status: "unassigned",
+      assigneeId: null,
+    });
+
+    const assigned = await move(db, analysis.id, reviewer.id, "assign", {
+      assigneeId: approver.id,
+    });
+    expect(assigned).toMatchObject({
+      status: "assigned",
+      assigneeId: approver.id,
+    });
+    expect(
+      await transitionAnalysis({
+        db,
+        analysisId: analysis.id,
+        actorId: reviewer.id,
+        action: "assign",
+        assigneeId: randomUUID(),
+      }),
+    ).toEqual({ kind: "invalid_state", status: "assigned" });
+  });
+
+  it("rejects an engineer email that differs only by case", async () => {
+    const created = await createEngineer(db, {
+      name: "Upper",
+      email: "A@x.com",
+      role: "analyst",
+    });
+    expect(created.email).toBe("A@x.com");
+    await expect(
+      createEngineer(db, {
+        name: "Lower",
+        email: "a@x.com",
+        role: "reviewer",
+      }),
+    ).rejects.toSatisfy(isUniqueEmailConflict);
+    expect((await listEngineers(db)).map((person) => person.email)).toEqual([
+      "A@x.com",
+    ]);
+  });
+
   it("round-trips a tenant connection string through the control registry", async () => {
     const previous = process.env.TENANT_SECRET_KEY;
     process.env.TENANT_SECRET_KEY = randomBytes(32).toString("base64");
@@ -338,6 +402,24 @@ describe.skipIf(!enabled)("tenant engineering data", () => {
     }
   });
 });
+
+function isUniqueEmailConflict(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current && typeof current === "object" && !seen.has(current)) {
+    seen.add(current);
+    if (
+      "code" in current &&
+      current.code === "23505" &&
+      "constraint" in current &&
+      current.constraint === "engineers_email_uq"
+    ) {
+      return true;
+    }
+    current = "cause" in current ? current.cause : undefined;
+  }
+  return false;
+}
 
 async function move(
   db: Database,

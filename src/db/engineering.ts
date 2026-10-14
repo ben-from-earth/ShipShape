@@ -12,6 +12,7 @@ import {
   analysisStatusSchema,
   canPerform,
   commentCreateBodySchema,
+  ENGINEER_ROLE_RANK,
   engineerCreateSchema,
   engineerRoleSchema,
   engineerSchema,
@@ -29,7 +30,8 @@ export type TransitionResult =
   | { kind: "ok"; analysis: Analysis }
   | { kind: "not_found" }
   | { kind: "forbidden" }
-  | { kind: "invalid_state"; status: AnalysisStatus };
+  | { kind: "invalid_state"; status: AnalysisStatus }
+  | { kind: "invalid_assignee" };
 
 type AttachmentInput = {
   analysisId: string;
@@ -152,9 +154,11 @@ export async function listAnalyses(db: EngineeringDb): Promise<Analysis[]> {
 }
 
 /**
- * One guarded UPDATE. The row changes only when its status is still `from`
- * and the actor's stored role is allowed. A second statement classifies a miss.
- * Neon HTTP cannot open a transaction around the two statements.
+ * One guarded statement. The row changes only when its status is still `from`
+ * and the actor's stored role is allowed. `assign` also requires an engineer
+ * whose `ENGINEER_ROLE_RANK` is at least `analyst`; otherwise nothing is written.
+ * A second statement classifies a miss. Neon HTTP cannot open a transaction
+ * around the two statements.
  */
 export async function transitionAnalysis(input: {
   db: EngineeringDb;
@@ -168,12 +172,25 @@ export async function transitionAnalysis(input: {
     canPerform(role, input.action),
   );
   const assigneeId = input.assigneeId ?? null;
+  const rankArms = sql.join(
+    engineerRoleSchema.options.map(
+      (role) => sql`WHEN ${role} THEN ${ENGINEER_ROLE_RANK[role]}`,
+    ),
+    sql` `,
+  );
   const updated = await input.db.execute<Record<string, unknown>>(sql`
+    WITH next_assignee AS (
+      SELECT id
+      FROM engineers
+      WHERE id = ${assigneeId}::uuid
+        AND CASE role::text ${rankArms} ELSE -1 END
+          >= ${ENGINEER_ROLE_RANK.analyst}
+    )
     UPDATE engineering_analyses AS a
     SET
       status = ${transition.to}::engineering_analysis_status,
       assignee_id = CASE
-        WHEN ${input.action} = 'assign' THEN ${assigneeId}::uuid
+        WHEN ${input.action} = 'assign' THEN (SELECT id FROM next_assignee)
         ELSE a.assignee_id
       END,
       approved_at = CASE
@@ -195,10 +212,7 @@ export async function transitionAnalysis(input: {
       )
       AND (
         ${input.action} <> 'assign'
-        OR EXISTS (
-          SELECT 1 FROM engineers AS next_assignee
-          WHERE next_assignee.id = ${assigneeId}::uuid
-        )
+        OR EXISTS (SELECT 1 FROM next_assignee)
       )
     RETURNING
       a.id,
@@ -341,7 +355,7 @@ async function classifyMiss(
       a.status::text AS status,
       a.assignee_id::text AS "assigneeId",
       actor.role::text AS role,
-      next_assignee.id::text AS "nextAssigneeId"
+      next_assignee.role::text AS "nextAssigneeRole"
     FROM engineering_analyses AS a
     LEFT JOIN engineers AS actor ON actor.id = ${input.actorId}::uuid
     LEFT JOIN engineers AS next_assignee
@@ -367,10 +381,21 @@ async function classifyMiss(
   if (transition.assignedAnalyst && found.assigneeId !== input.actorId) {
     return { kind: "forbidden" };
   }
-  if (transition.requiresAssignee && typeof found.nextAssigneeId !== "string") {
-    return { kind: "not_found" };
+  if (
+    input.action === "assign" &&
+    !assigneeMeetsAnalystRank(found.nextAssigneeRole)
+  ) {
+    return { kind: "invalid_assignee" };
   }
   return { kind: "invalid_state", status };
+}
+
+function assigneeMeetsAnalystRank(role: unknown): boolean {
+  const parsed = engineerRoleSchema.safeParse(role);
+  if (!parsed.success) {
+    return false;
+  }
+  return ENGINEER_ROLE_RANK[parsed.data] >= ENGINEER_ROLE_RANK.analyst;
 }
 
 function analysisFrom(row: Record<string, unknown>): Record<string, unknown> {

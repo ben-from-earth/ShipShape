@@ -562,7 +562,7 @@ export const engineers = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [uniqueIndex("engineers_email_uq").on(table.email)],
+  (table) => [uniqueIndex("engineers_email_uq").on(sql`lower(${table.email})`)],
 );
 
 /**

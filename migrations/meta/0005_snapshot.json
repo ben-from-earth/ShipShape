@@ -1,5 +1,5 @@
 {
-  "id": "32f1443f-7904-42c9-bb40-b12bdadfda79",
+  "id": "2adb3e33-a674-4779-9566-c3193d725423",
   "prevId": "cd3da3b1-6dae-47c4-9d85-d97494be6ad0",
   "version": "7",
   "dialect": "postgresql",
@@ -1275,9 +1275,9 @@
           "name": "engineers_email_uq",
           "columns": [
             {
-              "expression": "email",
-              "isExpression": false,
+              "expression": "lower(\"email\")",
               "asc": true,
+              "isExpression": true,
               "nulls": "last"
             }
           ],
