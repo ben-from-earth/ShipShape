@@ -51,6 +51,38 @@ describe("tenant commands", () => {
       name: "Acme",
       urlFlag: "-",
     });
+    expect(
+      parseTenantArgs([
+        "add",
+        "--slug",
+        "acme",
+        "--name",
+        "Acme",
+        "--url",
+        "TENANT_DATABASE_URL",
+        "--storage",
+        "s3",
+      ]),
+    ).toEqual({
+      command: "add",
+      slug: "acme",
+      name: "Acme",
+      urlFlag: "TENANT_DATABASE_URL",
+      storage: "s3",
+    });
+    expect(() =>
+      parseTenantArgs([
+        "add",
+        "--slug",
+        "acme",
+        "--name",
+        "Acme",
+        "--url",
+        "TENANT_DATABASE_URL",
+        "--storage",
+        "disk",
+      ]),
+    ).toThrow(/^--storage must be local or s3\.$/);
     expect(parseTenantArgs(["list"])).toEqual({ command: "list" });
     expect(() => parseTenantArgs(["list", "--slug", "acme"])).toThrow(
       /no arguments/,
@@ -167,7 +199,9 @@ describe("tenant commands", () => {
   });
 
   it("lists slug, name, id, and created time without a connection string", () => {
-    expect(LIST_TENANTS_SQL).not.toMatch(/database_url|password|secret/i);
+    expect(LIST_TENANTS_SQL).not.toMatch(
+      /database_url|storage_config|password|secret/i,
+    );
     expect(INSERT_TENANT_SQL).toContain("database_url_encrypted");
     const listed = formatTenantList([
       {

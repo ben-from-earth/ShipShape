@@ -612,7 +612,7 @@ export const analysisComments = pgTable(
 );
 
 /**
- * Either `document_id` or the file columns, never both.
+ * A document, an external file URL, or a stored file (`storage_key`).
  * The check is the database form of `analysisAttachmentSchema`.
  */
 export const analysisAttachments = pgTable(
@@ -623,6 +623,7 @@ export const analysisAttachments = pgTable(
       .notNull()
       .references(() => engineeringAnalyses.id, { onDelete: "cascade" }),
     documentId: uuid("document_id").references(() => documents.id),
+    storageKey: text("storage_key"),
     fileName: text("file_name"),
     url: text("url"),
     contentType: text("content_type"),
@@ -639,9 +640,11 @@ export const analysisAttachments = pgTable(
     check(
       "analysis_attachments_source_ck",
       sql`(
-        (${table.documentId} IS NOT NULL AND ${table.fileName} IS NULL AND ${table.url} IS NULL AND ${table.contentType} IS NULL AND ${table.size} IS NULL)
+        (${table.documentId} IS NOT NULL AND ${table.storageKey} IS NULL AND ${table.fileName} IS NULL AND ${table.url} IS NULL AND ${table.contentType} IS NULL AND ${table.size} IS NULL)
         OR
-        (${table.documentId} IS NULL AND ${table.fileName} IS NOT NULL AND ${table.url} IS NOT NULL AND ${table.contentType} IS NOT NULL AND ${table.size} IS NOT NULL)
+        (${table.documentId} IS NULL AND ${table.storageKey} IS NULL AND ${table.fileName} IS NOT NULL AND ${table.url} IS NOT NULL AND ${table.contentType} IS NOT NULL AND ${table.size} IS NOT NULL)
+        OR
+        (${table.documentId} IS NULL AND ${table.storageKey} IS NOT NULL AND ${table.fileName} IS NOT NULL AND ${table.url} IS NULL AND ${table.contentType} IS NOT NULL AND ${table.size} IS NOT NULL)
       )`,
     ),
   ],

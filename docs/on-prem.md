@@ -26,3 +26,28 @@ The command applies `migrations/control` if needed, encrypts the URL, inserts a 
 `pnpm tenant:list` prints `slug`, `name`, `id`, and `created_at`. It does not print connection strings.
 
 `pnpm db:migrate:all` migrates the control database, then every registered tenant. The app looks a tenant up with `getTenantDb(tenantId)` and decrypts the URL with the same `TENANT_SECRET_KEY`.
+
+## Attachment storage
+
+Analysis files can live on the tenant's disk or in S3-compatible storage (including MinIO). Pass `--storage local` or `--storage s3`. The credentials stay in the environment; they are not command arguments. The command encrypts them into `storage_config_encrypted`.
+
+```bash
+export STORAGE_LOCAL_DIR=/var/lib/shipshape/files
+pnpm tenant:add --slug acme --name "Acme" --url TENANT_DATABASE_URL --storage local
+```
+
+```bash
+export S3_ENDPOINT='https://s3.example.com'
+export S3_REGION=us-east-1
+export S3_BUCKET=shipshape
+export S3_ACCESS_KEY_ID=...
+export S3_SECRET_ACCESS_KEY=...
+# S3_FORCE_PATH_STYLE defaults to true, which MinIO needs.
+pnpm tenant:add --slug acme --name "Acme" --url TENANT_DATABASE_URL --storage s3
+```
+
+Local files are stored under `<STORAGE_LOCAL_DIR>/<tenant id>/`. The default directory is `./storage`. S3 objects use the same key prefix inside the bucket.
+
+When `CONTROL_DATABASE_URL` is unset, the app uses `STORAGE_KIND` (`local` or `s3`, default `local`), `STORAGE_LOCAL_DIR`, and the `S3_*` variables above. `ATTACHMENT_MAX_BYTES` defaults to 25 MiB.
+
+`pnpm tenant:list` does not print storage settings.

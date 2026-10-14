@@ -41,6 +41,7 @@ type AttachmentInput = {
 } & (
   | { documentId: string }
   | { fileName: string; url: string; contentType: string; size: number }
+  | { storageKey: string; fileName: string; contentType: string; size: number }
 );
 
 export async function createEngineer(
@@ -300,18 +301,28 @@ export async function addAttachment(
   input: AttachmentInput,
 ): Promise<AnalysisAttachment | null> {
   const documentId = "documentId" in input ? input.documentId : null;
+  const storageKey = "storageKey" in input ? input.storageKey : null;
   const fileName = "fileName" in input ? input.fileName : null;
   const url = "url" in input ? input.url : null;
   const contentType = "contentType" in input ? input.contentType : null;
   const size = "size" in input ? input.size : null;
   const result = await db.execute<Record<string, unknown>>(sql`
     INSERT INTO analysis_attachments (
-      id, analysis_id, document_id, file_name, url, content_type, size, uploaded_by
+      id,
+      analysis_id,
+      document_id,
+      storage_key,
+      file_name,
+      url,
+      content_type,
+      size,
+      uploaded_by
     )
     SELECT
       gen_random_uuid(),
       a.id,
       ${documentId}::uuid,
+      ${storageKey},
       ${fileName},
       ${url},
       ${contentType},
@@ -323,6 +334,7 @@ export async function addAttachment(
       id,
       analysis_id AS "analysisId",
       document_id AS "documentId",
+      storage_key AS "storageKey",
       file_name AS "fileName",
       url,
       content_type AS "contentType",
@@ -343,6 +355,7 @@ export async function listAttachments(
       id,
       analysis_id AS "analysisId",
       document_id AS "documentId",
+      storage_key AS "storageKey",
       file_name AS "fileName",
       url,
       content_type AS "contentType",
@@ -519,15 +532,25 @@ function attachmentFrom(row: Record<string, unknown>): Record<string, unknown> {
     uploadedBy: row.uploadedBy ?? null,
     createdAt: asTimestamp(row.createdAt),
   };
+  const size = typeof row.size === "string" ? Number(row.size) : row.size;
   if (typeof row.documentId === "string") {
     return { ...shared, documentId: row.documentId };
+  }
+  if (typeof row.storageKey === "string") {
+    return {
+      ...shared,
+      storageKey: row.storageKey,
+      fileName: row.fileName,
+      contentType: row.contentType,
+      size,
+    };
   }
   return {
     ...shared,
     fileName: row.fileName,
     url: row.url,
     contentType: row.contentType,
-    size: typeof row.size === "string" ? Number(row.size) : row.size,
+    size,
   };
 }
 

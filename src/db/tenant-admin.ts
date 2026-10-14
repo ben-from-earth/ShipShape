@@ -5,11 +5,17 @@ export const LIST_TENANTS_SQL =
   "select id, slug, name, created_at from tenants order by created_at asc, slug asc";
 
 export const INSERT_TENANT_SQL =
-  "insert into tenants (id, slug, name, database_url_encrypted) values (gen_random_uuid(), $1, $2, $3) returning id";
+  "insert into tenants (id, slug, name, database_url_encrypted, storage_kind, storage_config_encrypted) values (gen_random_uuid(), $1, $2, $3, $4, $5) returning id";
 
 export type ParsedTenantCommand =
   | { command: "list" }
-  | { command: "add"; slug: string; name: string; urlFlag: string };
+  | {
+      command: "add";
+      slug: string;
+      name: string;
+      urlFlag: string;
+      storage?: "local" | "s3";
+    };
 
 export function parseTenantArgs(argv: readonly string[]): ParsedTenantCommand {
   const [command, ...rest] = argv;
@@ -33,7 +39,17 @@ export function parseTenantArgs(argv: readonly string[]): ParsedTenantCommand {
   if (!SLUG.test(slug)) {
     throw new Error("Slug must be lowercase letters, numbers, and hyphens.");
   }
-  return { command: "add", slug, name, urlFlag: urlFlag.trim() };
+  const storage = flags.storage?.trim();
+  if (storage !== undefined && storage !== "local" && storage !== "s3") {
+    throw new Error("--storage must be local or s3.");
+  }
+  return {
+    command: "add",
+    slug,
+    name,
+    urlFlag: urlFlag.trim(),
+    ...(storage === "local" || storage === "s3" ? { storage } : {}),
+  };
 }
 
 export function resolveDatabaseUrl(input: {
@@ -69,6 +85,8 @@ export type RegisterDeps = {
     slug: string;
     name: string;
     databaseUrlEncrypted: string;
+    storageKind: "local" | "s3";
+    storageConfigEncrypted: string | null;
   }) => Promise<{ id: string } | "exists">;
   migrateTenant: (url: string) => Promise<void>;
 };
@@ -78,7 +96,13 @@ export type RegisterDeps = {
  * that tenant database. A duplicate slug does not migrate the tenant.
  */
 export async function registerTenant(
-  input: { slug: string; name: string; databaseUrl: string },
+  input: {
+    slug: string;
+    name: string;
+    databaseUrl: string;
+    storageKind?: "local" | "s3";
+    storageConfigEncrypted?: string | null;
+  },
   deps: RegisterDeps,
 ): Promise<{ id: string; slug: string; name: string }> {
   await deps.migrateControl();
@@ -87,6 +111,8 @@ export async function registerTenant(
     slug: input.slug,
     name: input.name,
     databaseUrlEncrypted,
+    storageKind: input.storageKind ?? "local",
+    storageConfigEncrypted: input.storageConfigEncrypted ?? null,
   });
   if (inserted === "exists") {
     throw new Error(`Tenant ${input.slug} is already registered.`);

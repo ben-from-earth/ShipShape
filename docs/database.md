@@ -30,7 +30,7 @@ Twenty-one tables. Drizzle relations in `src/db/relations.ts` back `getDb().quer
 | `engineers`            | Directory inside one tenant database. `role` is `analyst`, `reviewer`, or `approver`. Email is unique ignoring case (`lower(email)`). No `org_id`.                                                                       |
 | `engineering_analyses` | Standalone analysis (`analysisSchema`). The repair-scoped `analyses` table is unchanged. Status is the six-step workflow. `assignee_id` references `engineers`.                                                          |
 | `analysis_comments`    | Comment on a standalone analysis. `author_id` references `engineers` and may be null.                                                                                                                                    |
-| `analysis_attachments` | A `document_id` or file metadata (`file_name`, `url`, `content_type`, `size`), not both.                                                                                                                                 |
+| `analysis_attachments` | A `document_id`, external file metadata (`file_name`, `url`, `content_type`, `size`), or a stored file (`storage_key` plus file metadata).                                                                               |
 
 Issues, repairs, and analyses have no `org_id`. Tenant scoping for those rows goes through `assets.org_id`: an issue belongs to its asset, a repair to its issue, and an analysis to its repair revision.
 
