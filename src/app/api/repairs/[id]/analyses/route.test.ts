@@ -78,9 +78,7 @@ function analysisRequest(init?: {
     {
       method: "POST",
       headers,
-      body: JSON.stringify(
-        init?.body ?? { title: "Check the joint", margin: 0.125 },
-      ),
+      body: JSON.stringify(init?.body ?? { title: "Check the joint" }),
     },
   );
 }
@@ -95,31 +93,33 @@ describe("POST /api/repairs/[id]/analyses", () => {
       analysisRequest({
         body: {
           title: "Check the joint",
-          method: null,
-          loadCase: "Primary",
-          margin: 0.125,
-          status: "draft",
-          dueDate: null,
-          revision: "A",
+          dueDate: "2026-12-01",
         },
       }),
     );
     const body = createAnalysisResultSchema.parse(await response.json());
 
     expect(response.status).toBe(201);
-    expect(body).toEqual(analysis);
+    expect(body).toEqual({
+      id: analysisId,
+      code: "AN-1002",
+      title: "Check the joint",
+      status: "unassigned",
+      assigneeId: null,
+      dueDate: null,
+      createdAt,
+      updatedAt: createdAt,
+      approvedAt: null,
+      createdBy: actorId,
+    });
     expect(organizationExists).toHaveBeenCalledWith(orgId);
     expect(create).toHaveBeenCalledWith({
       orgId,
       repairId,
       actorId,
       title: "Check the joint",
-      method: null,
-      loadCase: "Primary",
-      margin: 0.125,
-      status: "draft",
-      dueDate: null,
-      revision: "A",
+      margin: 0,
+      dueDate: "2026-12-01",
     });
   });
 
@@ -146,7 +146,7 @@ describe("POST /api/repairs/[id]/analyses", () => {
       repairId,
       actorId: null,
       title: "Check the joint",
-      margin: 0.125,
+      margin: 0,
     });
   });
 
@@ -164,7 +164,7 @@ describe("POST /api/repairs/[id]/analyses", () => {
   it("rejects an unknown key with path body", async () => {
     const response = await call(
       analysisRequest({
-        body: { title: "Check the joint", margin: 0.125, code: "AN-1002" },
+        body: { title: "Check the joint", code: "AN-1002" },
       }),
     );
 
@@ -176,17 +176,17 @@ describe("POST /api/repairs/[id]/analyses", () => {
     expect(create).not.toHaveBeenCalled();
   });
 
-  it("rejects a bad margin before createAnalysis", async () => {
+  it("rejects a bad due date before createAnalysis", async () => {
     const response = await call(
       analysisRequest({
-        body: { title: "Check the joint", margin: 1000000 },
+        body: { title: "Check the joint", dueDate: "December" },
       }),
     );
 
     expect(response.status).toBe(400);
     expect(apiErrorSchema.parse(await response.json()).error).toMatchObject({
       code: "validation_error",
-      details: [{ path: "margin" }],
+      details: [{ path: "dueDate" }],
     });
     expect(create).not.toHaveBeenCalled();
   });

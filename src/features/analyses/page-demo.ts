@@ -1,6 +1,6 @@
 import "server-only";
 
-import { analysisSchema, type Analysis } from "@/schemas";
+import type { StoredAnalysis } from "./stored";
 
 /**
  * Demo analysis for an explicit `isDemoData()` session.
@@ -9,7 +9,7 @@ import { analysisSchema, type Analysis } from "@/schemas";
  */
 const DEMO_ANALYSIS_ID = "10000000-0000-4000-8000-000000000051";
 
-const DEMO_ANALYSIS: Analysis = analysisSchema.parse({
+const DEMO_ANALYSIS: StoredAnalysis = {
   id: DEMO_ANALYSIS_ID,
   code: "AN-1001",
   repairId: "10000000-0000-4000-8000-000000000041",
@@ -24,11 +24,11 @@ const DEMO_ANALYSIS: Analysis = analysisSchema.parse({
   dueDate: "2026-12-01",
   createdAt: "2026-10-06T12:00:00.000Z",
   updatedAt: "2026-10-06T12:00:00.000Z",
-});
+};
 
-export function findDemoAnalysis(id: string): Analysis | null {
+export function findDemoAnalysis(id: string): StoredAnalysis | null {
   if (id.trim() !== DEMO_ANALYSIS.id && id.trim() !== DEMO_ANALYSIS.code) {
     return null;
   }
-  return analysisSchema.parse(DEMO_ANALYSIS);
+  return DEMO_ANALYSIS;
 }

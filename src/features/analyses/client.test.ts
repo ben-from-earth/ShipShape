@@ -25,16 +25,12 @@ const draft = {
 const created = {
   id: analysisId,
   code: "AN-1002",
-  repairId,
-  revisionId: "550e8400-e29b-41d4-a716-446655440042",
-  revision: "A",
   title: "Check the joint",
-  method: "Hand calculation",
-  loadCase: "Limit load",
-  margin: 0.18,
-  status: "in_review",
-  createdBy: null,
+  status: "unassigned" as const,
+  assigneeId: null,
   dueDate: "2026-12-01",
+  createdBy: null,
+  approvedAt: null,
   createdAt,
   updatedAt: createdAt,
 };
@@ -61,12 +57,7 @@ describe("createAnalysis", () => {
       });
       expect(JSON.parse(String(init.body))).toEqual({
         title: "Check the joint",
-        method: "Hand calculation",
-        loadCase: "Limit load",
-        margin: 0.18,
-        status: "in_review",
         dueDate: "2026-12-01",
-        revision: "A",
       });
       return jsonResponse(created);
     });
@@ -174,13 +165,13 @@ describe("createAnalysis", () => {
     });
   });
 
-  it("requires a margin before demo mode or fetch", async () => {
+  it("requires a title before demo mode or fetch", async () => {
     vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
     const fetchMock = vi.fn(async () => jsonResponse(created));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      createAnalysis(repairId, { ...draft, margin: "" }),
+      createAnalysis(repairId, { ...draft, title: "" }),
     ).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -194,10 +185,11 @@ describe("createAnalysis", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.code).toBe("AN-DEMO");
-    expect(result.repairId).toBe(repairId);
     expect(result.title).toBe("Check the joint");
-    expect(result.margin).toBe(0.18);
-    expect(result.status).toBe("in_review");
+    expect(result.dueDate).toBe("2026-12-01");
+    expect(result.status).toBe("unassigned");
+    expect(result.assigneeId).toBeNull();
     expect(result.createdBy).toBeNull();
+    expect(result.approvedAt).toBeNull();
   });
 });

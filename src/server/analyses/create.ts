@@ -1,14 +1,31 @@
 import "server-only";
 
+import type { StoredAnalysis } from "@/features/analyses/stored";
 import { createAnalysis } from "@/features/analyses/write";
 import {
   createAnalysisResultSchema,
   idSchema,
   type AnalysisCreateBody,
+  type AnalysisStatus,
   type CreateAnalysisResult,
 } from "@/schemas";
 import { detailsFromZod } from "@/server/documents/errors";
 import { FindingRequestError } from "@/server/findings/errors";
+
+/**
+ * The repair-scoped writer still inserts one margin case. The public create
+ * body does not carry a margin, so this route stores zero until that writer
+ * follows the standalone analysis contract.
+ */
+const STORED_MARGIN_STUB = 0;
+
+const STORED_STATUS = {
+  draft: "unassigned",
+  in_progress: "in_progress",
+  in_review: "in_review",
+  changes_requested: "waiting_for_review",
+  approved: "approved",
+} as const satisfies Record<StoredAnalysis["status"], AnalysisStatus>;
 
 export const ANALYSIS_NOT_FOUND_MESSAGE = "That repair was not found.";
 
@@ -32,18 +49,30 @@ export async function createRepairAnalysis(
     repairId,
     actorId,
     title: fields.title,
-    margin: fields.margin,
-    ...(fields.method !== undefined ? { method: fields.method } : {}),
-    ...(fields.loadCase !== undefined ? { loadCase: fields.loadCase } : {}),
-    ...(fields.status !== undefined ? { status: fields.status } : {}),
+    margin: STORED_MARGIN_STUB,
     ...(fields.dueDate !== undefined ? { dueDate: fields.dueDate } : {}),
-    ...(fields.revision !== undefined ? { revision: fields.revision } : {}),
   });
 
   if (result.kind === "not_found") {
     throw new FindingRequestError("not_found", ANALYSIS_NOT_FOUND_MESSAGE);
   }
-  return createAnalysisResultSchema.parse(result.analysis);
+  return analysisRecord(result.analysis);
+}
+
+function analysisRecord(row: StoredAnalysis): CreateAnalysisResult {
+  const status = STORED_STATUS[row.status];
+  return createAnalysisResultSchema.parse({
+    id: row.id,
+    code: row.code,
+    title: row.title,
+    status,
+    assigneeId: null,
+    dueDate: row.dueDate,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    approvedAt: status === "approved" ? row.updatedAt : null,
+    createdBy: row.createdBy,
+  });
 }
 
 function requireActorId(actorId: unknown): string | null {

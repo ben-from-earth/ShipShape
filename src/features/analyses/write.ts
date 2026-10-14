@@ -1,7 +1,16 @@
 import "server-only";
 
 import { and, asc, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 
+import {
+  ANALYSIS_DB_STATUSES,
+  MAX_ANALYSIS_CODE_LENGTH,
+  MAX_ANALYSIS_LOAD_CASE_LENGTH,
+  MAX_ANALYSIS_METHOD_LENGTH,
+  MAX_ANALYSIS_REVISION_LENGTH,
+  MAX_ANALYSIS_TITLE_LENGTH,
+} from "@/config/analysis";
 import { getDb, type Database } from "@/db";
 import { nextAnalysisCodeSql } from "@/db/analysis-code";
 import {
@@ -12,12 +21,70 @@ import {
   repairRevisions,
   repairs,
 } from "@/db/schema";
-import {
-  analysisCreateSchema,
-  analysisSchema,
-  idSchema,
-  type Analysis,
-} from "@/schemas";
+import { idSchema, timestampSchema } from "@/schemas";
+
+import type { StoredAnalysis } from "./stored";
+
+/**
+ * Validation for the repair-scoped `analyses` table. The public contract in
+ * `src/schemas/analyses.ts` no longer matches these columns.
+ */
+const persistedTitleSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_ANALYSIS_TITLE_LENGTH);
+const persistedMethodSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_ANALYSIS_METHOD_LENGTH)
+  .nullable();
+const persistedLoadCaseSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_ANALYSIS_LOAD_CASE_LENGTH);
+const persistedRevisionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_ANALYSIS_REVISION_LENGTH);
+const persistedMarginSchema = z
+  .number()
+  .finite()
+  .min(-99999.999)
+  .max(99999.999);
+const persistedDaySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const persistedStatusSchema = z.enum(ANALYSIS_DB_STATUSES);
+
+const persistedAnalysisCreateSchema = z.strictObject({
+  repairId: idSchema,
+  title: persistedTitleSchema,
+  method: persistedMethodSchema.optional(),
+  loadCase: persistedLoadCaseSchema.optional(),
+  margin: persistedMarginSchema,
+  status: persistedStatusSchema.optional(),
+  dueDate: persistedDaySchema.nullable().optional(),
+  revision: persistedRevisionSchema.optional(),
+});
+
+const persistedAnalysisSchema = z.strictObject({
+  id: idSchema,
+  code: z.string().trim().min(1).max(MAX_ANALYSIS_CODE_LENGTH),
+  repairId: idSchema,
+  revisionId: idSchema,
+  revision: persistedRevisionSchema,
+  title: persistedTitleSchema,
+  method: persistedMethodSchema,
+  loadCase: persistedLoadCaseSchema.nullable(),
+  margin: persistedMarginSchema.nullable(),
+  status: persistedStatusSchema,
+  createdBy: idSchema.nullable(),
+  dueDate: persistedDaySchema.nullable(),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+});
 
 /**
  * Database handle tests pass in. Production calls use `getDb()`.
@@ -34,13 +101,13 @@ export type CreateAnalysisInput = {
   method?: string | null;
   loadCase?: string;
   margin: number;
-  status?: Analysis["status"];
+  status?: StoredAnalysis["status"];
   dueDate?: string | null;
   revision?: string;
 };
 
 export type CreateAnalysisResult =
-  { kind: "ok"; analysis: Analysis } | { kind: "not_found" };
+  { kind: "ok"; analysis: StoredAnalysis } | { kind: "not_found" };
 
 /**
  * Insert one analysis for a repair in `orgId`, plus one `analysis_cases`
@@ -75,7 +142,7 @@ export async function createAnalysis(
     throw new Error("actorId must be a UUID.");
   }
 
-  const fields = analysisCreateSchema.parse({
+  const fields = persistedAnalysisCreateSchema.parse({
     repairId: input.repairId,
     title: input.title,
     method: input.method,
@@ -183,7 +250,7 @@ export async function getAnalysis(
   orgId: string,
   id: string,
   db: AnalysisStore = getDb(),
-): Promise<Analysis | null> {
+): Promise<StoredAnalysis | null> {
   if (!idSchema.safeParse(orgId).success || !idSchema.safeParse(id).success) {
     return null;
   }
@@ -227,7 +294,7 @@ export async function getAnalysis(
     .limit(1);
   const load = cases[0];
 
-  return analysisSchema.parse({
+  return persistedAnalysisSchema.parse({
     ...row,
     loadCase: load?.name ?? null,
     margin: load ? Number(load.margin) : null,
@@ -237,7 +304,7 @@ export async function getAnalysis(
   });
 }
 
-function analysisFromRow(row: unknown): Analysis {
+function analysisFromRow(row: unknown): StoredAnalysis {
   if (!isRecord(row)) {
     throw new Error("Analysis insert returned an unreadable row.");
   }
@@ -245,7 +312,7 @@ function analysisFromRow(row: unknown): Analysis {
   const method = readNullableString(row, "method");
   const loadCase = readNullableString(row, "loadCase", "load_case");
   const margin = readMargin(row, "margin");
-  return analysisSchema.parse({
+  return persistedAnalysisSchema.parse({
     id: readString(row, "id"),
     code: readString(row, "code"),
     repairId: readString(row, "repairId", "repair_id"),

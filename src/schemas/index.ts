@@ -44,20 +44,40 @@ export { createRepairFieldsSchema, createRepairResultSchema } from "./repairs";
 export type { CreateRepairFields, CreateRepairResult } from "./repairs";
 
 export {
-  analysisConclusionSchema,
+  ENGINEER_ROLE_RANK,
+  engineerCreateSchema,
+  engineerRoleSchema,
+  engineerSchema,
+} from "./engineers";
+export type { Engineer, EngineerCreate, EngineerRole } from "./engineers";
+
+export {
+  ANALYSIS_TRANSITIONS,
+  analysisActionSchema,
+  analysisAttachmentSchema,
+  analysisCommentSchema,
   analysisCreateBodySchema,
   analysisCreateSchema,
-  analysisDbStatusSchema,
-  analysisMarginSchema,
   analysisSchema,
+  analysisStatusSchema,
+  analysisTransitionBodySchema,
+  analysisTransitionResultSchema,
+  canPerform,
+  commentCreateBodySchema,
   createAnalysisResultSchema,
 } from "./analyses";
 export type {
   Analysis,
-  AnalysisConclusion,
+  AnalysisAction,
+  AnalysisAttachment,
+  AnalysisComment,
   AnalysisCreate,
   AnalysisCreateBody,
-  AnalysisDbStatus,
+  AnalysisStatus,
+  AnalysisTransition,
+  AnalysisTransitionBody,
+  AnalysisTransitionResult,
+  CommentCreateBody,
   CreateAnalysisResult,
 } from "./analyses";
 
