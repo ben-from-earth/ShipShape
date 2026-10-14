@@ -4,6 +4,7 @@ export const APP_NAV = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "Findings", href: "/findings" },
   { label: "Repairs", href: "/repairs" },
+  { label: "Analyses", href: "/analyses" },
   { label: "Engineering", href: "/engineering" },
   { label: "Docs", href: "/docs" },
   { label: "Tools", href: "/tools" },
@@ -33,11 +34,15 @@ export function crumbsForPath(pathname: string): Crumb[] {
     return [assetGroup, currentGroup, { label: "Engineering" }];
   }
 
-  if (pathname === "/analyses" || pathname.startsWith("/analyses/")) {
+  if (pathname === "/analyses") {
+    return [assetGroup, currentGroup, { label: "Analyses" }];
+  }
+
+  if (pathname.startsWith("/analyses/")) {
     return [
       assetGroup,
       currentGroup,
-      { label: "Engineering", href: "/engineering" },
+      { label: "Analyses", href: "/analyses" },
       { label: "Analysis" },
     ];
   }
@@ -89,12 +94,5 @@ export function crumbsForPath(pathname: string): Crumb[] {
 }
 
 export function isNavActive(pathname: string, href: AppHref): boolean {
-  if (
-    href === "/engineering" &&
-    (pathname === "/analyses" || pathname.startsWith("/analyses/"))
-  ) {
-    return true;
-  }
-
   return pathname === href || pathname.startsWith(`${href}/`);
 }

@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { RepairDetail } from "@/components/repairs/repair-detail";
-import { getLowMarginThreshold } from "@/features/dashboard/data";
 import { getRepairView } from "@/features/repairs/read";
 import { idSchema } from "@/schemas";
 
@@ -31,13 +30,10 @@ async function RepairLoader({ params }: { params: Promise<{ id: string }> }) {
     notFound();
   }
 
-  const [record, marginThreshold] = await Promise.all([
-    getRepairView(id),
-    getLowMarginThreshold(),
-  ]);
+  const record = await getRepairView(id);
   if (!record) {
     notFound();
   }
 
-  return <RepairDetail record={record} marginThreshold={marginThreshold} />;
+  return <RepairDetail record={record} />;
 }

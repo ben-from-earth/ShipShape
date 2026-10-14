@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
-import { AnalysisRecordView } from "@/components/analyses/analysis-record";
-import { getAnalysisPage } from "@/features/analyses/page";
-import { getLowMarginThreshold } from "@/features/dashboard/data";
+import { AnalysisBoardDetail } from "@/components/analyses/analysis-board-detail";
+import { getAnalysisBoard } from "@/features/analyses/board-page";
 
 export const metadata: Metadata = {
   title: "Analysis",
@@ -26,16 +25,16 @@ export default function AnalysisPage({
 
 async function AnalysisLoader({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [record, marginThreshold] = await Promise.all([
-    getAnalysisPage(id),
-    getLowMarginThreshold(),
-  ]);
-
-  if (!record) {
+  const page = await getAnalysisBoard(id);
+  if (!page) {
     notFound();
   }
 
   return (
-    <AnalysisRecordView record={record} marginThreshold={marginThreshold} />
+    <AnalysisBoardDetail
+      record={page.record}
+      asOf={page.asOf}
+      role={page.role}
+    />
   );
 }
