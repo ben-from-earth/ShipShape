@@ -374,59 +374,46 @@ Opens one repair on a finding. `application/json` body. The handler does not acc
 | 404  | `not_found`            | The finding is missing or its asset is in another organization                                         |
 | 500  | `internal_error`       | Anything else, including a `created_by` user that does not exist. `message` is `Something went wrong.` |
 
-## POST /api/repairs/{id}/analyses
+## Analyses
 
-Opens one analysis on a repair. `application/json` body. The handler does not accept a file. Creating an analysis does not change the finding's stage.
+`x-org-id` selects the tenant database through `getTenantDb`. `x-engineer-id` is the temporary engineer header until sessions exist (#13). A missing header or an unknown engineer is `401` `unauthenticated`. An unknown JSON key is `400` `validation_error` with path `body`.
 
-```json
-{
-  "title": "Check the joint",
-  "method": null,
-  "loadCase": "Primary",
-  "margin": 0.125,
-  "status": "draft",
-  "dueDate": null,
-  "revision": "A"
-}
-```
+### POST /api/analyses
 
-`title` and `margin` are required. `method`, `loadCase`, `status`, `dueDate`, and `revision` may be omitted. `method` and `dueDate` may be null. `status` is a stored analysis status, and `createAnalysis` stores `draft` when it is omitted. `loadCase` is stored as `Primary` when it is omitted. `revision` is stored as `A` when it is omitted. `method` and `dueDate` are stored as null when they are omitted. `margin` is a finite number from `-99999.999` through `99999.999`. An unknown field such as `repairId`, `actorId`, or `code` is `validation_error` with path `body`, and `createAnalysis` is not called. The body is `analysisCreateBodySchema`, the single `analysisCreateSchema.omit({ repairId: true })` export.
+`application/json` body is `analysisCreateBodySchema`: `title` is required, and `dueDate` and `assigneeId` may be omitted. `createdBy` is the engineer from the header. `201` is `createAnalysisResultSchema`.
 
-`id` is `repairs.id` and must be a UUID. A non-UUID is `validation_error`. `x-org-id` is the same temporary organization header as the other finding routes. That id is passed to `createAnalysis` as `repairId`.
+### GET /api/analyses
 
-`actorId` is not a body field. Until requests carry a session (#13) it is null, the same stand-in POST /api/findings uses for `uploadedBy`. Null is passed to `createAnalysis` and stored as NULL on `created_by`. A value that is neither null nor a UUID is `validation_error` and `createAnalysis` is not called. A UUID that is not a user fails the `created_by` foreign key. That throw is `internal_error`. The response does not include the database error.
+Returns the tenant's analyses.
 
-Every error body is `apiErrorSchema`, including `payload_too_large` and `unsupported_media_type`, the same response as POST /api/findings/{id}/repairs.
+### GET /api/analyses/{id}
 
-`201` is the `ok` analysis, the same record as `analysisSchema`:
+Returns one analysis. A missing analysis is `404` `not_found`. `id` must be a UUID.
 
-```json
-{
-  "id": "550e8400-e29b-41d4-a716-446655440071",
-  "code": "AN-1002",
-  "repairId": "550e8400-e29b-41d4-a716-446655440051",
-  "revisionId": "550e8400-e29b-41d4-a716-446655440081",
-  "revision": "A",
-  "title": "Check the joint",
-  "method": null,
-  "loadCase": "Primary",
-  "margin": 0.125,
-  "status": "draft",
-  "createdBy": null,
-  "dueDate": null,
-  "createdAt": "2026-10-12T22:00:00.000Z",
-  "updatedAt": "2026-10-12T22:00:00.000Z"
-}
-```
+### POST /api/analyses/{id}/transitions
 
-`code` is allocated by the analysis code sequence through `nextAnalysisCodeSql()`. `repairId` is the path id. `revisionId` is the repair revision the analysis hangs off. `createdBy` is `analyses.created_by`.
+`application/json` body is `analysisTransitionBodySchema`: `action`, and `assigneeId` when the action is `assign`. `actorId` is the engineer from the header. `200` is `analysisTransitionResultSchema`.
 
-| HTTP | `error.code`             | When                                                                                                   |
-| ---- | ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| 400  | `invalid_org_id`         | `x-org-id` is missing or not a UUID                                                                    |
-| 400  | `unknown_organization`   | `x-org-id` is a UUID and no organization has that id                                                   |
-| 400  | `validation_error`       | `id` is not a UUID, the body fields are invalid, or `actorId` is neither null nor a UUID               |
-| 404  | `not_found`              | The repair is missing or it belongs to another organization                                            |
-| 413  | `payload_too_large`      | The request is larger than the shared limit                                                            |
-| 415  | `unsupported_media_type` | The request media type is not accepted                                                                 |
-| 500  | `internal_error`         | Anything else, including a `created_by` user that does not exist. `message` is `Something went wrong.` |
+| Result             | HTTP | `error.code`       |
+| ------------------ | ---- | ------------------ |
+| `ok`               | 200  |                    |
+| `not_found`        | 404  | `not_found`        |
+| `forbidden`        | 403  | `forbidden`        |
+| `invalid_state`    | 409  | `invalid_state`    |
+| `invalid_assignee` | 422  | `invalid_assignee` |
+
+### GET /api/analyses/{id}/comments
+
+Returns comments for the analysis. A missing analysis is `404` `not_found`.
+
+### POST /api/analyses/{id}/comments
+
+`application/json` body is `commentCreateBodySchema` (`body`). The author is the engineer from the header. `201` is the comment. A null insert is `404` `not_found`.
+
+### GET /api/analyses/{id}/attachments
+
+Returns attachments for the analysis. A missing analysis is `404` `not_found`.
+
+### POST /api/analyses/{id}/attachments
+
+Multipart file upload, the same storage path as `POST /api/documents`. The stored document is then passed to `addAttachment` with `uploadedBy` set to the engineer. `201` is the attachment. A missing analysis is `404` `not_found`. `payload_too_large` and `unsupported_media_type` use `apiErrorSchema`.
