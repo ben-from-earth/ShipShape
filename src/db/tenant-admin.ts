@@ -42,11 +42,13 @@ export function resolveDatabaseUrl(input: {
   stdin?: string;
 }): string {
   const flag = input.urlFlag.trim();
+  if (isPostgresUrl(flag)) {
+    throw new Error(
+      "Do not pass a connection string to --url. Use an environment variable name, or - to read stdin.",
+    );
+  }
   if (flag === "-") {
     return requirePostgresUrl((input.stdin ?? "").trim(), "stdin");
-  }
-  if (isPostgresUrl(flag)) {
-    return flag;
   }
   if (ENV_NAME.test(flag)) {
     const value = input.env[flag]?.trim();
@@ -56,7 +58,7 @@ export function resolveDatabaseUrl(input: {
     return requirePostgresUrl(value, flag);
   }
   throw new Error(
-    "--url must be a postgres URL, an environment variable name, or - to read stdin.",
+    "--url must be an environment variable name, or - to read stdin.",
   );
 }
 
@@ -145,7 +147,8 @@ function readFlags(args: readonly string[]): Record<string, string> {
 }
 
 function isPostgresUrl(value: string): boolean {
-  return value.startsWith("postgres://") || value.startsWith("postgresql://");
+  const scheme = value.toLowerCase();
+  return scheme.startsWith("postgres://") || scheme.startsWith("postgresql://");
 }
 
 function requirePostgresUrl(value: string, source: string): string {

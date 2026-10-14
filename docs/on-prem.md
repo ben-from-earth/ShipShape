@@ -17,7 +17,7 @@ export TENANT_DATABASE_URL='postgresql://USER:PASSWORD@HOST:5432/shipshape?sslmo
 pnpm tenant:add --slug acme --name "Acme" --url TENANT_DATABASE_URL
 ```
 
-`--url -` reads one connection string from stdin instead. A `postgres://` or `postgresql://` value also works, but the environment variable is the one to use.
+`--url -` reads one connection string from stdin instead. `--url` does not accept a `postgres://` or `postgresql://` value; pass an environment variable name or `-`.
 
 The command applies `migrations/control` if needed, encrypts the URL, inserts a `tenants` row, then runs `migrations/` on that database. A slug that is already registered is left unchanged.
 

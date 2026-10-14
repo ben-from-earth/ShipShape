@@ -68,7 +68,7 @@ describe("tenant commands", () => {
     ).toThrow(/lowercase/);
   });
 
-  it("reads the database URL from an env var, stdin, or a postgres URL", () => {
+  it("reads the database URL from an env var or stdin", () => {
     expect(
       resolveDatabaseUrl({
         urlFlag: "TENANT_DATABASE_URL",
@@ -82,7 +82,14 @@ describe("tenant commands", () => {
         stdin: `\n${secretUrl}\n`,
       }),
     ).toBe(secretUrl);
-    expect(resolveDatabaseUrl({ urlFlag: secretUrl, env: {} })).toBe(secretUrl);
+    for (const urlFlag of [
+      secretUrl,
+      "postgres://ship:secret@db.internal/acme",
+    ]) {
+      expect(() => resolveDatabaseUrl({ urlFlag, env: {} })).toThrow(
+        /^Do not pass a connection string to --url\. Use an environment variable name, or - to read stdin\.$/,
+      );
+    }
     expect(() =>
       resolveDatabaseUrl({ urlFlag: "TENANT_DATABASE_URL", env: {} }),
     ).toThrow(/TENANT_DATABASE_URL is not set/);
