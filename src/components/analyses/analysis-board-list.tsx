@@ -6,10 +6,10 @@ import {
   ANALYSIS_BOARD_STATUSES,
   ANALYSIS_STATUS_LABEL,
   type AnalysisBoardRecord,
-  type AnalysisBoardStatus,
 } from "@/features/analyses/board";
-import { formatFindingDate } from "@/features/findings/display";
 import { ageDays } from "@/features/analyses/timing";
+import { formatFindingDate } from "@/features/findings/display";
+import type { AnalysisStatus } from "@/schemas";
 
 import { DueBadge } from "./due-badge";
 
@@ -29,7 +29,7 @@ export function AnalysisBoardList({
 }: {
   records: readonly AnalysisBoardRecord[];
   asOf: string;
-  status?: AnalysisBoardStatus;
+  status?: AnalysisStatus;
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -66,41 +66,44 @@ export function AnalysisBoardList({
               </tr>
             </thead>
             <tbody>
-              {records.map((record) => (
-                <tr key={record.id} className="border-t border-line">
-                  <td className="px-3 py-3 font-mono text-ui">
-                    <Link
-                      href={`/analyses/${record.id}`}
-                      className="text-ink no-underline hover:text-accent"
-                    >
-                      {record.code}
-                    </Link>
-                  </td>
-                  <td className="px-3 py-3 text-body">{record.title}</td>
-                  <td className="px-3 py-3 text-body">
-                    {record.assignee?.name ?? "—"}
-                  </td>
-                  <td className="px-3 py-3">
-                    <StatusPill
-                      label={ANALYSIS_STATUS_LABEL[record.status]}
-                      tone={TONE[record.status]}
-                    />
-                  </td>
-                  <td className="px-3 py-3">
-                    <span className="flex flex-wrap items-center gap-2 text-body">
-                      {record.dueDate ? formatFindingDate(record.dueDate) : "—"}
-                      <DueBadge
-                        dueDate={record.dueDate}
-                        status={record.status}
-                        asOf={asOf}
+              {records.map((record) => {
+                const row = record.analysis;
+                return (
+                  <tr key={row.id} className="border-t border-line">
+                    <td className="px-3 py-3 font-mono text-ui">
+                      <Link
+                        href={`/analyses/${row.id}`}
+                        className="text-ink no-underline hover:text-accent"
+                      >
+                        {row.code}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-3 text-body">{row.title}</td>
+                    <td className="px-3 py-3 text-body">
+                      {record.assignee?.name ?? "—"}
+                    </td>
+                    <td className="px-3 py-3">
+                      <StatusPill
+                        label={ANALYSIS_STATUS_LABEL[row.status]}
+                        tone={TONE[row.status]}
                       />
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-body">
-                    {ageDays(record.createdAt, asOf)}d
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className="flex flex-wrap items-center gap-2 text-body">
+                        {row.dueDate ? formatFindingDate(row.dueDate) : "—"}
+                        <DueBadge
+                          dueDate={row.dueDate}
+                          status={row.status}
+                          asOf={asOf}
+                        />
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-body">
+                      {ageDays(row.createdAt, asOf)}d
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

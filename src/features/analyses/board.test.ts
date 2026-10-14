@@ -1,32 +1,21 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { describe, expect, it } from "vitest";
 
-import { canPerform, transitionsFrom } from "./board";
+import { ANALYSIS_TRANSITIONS, canPerform } from "@/schemas";
+
+import { canAttempt, movesFrom } from "./board";
+
+const ada = "10000000-0000-4000-8000-000000000071";
+const ren = "10000000-0000-4000-8000-000000000072";
 
 describe("analysis transitions", () => {
-  it("lets a reviewer pick up and send back, and only an approver approve", () => {
-    expect(canPerform("analyst", "start")).toBe(true);
-    expect(canPerform("analyst", "pick_up")).toBe(false);
-    expect(canPerform("reviewer", "pick_up")).toBe(true);
-    expect(canPerform("reviewer", "approve")).toBe(false);
-    expect(canPerform("approver", "approve")).toBe(true);
-    expect(transitionsFrom("in_review").map((item) => item.action)).toEqual([
-      "send_back",
-      "approve",
-    ]);
-  });
-
-  it("marks the transition table to import from @/schemas", () => {
-    const source = readFileSync(
-      join(dirname(fileURLToPath(import.meta.url)), "board.ts"),
-      "utf8",
-    );
-    expect(source).toContain(
-      "import `{ ANALYSIS_TRANSITIONS, canPerform }` from `@/schemas`",
-    );
-    expect(source).toContain("x-engineer-id");
+  it("uses the shared table and limits start and submit to the assignee", () => {
+    expect(ANALYSIS_TRANSITIONS.start.assignedAnalyst).toBe(true);
+    expect(ANALYSIS_TRANSITIONS.submit.assignedAnalyst).toBe(true);
+    expect(canPerform("reviewer", "start")).toBe(true);
+    expect(canAttempt("reviewer", "start", ren, ada)).toBe(false);
+    expect(canAttempt("analyst", "start", ada, ada)).toBe(true);
+    expect(canAttempt("reviewer", "approve", ren, ada)).toBe(false);
+    expect(canAttempt("reviewer", "send_back", ren, ada)).toBe(true);
+    expect(movesFrom("in_review")).toEqual(["send_back", "approve"]);
   });
 });

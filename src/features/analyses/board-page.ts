@@ -3,18 +3,17 @@ import "server-only";
 import { io } from "next/cache";
 
 import { isDemoData } from "@/config/demo";
-import { idSchema } from "@/schemas";
+import { idSchema, type AnalysisStatus, type Engineer } from "@/schemas";
 
 import {
   ANALYSIS_BOARD_STATUSES,
   type AnalysisBoardRecord,
-  type AnalysisBoardStatus,
   type AnalysisBoardSummary,
-  type EngineerRole,
 } from "./board";
 import {
+  DEMO_ACTOR,
   DEMO_ANALYSIS_AS_OF,
-  DEMO_ENGINEER_ROLE,
+  DEMO_ENGINEERS,
   findDemoAnalysis,
   listDemoAnalyses,
 } from "./board-demo";
@@ -25,7 +24,7 @@ import { averageApprovalDays, dueBadge, isDueThisWeek } from "./timing";
  * Rows render only when `isDemoData()` is on.
  */
 export async function listAnalysisBoard(filters?: {
-  status?: AnalysisBoardStatus;
+  status?: AnalysisStatus;
 }): Promise<{ records: AnalysisBoardRecord[]; asOf: string }> {
   await io();
   const asOf = boardAsOf();
@@ -34,7 +33,8 @@ export async function listAnalysisBoard(filters?: {
   }
   const records = listDemoAnalyses().filter(
     (record) =>
-      filters?.status === undefined || record.status === filters.status,
+      filters?.status === undefined ||
+      record.analysis.status === filters.status,
   );
   return { records: [...records], asOf };
 }
@@ -43,7 +43,8 @@ export async function listAnalysisBoard(filters?: {
 export async function getAnalysisBoard(id: string): Promise<{
   record: AnalysisBoardRecord;
   asOf: string;
-  role: EngineerRole;
+  actor: Engineer;
+  directory: readonly Engineer[];
 } | null> {
   await io();
   if (!idSchema.safeParse(id).success || !isDemoData()) {
@@ -53,7 +54,12 @@ export async function getAnalysisBoard(id: string): Promise<{
   if (!record) {
     return null;
   }
-  return { record, asOf: boardAsOf(), role: DEMO_ENGINEER_ROLE };
+  return {
+    record,
+    asOf: boardAsOf(),
+    actor: DEMO_ACTOR,
+    directory: DEMO_ENGINEERS,
+  };
 }
 
 export async function analysisBoardSummary(): Promise<{
@@ -64,21 +70,25 @@ export async function analysisBoardSummary(): Promise<{
   const counts = Object.fromEntries(
     ANALYSIS_BOARD_STATUSES.map((status) => [
       status,
-      records.filter((record) => record.status === status).length,
+      records.filter((record) => record.analysis.status === status).length,
     ]),
-  ) as Record<AnalysisBoardStatus, number>;
+  ) as Record<AnalysisStatus, number>;
 
   return {
     asOf,
     summary: {
       counts,
       overdue: records.filter(
-        (record) => dueBadge(record.dueDate, record.status, asOf) === "overdue",
+        (record) =>
+          dueBadge(record.analysis.dueDate, record.analysis.status, asOf) ===
+          "overdue",
       ).length,
       dueThisWeek: records.filter((record) =>
-        isDueThisWeek(record.dueDate, record.status, asOf),
+        isDueThisWeek(record.analysis.dueDate, record.analysis.status, asOf),
       ).length,
-      averageApprovalDays: averageApprovalDays(records),
+      averageApprovalDays: averageApprovalDays(
+        records.map((record) => record.analysis),
+      ),
     },
   };
 }

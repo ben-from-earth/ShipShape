@@ -34,7 +34,8 @@ async function AnalysisLoader({ params }: { params: Promise<{ id: string }> }) {
     <AnalysisBoardDetail
       record={page.record}
       asOf={page.asOf}
-      role={page.role}
+      actor={page.actor}
+      directory={page.directory}
     />
   );
 }

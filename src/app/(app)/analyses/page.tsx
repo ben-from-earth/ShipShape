@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { AnalysisBoardList } from "@/components/analyses/analysis-board-list";
 import { ANALYSIS_BOARD_STATUSES } from "@/features/analyses/board";
 import { listAnalysisBoard } from "@/features/analyses/board-page";
-import type { AnalysisBoardStatus } from "@/features/analyses/board";
+import type { AnalysisStatus } from "@/schemas";
 
 export const metadata: Metadata = {
   title: "Analyses",
@@ -33,7 +33,7 @@ async function AnalysesLoader({
   const raw = Array.isArray(params.status) ? params.status[0] : params.status;
   const status = ANALYSIS_BOARD_STATUSES.find((value) => value === raw);
   const { records, asOf } = await listAnalysisBoard(
-    status ? { status: status satisfies AnalysisBoardStatus } : undefined,
+    status ? { status: status satisfies AnalysisStatus } : undefined,
   );
 
   return <AnalysisBoardList records={records} asOf={asOf} status={status} />;

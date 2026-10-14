@@ -25,14 +25,16 @@ describe("analysis board pages", () => {
     vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
 
     const listed = await listAnalysisBoard({ status: "assigned" });
-    expect(listed.records.map((record) => record.code)).toEqual(["AN-2002"]);
+    expect(listed.records.map((record) => record.analysis.code)).toEqual([
+      "AN-2002",
+    ]);
     expect(listed.records[0]?.assignee?.name).toBe("Ada Analyst");
 
     const detail = await getAnalysisBoard(
       "10000000-0000-4000-8000-000000000085",
     );
-    expect(detail?.record.code).toBe("AN-2005");
-    expect(detail?.role).toBe("reviewer");
+    expect(detail?.record.analysis.code).toBe("AN-2005");
+    expect(detail?.actor.role).toBe("reviewer");
     expect(detail?.record.comments).toHaveLength(1);
 
     const { summary } = await analysisBoardSummary();

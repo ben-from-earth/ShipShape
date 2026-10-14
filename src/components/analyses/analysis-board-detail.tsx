@@ -10,16 +10,18 @@ import { isDemoData } from "@/config/demo";
 import {
   ANALYSIS_ACTION_LABEL,
   ANALYSIS_STATUS_LABEL,
-  canPerform,
-  transitionsFrom,
+  attachmentLabel,
+  canAttempt,
+  movesFrom,
   type AnalysisBoardRecord,
-  type AnalysisBoardStatus,
-  type BoardAttachment,
-  type BoardComment,
-  type EngineerRole,
 } from "@/features/analyses/board";
-import { formatFindingDate } from "@/features/findings/display";
 import { ageDays } from "@/features/analyses/timing";
+import { formatFindingDate } from "@/features/findings/display";
+import {
+  ANALYSIS_TRANSITIONS,
+  type AnalysisStatus,
+  type Engineer,
+} from "@/schemas";
 
 import { DueBadge } from "./due-badge";
 
@@ -35,6 +37,8 @@ const TONE = {
 const inputClass =
   "min-h-11 w-full border border-line-strong bg-surface px-3 py-2 text-base text-ink outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
 
+const DEMO_ASSIGNEE_ID = "10000000-0000-4000-8000-000000000071";
+
 /**
  * Detail for one analysis. Actions, uploads, and comments stay local.
  * TODO: post with `x-engineer-id` once the routes exist.
@@ -42,30 +46,30 @@ const inputClass =
 export function AnalysisBoardDetail({
   record,
   asOf,
-  role,
+  actor,
+  directory,
 }: {
   record: AnalysisBoardRecord;
   asOf: string;
-  role: EngineerRole | null;
+  actor: Engineer;
+  directory: readonly Engineer[];
 }) {
-  const [status, setStatus] = useState<AnalysisBoardStatus>(record.status);
-  const [assignee, setAssignee] = useState(record.assignee?.name ?? null);
-  const [approvedAt, setApprovedAt] = useState(record.approvedAt);
-  const [attachments, setAttachments] = useState<BoardAttachment[]>([
-    ...record.attachments,
-  ]);
-  const [comments, setComments] = useState<BoardComment[]>([
-    ...record.comments,
-  ]);
+  const row = record.analysis;
+  const [status, setStatus] = useState<AnalysisStatus>(row.status);
+  const [assigneeId, setAssigneeId] = useState(row.assigneeId);
+  const [approvedAt, setApprovedAt] = useState(row.approvedAt);
+  const [attachments, setAttachments] = useState([...record.attachments]);
+  const [comments, setComments] = useState([...record.comments]);
   const [comment, setComment] = useState("");
 
-  const moves = transitionsFrom(status);
+  const assignee =
+    directory.find((engineer) => engineer.id === assigneeId)?.name ?? "—";
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeading
         eyebrow="Analysis"
-        title={record.code}
+        title={row.code}
         actions={
           <Button href="/analyses" variant="subtle" size="sm">
             All analyses
@@ -75,7 +79,7 @@ export function AnalysisBoardDetail({
       <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h2 className="text-card-title font-semibold text-pretty">
-            {record.title}
+            {row.title}
           </h2>
           <StatusPill
             label={ANALYSIS_STATUS_LABEL[status]}
@@ -83,43 +87,48 @@ export function AnalysisBoardDetail({
           />
         </div>
         <dl className="grid gap-4 sm:grid-cols-2">
-          <Fact label="Assignee">{assignee ?? "—"}</Fact>
-          <Fact label="Created">{formatFindingDate(record.createdAt)}</Fact>
+          <Fact label="Assignee">{assignee}</Fact>
+          <Fact label="Created">{formatFindingDate(row.createdAt)}</Fact>
           <Fact label="Due">
             <span className="flex flex-wrap items-center gap-2">
-              {record.dueDate ? formatFindingDate(record.dueDate) : "—"}
-              <DueBadge dueDate={record.dueDate} status={status} asOf={asOf} />
+              {row.dueDate ? formatFindingDate(row.dueDate) : "—"}
+              <DueBadge dueDate={row.dueDate} status={status} asOf={asOf} />
             </span>
           </Fact>
           <Fact label="Approved">
             {approvedAt ? formatFindingDate(approvedAt) : "—"}
           </Fact>
-          <Fact label="Age">{ageDays(record.createdAt, asOf)}d</Fact>
+          <Fact label="Age">{ageDays(row.createdAt, asOf)}d</Fact>
         </dl>
         <div className="flex flex-wrap gap-2">
-          {moves.map((move) => {
-            const allowed = role != null && canPerform(role, move.action);
+          {movesFrom(status).map((action) => {
+            const allowed = canAttempt(
+              actor.role,
+              action,
+              actor.id,
+              assigneeId,
+            );
             return (
               <Button
-                key={move.action}
+                key={action}
                 type="button"
-                variant={move.action === "approve" ? "dark" : "subtle"}
+                variant={action === "approve" ? "dark" : "subtle"}
                 className="min-h-11"
                 disabled={!allowed}
                 onClick={() => {
                   if (!isDemoData() || !allowed) {
                     return;
                   }
-                  setStatus(move.to);
-                  if (move.action === "assign" && !assignee) {
-                    setAssignee("Ada Analyst");
+                  setStatus(ANALYSIS_TRANSITIONS[action].to);
+                  if (action === "assign") {
+                    setAssigneeId(DEMO_ASSIGNEE_ID);
                   }
-                  if (move.action === "approve") {
+                  if (action === "approve") {
                     setApprovedAt(new Date().toISOString());
                   }
                 }}
               >
-                {ANALYSIS_ACTION_LABEL[move.action]}
+                {ANALYSIS_ACTION_LABEL[action]}
               </Button>
             );
           })}
@@ -134,7 +143,7 @@ export function AnalysisBoardDetail({
           <ul className="flex flex-col gap-1">
             {attachments.map((file) => (
               <li key={file.id} className="text-body">
-                {file.name}
+                {attachmentLabel(file)}
               </li>
             ))}
           </ul>
@@ -152,7 +161,16 @@ export function AnalysisBoardDetail({
               }
               setAttachments((current) => [
                 ...current,
-                { id: crypto.randomUUID(), name: file.name },
+                {
+                  id: crypto.randomUUID(),
+                  analysisId: row.id,
+                  uploadedBy: actor.id,
+                  createdAt: new Date().toISOString(),
+                  fileName: file.name,
+                  url: "https://example.com/upload",
+                  contentType: file.type || "application/octet-stream",
+                  size: file.size,
+                },
               ]);
             }}
           />
@@ -167,7 +185,10 @@ export function AnalysisBoardDetail({
           <ul className="flex flex-col gap-3">
             {comments.map((entry) => (
               <li key={entry.id} className="flex flex-col gap-1">
-                <span className="text-ui font-medium">{entry.author}</span>
+                <span className="text-ui font-medium">
+                  {directory.find((engineer) => engineer.id === entry.authorId)
+                    ?.name ?? "—"}
+                </span>
                 <p className="text-body text-pretty">{entry.body}</p>
               </li>
             ))}
@@ -185,7 +206,8 @@ export function AnalysisBoardDetail({
               ...current,
               {
                 id: crypto.randomUUID(),
-                author: "Ren Reviewer",
+                analysisId: row.id,
+                authorId: actor.id,
                 body,
                 createdAt: new Date().toISOString(),
               },
