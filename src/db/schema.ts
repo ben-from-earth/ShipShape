@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -105,6 +106,29 @@ export const issueSeverity = pgEnum("issue_severity", SEVERITIES);
 
 /** Same list as `REPAIR_STATUSES` in src/config/repairs.ts. */
 export const repairStatus = pgEnum("repair_status", REPAIR_STATUSES);
+
+/** Same order as `engineerRoleSchema`: analyst, reviewer, approver. */
+export const ENGINEER_ROLES = ["analyst", "reviewer", "approver"] as const;
+
+export const engineerRole = pgEnum("engineer_role", ENGINEER_ROLES);
+
+/**
+ * Standalone analysis workflow. Same order as `analysisStatusSchema`.
+ * The repair-scoped `analysis_status` enum is unchanged.
+ */
+export const ENGINEERING_ANALYSIS_STATUSES = [
+  "unassigned",
+  "assigned",
+  "in_progress",
+  "waiting_for_review",
+  "in_review",
+  "approved",
+] as const;
+
+export const engineeringAnalysisStatus = pgEnum(
+  "engineering_analysis_status",
+  ENGINEERING_ANALYSIS_STATUSES,
+);
 
 // ---------- Organizations and people ----------
 
@@ -517,6 +541,108 @@ export const documentChunks = pgTable(
     index("chunks_embedding_hnsw").using(
       "hnsw",
       table.embedding.op("vector_cosine_ops"),
+    ),
+  ],
+);
+
+// ---------- Per-tenant engineering workflow ----------
+
+/**
+ * Engineer directory inside one tenant database. There is no `org_id`:
+ * the database itself is the tenant.
+ */
+export const engineers = pgTable(
+  "engineers",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    role: engineerRole("role").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [uniqueIndex("engineers_email_uq").on(sql`lower(${table.email})`)],
+);
+
+/**
+ * Standalone analysis. The repair-scoped `analyses` table stays as it is.
+ * `code` still comes from `analysis_code_seq`.
+ */
+export const engineeringAnalyses = pgTable(
+  "engineering_analyses",
+  {
+    id: id(),
+    code: text("code").notNull(),
+    title: text("title").notNull(),
+    status: engineeringAnalysisStatus("status").notNull().default("unassigned"),
+    assigneeId: uuid("assignee_id").references(() => engineers.id, {
+      onDelete: "set null",
+    }),
+    dueDate: date("due_date"),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => engineers.id, {
+      onDelete: "set null",
+    }),
+    ...timestamps(),
+  },
+  (table) => [
+    uniqueIndex("engineering_analyses_code_uq").on(table.code),
+    index("engineering_analyses_status_idx").on(table.status),
+    index("engineering_analyses_due_date_idx").on(table.dueDate),
+  ],
+);
+
+export const analysisComments = pgTable(
+  "analysis_comments",
+  {
+    id: id(),
+    analysisId: uuid("analysis_id")
+      .notNull()
+      .references(() => engineeringAnalyses.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").references(() => engineers.id, {
+      onDelete: "set null",
+    }),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("analysis_comments_analysis_idx").on(table.analysisId)],
+);
+
+/**
+ * Either `document_id` or the file columns, never both.
+ * The check is the database form of `analysisAttachmentSchema`.
+ */
+export const analysisAttachments = pgTable(
+  "analysis_attachments",
+  {
+    id: id(),
+    analysisId: uuid("analysis_id")
+      .notNull()
+      .references(() => engineeringAnalyses.id, { onDelete: "cascade" }),
+    documentId: uuid("document_id").references(() => documents.id),
+    fileName: text("file_name"),
+    url: text("url"),
+    contentType: text("content_type"),
+    size: integer("size"),
+    uploadedBy: uuid("uploaded_by").references(() => engineers.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("analysis_attachments_analysis_idx").on(table.analysisId),
+    check(
+      "analysis_attachments_source_ck",
+      sql`(
+        (${table.documentId} IS NOT NULL AND ${table.fileName} IS NULL AND ${table.url} IS NULL AND ${table.contentType} IS NULL AND ${table.size} IS NULL)
+        OR
+        (${table.documentId} IS NULL AND ${table.fileName} IS NOT NULL AND ${table.url} IS NOT NULL AND ${table.contentType} IS NOT NULL AND ${table.size} IS NOT NULL)
+      )`,
     ),
   ],
 );

@@ -6,27 +6,31 @@ ShipShape stores the repair workflow in Postgres. Production is Neon. Document s
 
 ## Tables
 
-Seventeen tables. Drizzle relations in `src/db/relations.ts` back `getDb().query`.
+Twenty-one tables. Drizzle relations in `src/db/relations.ts` back `getDb().query`.
 
-| Table               | Purpose                                                                                                                                                                                                                  |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `organizations`     | Tenant. Holds the low-margin threshold used by the dashboard.                                                                                                                                                            |
-| `users`             | Person in an organization, with one role. Email is unique.                                                                                                                                                               |
-| `asset_groups`      | Named set of repairable things, with a free `asset_type`.                                                                                                                                                                |
-| `assets`            | One repairable thing. Identifier is unique per organization. `attributes` holds type-specific fields. `out_of_service` is a boolean.                                                                                     |
-| `issues`            | Field damage report. `stage` moves from `discovered` through `closed`. `severity` is required (`low`, `medium`, `high`, `critical`). `location` is structured JSON; `location_label` is the human text.                  |
-| `issue_media`       | File pointer for a photo or other attachment. Bytes stay in object storage.                                                                                                                                              |
-| `repairs`           | Repair opened from an issue. `code` is `REP-` plus a sequence number. `status` is `open`, `in_review`, or `completed`. Creating a repair does not change the issue's stage.                                              |
-| `repair_revisions`  | One revision of a repair (`A`, `B`, …). Unique per repair.                                                                                                                                                               |
-| `analyses`          | Engineering analysis of one repair revision. `code` is `AN-` plus a sequence number. Margin of safety is on `analysis_cases`, which the dashboard classifies against `low_margin_threshold`.                             |
-| `analysis_people`   | Analyst, checker, and approver assignments. One person can hold more than one role.                                                                                                                                      |
-| `analysis_cases`    | One margin-of-safety case. The dashboard minimum is `MIN(margin)` per analysis.                                                                                                                                          |
-| `tool_runs`         | Saved tool run (for example layer loads). Inputs and outputs are JSON tied to `tool_version`.                                                                                                                            |
-| `reviews`           | Approval decision on an analysis.                                                                                                                                                                                        |
-| `stage_transitions` | Append-only stage history for time-in-stage, cycle time, and open-item age.                                                                                                                                              |
-| `activity_log`      | Append-only activity feed.                                                                                                                                                                                               |
-| `documents`         | Uploaded reference file and its indexing status.                                                                                                                                                                         |
-| `document_chunks`   | Chunk text plus a 384-dimension L2-normalized embedding from all-MiniLM-L6-v2. Cosine HNSW index on `embedding`. Columns match `DocumentChunk`: `index`, `text`, `start_offset`, `end_offset`, `page_start`, `page_end`. |
+| Table                  | Purpose                                                                                                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `organizations`        | Tenant. Holds the low-margin threshold used by the dashboard.                                                                                                                                                            |
+| `users`                | Person in an organization, with one role. Email is unique.                                                                                                                                                               |
+| `asset_groups`         | Named set of repairable things, with a free `asset_type`.                                                                                                                                                                |
+| `assets`               | One repairable thing. Identifier is unique per organization. `attributes` holds type-specific fields. `out_of_service` is a boolean.                                                                                     |
+| `issues`               | Field damage report. `stage` moves from `discovered` through `closed`. `severity` is required (`low`, `medium`, `high`, `critical`). `location` is structured JSON; `location_label` is the human text.                  |
+| `issue_media`          | File pointer for a photo or other attachment. Bytes stay in object storage.                                                                                                                                              |
+| `repairs`              | Repair opened from an issue. `code` is `REP-` plus a sequence number. `status` is `open`, `in_review`, or `completed`. Creating a repair does not change the issue's stage.                                              |
+| `repair_revisions`     | One revision of a repair (`A`, `B`, …). Unique per repair.                                                                                                                                                               |
+| `analyses`             | Engineering analysis of one repair revision. `code` is `AN-` plus a sequence number. Margin of safety is on `analysis_cases`, which the dashboard classifies against `low_margin_threshold`.                             |
+| `analysis_people`      | Analyst, checker, and approver assignments. One person can hold more than one role.                                                                                                                                      |
+| `analysis_cases`       | One margin-of-safety case. The dashboard minimum is `MIN(margin)` per analysis.                                                                                                                                          |
+| `tool_runs`            | Saved tool run (for example layer loads). Inputs and outputs are JSON tied to `tool_version`.                                                                                                                            |
+| `reviews`              | Approval decision on an analysis.                                                                                                                                                                                        |
+| `stage_transitions`    | Append-only stage history for time-in-stage, cycle time, and open-item age.                                                                                                                                              |
+| `activity_log`         | Append-only activity feed.                                                                                                                                                                                               |
+| `documents`            | Uploaded reference file and its indexing status.                                                                                                                                                                         |
+| `document_chunks`      | Chunk text plus a 384-dimension L2-normalized embedding from all-MiniLM-L6-v2. Cosine HNSW index on `embedding`. Columns match `DocumentChunk`: `index`, `text`, `start_offset`, `end_offset`, `page_start`, `page_end`. |
+| `engineers`            | Directory inside one tenant database. `role` is `analyst`, `reviewer`, or `approver`. Email is unique ignoring case (`lower(email)`). No `org_id`.                                                                       |
+| `engineering_analyses` | Standalone analysis (`analysisSchema`). The repair-scoped `analyses` table is unchanged. Status is the six-step workflow. `assignee_id` references `engineers`.                                                          |
+| `analysis_comments`    | Comment on a standalone analysis. `author_id` references `engineers` and may be null.                                                                                                                                    |
+| `analysis_attachments` | A `document_id` or file metadata (`file_name`, `url`, `content_type`, `size`), not both.                                                                                                                                 |
 
 Issues, repairs, and analyses have no `org_id`. Tenant scoping for those rows goes through `assets.org_id`: an issue belongs to its asset, a repair to its issue, and an analysis to its repair revision.
 
@@ -161,6 +165,20 @@ Each photo on a finding record is `mediaId` (the `issue_media` row `id`), `conte
 Allowed moves are defined once in `src/config/workflow.ts`, which does not import the database. The default is the next `work_stage` value: `discovered` → `repair_defined` → `analysis` → `review` → `approved` → `closed`. Two rework send-backs are also allowed: `review` → `analysis` (the approve step sends the finding back) and `analysis` → `repair_defined` (analysis sends the repair definition back). `approved` only moves to `closed`. `closed` has nowhere to go. The same stage, an unknown stage, and any other skip are `invalid_transition` and do not write.
 
 A finding in another organization, or a missing id, is `not_found`. If the stage changes between the read and the guarded update, the result is `conflict` and the history table is unchanged. The update sets `updated_at` to `now()` itself, because a raw statement does not run Drizzle's `updated_at` hook. `actorId` may be null until #13 (session auth), matching `uploadedBy`. Null is written to `stage_transitions.changed_by`. A non-null `actorId` must be a real user; a foreign-key failure rolls the stage change back with the insert.
+
+## Tenants
+
+Each customer has their own Postgres database. The app does not filter the new engineering tables by `org_id`. `engineers`, `engineering_analyses`, `analysis_comments`, and `analysis_attachments` live in that database. Repair-scoped `analyses` stays for the existing margin workflow.
+
+The control database is a separate Postgres database. `drizzle.control.config.ts` writes `migrations/control`. Its only table is `tenants`: `id`, `slug` (unique), `name`, `database_url_encrypted`, `created_at`. The connection string is AES-256-GCM ciphertext from `TENANT_SECRET_KEY` (32 bytes, standard base64). `encryptDatabaseUrl` and `decryptDatabaseUrl` live in `src/db/tenant-secret.ts`.
+
+`getTenantDb(tenantId)` in `src/db/tenant-db.ts` returns a cached Neon HTTP Drizzle client. When `CONTROL_DATABASE_URL` is unset, every id uses `DATABASE_URL`. That is local development, CI, and today's Neon database, which is the first tenant. Set `CONTROL_DATABASE_URL` to look the id up in `tenants` and connect to the decrypted URL.
+
+`pnpm db:migrate` still migrates the tenant schema in `migrations/` against `DATABASE_URL`. `pnpm db:migrate:all` migrates the control database, then runs tenant migrations on every registered URL. With `CONTROL_DATABASE_URL` unset it migrates `DATABASE_URL` only, so CI can keep calling `pnpm db:migrate`.
+
+On-prem, the customer runs their own Postgres. Register that URL (encrypted) as a tenant, then run `pnpm db:migrate:all` so their database gets the tenant schema. We do not host that database.
+
+The engineering writers in `src/db/engineering.ts` take a tenant database handle. `transitionAnalysis` updates one row only when `status` is still the action's `from` status and the actor's stored role passes `canPerform`. `assign` also requires the new assignee to be an engineer whose `ENGINEER_ROLE_RANK` is at least `analyst`; a missing or lower-ranked assignee returns `invalid_assignee` and writes nothing. `approve` sets `approved_at`. A concurrent second move finds the new status and returns `invalid_state`.
 
 ## Migration workflow
 

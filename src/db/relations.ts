@@ -3,8 +3,12 @@ import { relations } from "drizzle-orm";
 import {
   activityLog,
   analyses,
+  analysisAttachments,
   analysisCases,
+  analysisComments,
   analysisPeople,
+  engineeringAnalyses,
+  engineers,
   assetGroups,
   assets,
   documentChunks,
@@ -220,6 +224,7 @@ export const documentsRelations = relations(documents, ({ one, many }) => ({
     references: [users.id],
   }),
   chunks: many(documentChunks),
+  analysisAttachments: many(analysisAttachments),
 }));
 
 export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
@@ -228,3 +233,64 @@ export const documentChunksRelations = relations(documentChunks, ({ one }) => ({
     references: [documents.id],
   }),
 }));
+
+export const engineersRelations = relations(engineers, ({ many }) => ({
+  assignedAnalyses: many(engineeringAnalyses, {
+    relationName: "analysisAssignee",
+  }),
+  createdAnalyses: many(engineeringAnalyses, {
+    relationName: "analysisCreator",
+  }),
+  comments: many(analysisComments),
+  uploads: many(analysisAttachments),
+}));
+
+export const engineeringAnalysesRelations = relations(
+  engineeringAnalyses,
+  ({ one, many }) => ({
+    assignee: one(engineers, {
+      fields: [engineeringAnalyses.assigneeId],
+      references: [engineers.id],
+      relationName: "analysisAssignee",
+    }),
+    creator: one(engineers, {
+      fields: [engineeringAnalyses.createdBy],
+      references: [engineers.id],
+      relationName: "analysisCreator",
+    }),
+    comments: many(analysisComments),
+    attachments: many(analysisAttachments),
+  }),
+);
+
+export const analysisCommentsRelations = relations(
+  analysisComments,
+  ({ one }) => ({
+    analysis: one(engineeringAnalyses, {
+      fields: [analysisComments.analysisId],
+      references: [engineeringAnalyses.id],
+    }),
+    author: one(engineers, {
+      fields: [analysisComments.authorId],
+      references: [engineers.id],
+    }),
+  }),
+);
+
+export const analysisAttachmentsRelations = relations(
+  analysisAttachments,
+  ({ one }) => ({
+    analysis: one(engineeringAnalyses, {
+      fields: [analysisAttachments.analysisId],
+      references: [engineeringAnalyses.id],
+    }),
+    document: one(documents, {
+      fields: [analysisAttachments.documentId],
+      references: [documents.id],
+    }),
+    uploader: one(engineers, {
+      fields: [analysisAttachments.uploadedBy],
+      references: [engineers.id],
+    }),
+  }),
+);
