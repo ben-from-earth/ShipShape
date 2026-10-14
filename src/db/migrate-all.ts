@@ -7,8 +7,11 @@ import pg from "pg";
 
 import { decryptDatabaseUrl } from "./tenant-secret";
 
-const tenantMigrations = path.join(process.cwd(), "migrations");
-const controlMigrations = path.join(process.cwd(), "migrations/control");
+export const tenantMigrationsFolder = path.join(process.cwd(), "migrations");
+export const controlMigrationsFolder = path.join(
+  process.cwd(),
+  "migrations/control",
+);
 
 /**
  * Applies control migrations, then tenant migrations on every registered
@@ -23,14 +26,14 @@ export async function migrateAll(): Promise<void> {
         "DATABASE_URL is not set. Set it, or set CONTROL_DATABASE_URL to migrate every tenant.",
       );
     }
-    await migrateUrl(databaseUrl, tenantMigrations);
+    await migrateDatabase(databaseUrl, tenantMigrationsFolder);
     return;
   }
 
-  await migrateUrl(controlUrl, controlMigrations);
+  await migrateDatabase(controlUrl, controlMigrationsFolder);
   const urls = await tenantUrls(controlUrl);
   for (const url of urls) {
-    await migrateUrl(url, tenantMigrations);
+    await migrateDatabase(url, tenantMigrationsFolder);
   }
 }
 
@@ -48,7 +51,8 @@ async function tenantUrls(controlUrl: string): Promise<string[]> {
   }
 }
 
-async function migrateUrl(
+/** Applies one migrations folder to one Postgres database. */
+export async function migrateDatabase(
   url: string,
   migrationsFolder: string,
 ): Promise<void> {
