@@ -75,6 +75,7 @@ describe("repair asset label on the pages", () => {
       expect(html).toContain("Fitting");
       expect(html).not.toContain("A-0022 · Fitting");
     }
+    expect(detail).not.toContain("Create analysis");
     expect(onFinding).toContain("Fitting");
     expect(onFinding).toContain("Replace the seal");
     expect(list).toContain("ISS-1001");

@@ -60,7 +60,6 @@ export function RepairDetail({ record }: { record: Repair }) {
           </Fact>
         </dl>
       </Card>
-      {/* TODO: the create-analysis form left this page. Wire a standalone create once the analyses contract lands. */}
     </div>
   );
 }
