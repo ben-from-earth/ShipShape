@@ -19,9 +19,16 @@ import {
   resolveDatabaseUrl,
   type TenantListRow,
 } from "./tenant-admin";
+import { runBackupCommand } from "./tenant-backup";
 import { encryptDatabaseUrl } from "./tenant-secret";
 
 async function main(): Promise<void> {
+  const [command] = process.argv.slice(2);
+  if (command === "backup" || command === "restore") {
+    process.stdout.write(`${await runBackupCommand(process.argv.slice(2))}\n`);
+    return;
+  }
+
   const parsed = parseTenantArgs(process.argv.slice(2));
   if (parsed.command === "list") {
     process.stdout.write(`${await listTenants()}\n`);

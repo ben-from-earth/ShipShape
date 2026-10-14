@@ -51,3 +51,19 @@ Local files are stored under `<STORAGE_LOCAL_DIR>/<tenant id>/`. The default dir
 When `CONTROL_DATABASE_URL` is unset, the app uses `STORAGE_KIND` (`local` or `s3`, default `local`), `STORAGE_LOCAL_DIR`, and the `S3_*` variables above. `ATTACHMENT_MAX_BYTES` defaults to 25 MiB.
 
 `pnpm tenant:list` does not print storage settings.
+
+## Backup and restore
+
+Install the PostgreSQL 18 client tools (`pg_dump` and `pg_restore`) on the machine that runs these commands. The client major version must not be older than the server. A connection string is passed with `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, and `PGSSLMODE`. It is not a command argument and the commands do not print it.
+
+```bash
+pnpm tenant:backup --slug acme
+pnpm tenant:backup --slug acme --out backups/acme.dump
+pnpm tenant:restore --slug acme --file backups/acme.dump --confirm acme
+```
+
+`tenant:backup` writes a custom-format dump (`pg_dump -Fc`) to `./backups/<slug>-<UTC timestamp>.dump` unless `--out` is set. With `CONTROL_DATABASE_URL` set, the URL is the decrypted tenant row. Without it, the command uses `DATABASE_URL`.
+
+When attachment storage is local, the tenant directory is archived next to the dump as a `.tar` file. `tenant:restore` extracts that archive back into the local storage directory when the `.tar` sits beside the dump. S3 attachments are not included. Use bucket versioning for those objects.
+
+`tenant:restore` requires `--confirm` to equal `--slug`. It runs `pg_restore --clean --if-exists --no-owner` into the existing tenant database, then applies `migrations/`.

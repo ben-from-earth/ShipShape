@@ -46,3 +46,6 @@ next-env.d.ts
 
 # per-tenant attachment bytes (see src/storage)
 /storage/
+
+# tenant database dumps (see docs/on-prem.md)
+/backups/
