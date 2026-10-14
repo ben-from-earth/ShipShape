@@ -71,8 +71,24 @@ describe("analysis board UI", () => {
     expect(html).toContain("bg-accent");
     expect(html).toContain("edge-notes.txt");
     expect(html).toContain("Checking the edge distance.");
+    expect(html).toContain("Ren Reviewer");
+    expect(html).not.toContain(reviewer.id);
     expect(html).not.toContain("/repairs/");
     expect(html).not.toContain("Load case");
+  });
+
+  it("uses the record assignee name when the directory is empty", () => {
+    const html = renderToStaticMarkup(
+      <AnalysisBoardDetail
+        record={record}
+        asOf="2026-10-06"
+        actor={reviewer}
+        directory={[]}
+      />,
+    );
+
+    expect(html).toContain("Ren Reviewer");
+    expect(html).not.toContain(reviewer.id);
   });
 
   it("paints a due-soon badge amber", () => {

@@ -31,6 +31,55 @@ describe("analysis timing", () => {
     expect(isDueThisWeek("2026-10-08", "approved", asOf)).toBe(false);
   });
 
+  it("keeps the local calendar date near midnight", () => {
+    const beforeLocalMidnight = "2026-10-07T00:30:00.000Z";
+    const afterLocalMidnight = "2026-10-07T04:30:00.000Z";
+
+    expect(
+      dueBadge(
+        "2026-10-06",
+        "assigned",
+        beforeLocalMidnight,
+        "America/New_York",
+      ),
+    ).toBe("due-soon");
+    expect(
+      isDueThisWeek(
+        "2026-10-06",
+        "assigned",
+        beforeLocalMidnight,
+        "America/New_York",
+      ),
+    ).toBe(true);
+    expect(dueBadge("2026-10-06", "assigned", beforeLocalMidnight, "UTC")).toBe(
+      "overdue",
+    );
+    expect(
+      dueBadge(
+        "2026-10-06",
+        "assigned",
+        "2026-10-07T06:30:00.000Z",
+        "America/Los_Angeles",
+      ),
+    ).toBe("due-soon");
+    expect(
+      dueBadge(
+        "2026-10-06",
+        "assigned",
+        afterLocalMidnight,
+        "America/New_York",
+      ),
+    ).toBe("overdue");
+    expect(
+      isDueThisWeek(
+        "2026-10-06",
+        "assigned",
+        afterLocalMidnight,
+        "America/New_York",
+      ),
+    ).toBe(false);
+  });
+
   it("averages days from creation to approval", () => {
     expect(
       averageApprovalDays([

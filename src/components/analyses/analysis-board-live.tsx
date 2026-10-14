@@ -8,6 +8,7 @@ import {
   fetchAnalysis,
   fetchAttachments,
   fetchComments,
+  fetchEngineers,
   listBoardAnalyses,
 } from "@/features/analyses/board-api";
 import type { AnalysisBoardRecord } from "@/features/analyses/board";
@@ -52,7 +53,7 @@ export function AnalysisBoardLiveList({ status }: { status?: AnalysisStatus }) {
         setResult({
           engineerId,
           status,
-          asOf: new Date().toISOString().slice(0, 10),
+          asOf: new Date().toISOString(),
           error: null,
           records: analyses
             .filter(
@@ -107,6 +108,7 @@ type DetailResult = {
   engineerId: string;
   id: string;
   record: AnalysisBoardRecord | null;
+  directory: readonly Engineer[];
   asOf: string;
   error: string | null;
 };
@@ -126,17 +128,27 @@ export function AnalysisBoardLiveDetail({ id }: { id: string }) {
       fetchAnalysis(id, engineerId),
       fetchComments(id, engineerId),
       fetchAttachments(id, engineerId),
+      fetchEngineers(engineerId),
     ])
-      .then(([analysis, comments, attachments]) => {
+      .then(([analysis, comments, attachments, engineers]) => {
         if (cancel) {
           return;
         }
         setResult({
           engineerId,
           id,
-          asOf: new Date().toISOString().slice(0, 10),
+          asOf: new Date().toISOString(),
           error: null,
-          record: { analysis, assignee: null, comments, attachments },
+          directory: engineers,
+          record: {
+            analysis,
+            assignee:
+              engineers.find(
+                (engineer) => engineer.id === analysis.assigneeId,
+              ) ?? null,
+            comments,
+            attachments,
+          },
         });
       })
       .catch((error: unknown) => {
@@ -147,6 +159,7 @@ export function AnalysisBoardLiveDetail({ id }: { id: string }) {
           engineerId,
           id,
           record: null,
+          directory: [],
           asOf: "",
           error: messageFrom(error, "Could not load analyses."),
         });
@@ -172,7 +185,7 @@ export function AnalysisBoardLiveDetail({ id }: { id: string }) {
           record={current.record}
           asOf={current.asOf}
           actor={actorFrom(engineerId, dev.role)}
-          directory={[]}
+          directory={current.directory}
         />
       ) : signedIn && !current ? (
         <p className="text-body text-ink-muted">Loading analysis…</p>
