@@ -6,17 +6,20 @@ import { isDemoData } from "@/config/demo";
 import { getDb, type Database } from "@/db";
 import { organizations } from "@/db/schema";
 import { oldestOrganizationOrder } from "@/lib/org-threshold";
-import { idSchema, type Analysis } from "@/schemas";
+import { idSchema } from "@/schemas";
 
 import { getAnalysis } from "./data";
 import { findDemoAnalysis } from "./page-demo";
+import type { StoredAnalysis } from "./stored";
 
 /**
  * One analysis for `/analyses/[id]`.
  * Demo rows are used only when `isDemoData()` is on. With the flag off
  * this returns null, including when the database is unset.
  */
-export async function getAnalysisPage(id: string): Promise<Analysis | null> {
+export async function getAnalysisPage(
+  id: string,
+): Promise<StoredAnalysis | null> {
   await io();
 
   if (!idSchema.safeParse(id).success) {

@@ -5,8 +5,9 @@ import { PageHeading } from "@/components/shell/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
+import type { AnalysisDbStatus } from "@/config/analysis";
 import { ANALYSIS_STATUS_LABEL } from "@/features/analyses/form";
-import type { Analysis, AnalysisDbStatus } from "@/schemas";
+import type { StoredAnalysis } from "@/features/analyses/stored";
 
 import { LoadCaseMargins } from "./load-cases";
 
@@ -25,7 +26,7 @@ export function AnalysisRecordView({
   record,
   marginThreshold,
 }: {
-  record: Analysis;
+  record: StoredAnalysis;
   /** Organization cutoff passed in from the server page. */
   marginThreshold: number;
 }) {

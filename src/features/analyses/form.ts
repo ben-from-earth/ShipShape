@@ -1,15 +1,7 @@
-import {
-  analysisConclusionSchema,
-  analysisCreateBodySchema,
-  analysisDbStatusSchema,
-  type AnalysisCreateBody,
-  type AnalysisDbStatus,
-} from "@/schemas";
+import { ANALYSIS_DB_STATUSES, type AnalysisDbStatus } from "@/config/analysis";
+import { analysisCreateBodySchema, type AnalysisCreateBody } from "@/schemas";
 
 export type { AnalysisCreateBody };
-
-/** Conclusions from `analysisConclusionSchema`. The create body does not send one. */
-export const ANALYSIS_CONCLUSIONS = analysisConclusionSchema.options;
 
 export const ANALYSIS_STATUS_LABEL = {
   draft: "Draft",
@@ -19,7 +11,7 @@ export const ANALYSIS_STATUS_LABEL = {
   approved: "Approved",
 } as const satisfies Record<AnalysisDbStatus, string>;
 
-export const ANALYSIS_STATUS_OPTIONS = analysisDbStatusSchema.options;
+export const ANALYSIS_STATUS_OPTIONS = ANALYSIS_DB_STATUSES;
 
 export type AnalysisDraft = {
   title: string;
@@ -49,30 +41,9 @@ function bodyFromDraft(draft: AnalysisDraft): Record<string, unknown> {
   const body: Record<string, unknown> = {
     title: draft.title.trim(),
   };
-  const method = draft.method.trim();
-  const loadCase = draft.loadCase.trim();
-  const status = draft.status.trim();
   const dueDate = draft.dueDate.trim();
-  const revision = draft.revision.trim();
-  const marginText = draft.margin.trim();
-
-  if (method) {
-    body.method = method;
-  }
-  if (loadCase) {
-    body.loadCase = loadCase;
-  }
-  if (marginText) {
-    body.margin = parseAnalysisMargin(marginText) ?? marginText;
-  }
-  if (status) {
-    body.status = status;
-  }
   if (dueDate) {
     body.dueDate = dueDate;
-  }
-  if (revision) {
-    body.revision = revision;
   }
   return body;
 }
@@ -81,34 +52,15 @@ function messageFor(field: string, draft: AnalysisDraft): string {
   if (field === "title") {
     return draft.title.trim() ? "Title is too long." : "A title is required.";
   }
-  if (field === "method") {
-    return "Method is too long.";
-  }
-  if (field === "loadCase") {
-    return "Load case is too long.";
-  }
-  if (field === "margin") {
-    const margin = parseAnalysisMargin(draft.margin);
-    if (!draft.margin.trim() || margin == null) {
-      return draft.margin.trim() ? "Enter a margin." : "A margin is required.";
-    }
-    return "Margin is out of range.";
-  }
-  if (field === "status") {
-    return "Choose a status.";
-  }
   if (field === "dueDate") {
     return "Use YYYY-MM-DD.";
-  }
-  if (field === "revision") {
-    return "Revision is too long.";
   }
   return "Check this field.";
 }
 
 /**
  * Problems with a create-analysis draft, checked with `analysisCreateBodySchema`.
- * An empty object means the draft can be posted.
+ * Title is required. Due date is optional. An empty object means the draft can be posted.
  */
 export function analysisFormErrors(
   draft: AnalysisDraft,
@@ -124,20 +76,9 @@ export function analysisFormErrors(
     if (typeof key !== "string" || errors[key as AnalysisFormField]) {
       continue;
     }
-    if (
-      key === "title" ||
-      key === "method" ||
-      key === "loadCase" ||
-      key === "margin" ||
-      key === "status" ||
-      key === "dueDate" ||
-      key === "revision"
-    ) {
+    if (key === "title" || key === "dueDate") {
       errors[key] = messageFor(key, draft);
     }
-  }
-  if (!draft.margin.trim() && !errors.margin) {
-    errors.margin = "A margin is required.";
   }
   return errors;
 }

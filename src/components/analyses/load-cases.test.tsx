@@ -2,12 +2,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { describe, expect, it } from "vitest";
 
-import type { Analysis } from "@/schemas";
+import type { StoredAnalysis } from "@/features/analyses/stored";
 
 import { AnalysisRecordView } from "./analysis-record";
 import { LoadCaseMargins } from "./load-cases";
 
-const record: Analysis = {
+const record: StoredAnalysis = {
   id: "10000000-0000-4000-8000-000000000051",
   code: "AN-1001",
   repairId: "10000000-0000-4000-8000-000000000041",

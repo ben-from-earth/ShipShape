@@ -34,7 +34,7 @@ const emptyDraft: AnalysisDraft = {
 
 /**
  * Create analysis on a repair. Posts `analysisCreateBodySchema` fields to
- * `/api/repairs/[id]/analyses`. Title and margin are required.
+ * `/api/repairs/[id]/analyses`. Title is required.
  */
 export function CreateAnalysis({
   repairId,

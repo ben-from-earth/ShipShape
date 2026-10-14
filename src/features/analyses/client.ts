@@ -141,23 +141,19 @@ async function errorFromResponse(
 }
 
 function demoCreated(
-  repairId: string,
+  _repairId: string,
   fields: AnalysisCreateBody,
 ): CreateAnalysisResult {
   const createdAt = new Date().toISOString();
   return createAnalysisResultSchema.parse({
     id: crypto.randomUUID(),
     code: "AN-DEMO",
-    repairId,
-    revisionId: crypto.randomUUID(),
-    revision: fields.revision ?? "A",
     title: fields.title,
-    method: fields.method ?? null,
-    loadCase: fields.loadCase ?? null,
-    margin: fields.margin,
-    status: fields.status ?? "draft",
-    createdBy: null,
+    status: fields.assigneeId === undefined ? "unassigned" : "assigned",
+    assigneeId: fields.assigneeId ?? null,
     dueDate: fields.dueDate ?? null,
+    createdBy: null,
+    approvedAt: null,
     createdAt,
     updatedAt: createdAt,
   });
