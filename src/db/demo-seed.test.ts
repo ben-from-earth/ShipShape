@@ -8,6 +8,7 @@ import {
   demoAssetGroup,
   demoDocumentChunk,
   demoEmbedding,
+  demoEngineers,
   demoIds,
   demoIssue,
   demoUsers,
@@ -28,6 +29,16 @@ describe("demo seed", () => {
     expect(demoDocumentChunk.startOffset).toBe(0);
     expect(demoDocumentChunk.endOffset).toBe(demoDocumentChunk.text.length);
     expect(demoUsers).toHaveLength(4);
+    expect(demoEngineers.map((engineer) => engineer.email)).toEqual([
+      "analyst@example.com",
+      "reviewer@example.com",
+      "approver@example.com",
+    ]);
+    expect(demoEngineers.map((engineer) => engineer.role)).toEqual([
+      "analyst",
+      "reviewer",
+      "approver",
+    ]);
     expect(demoAnalysisPeople.map((person) => person.role).sort()).toEqual([
       "analyst",
       "approver",

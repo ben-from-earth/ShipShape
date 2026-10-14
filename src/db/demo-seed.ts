@@ -243,6 +243,22 @@ export const demoDocument: InferInsertModel<typeof documents> = {
 const demoChunkText =
   "Demo note: inspect the fastener line before closing the repair.";
 
+/** Directory rows created by `pnpm db:seed` through `createEngineer`. */
+export const demoEngineers = [
+  { name: "Demo Analyst", email: "analyst@example.com", role: "analyst" },
+  { name: "Demo Reviewer", email: "reviewer@example.com", role: "reviewer" },
+  { name: "Demo Approver", email: "approver@example.com", role: "approver" },
+] as const;
+
+export const demoEngineeringTitles = {
+  unassigned: "Demo unassigned analysis",
+  assigned: "Demo assigned analysis",
+  overdue: "Demo overdue analysis",
+} as const;
+
+/** Fixed past day so the overdue sample stays overdue. */
+export const demoOverdueDay = "2020-01-01";
+
 export const demoDocumentChunk: InferInsertModel<typeof documentChunks> = {
   id: demoIds.documentChunk,
   documentId: demoIds.document,
