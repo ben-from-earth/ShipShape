@@ -79,11 +79,9 @@ describe.skipIf(!enabled)("tenant engineering data", () => {
       role: "approver",
     });
     const directory = await listEngineers(db);
-    expect(directory.map((person) => person.email).sort()).toEqual([
-      analyst.email,
-      reviewer.email,
-      approver.email,
-    ]);
+    expect(directory.map((person) => person.email).sort()).toEqual(
+      [analyst.email, reviewer.email, approver.email].sort(),
+    );
     const stamps = directory.map((person) => person.createdAt);
     expect([...stamps].sort()).toEqual(stamps);
 
