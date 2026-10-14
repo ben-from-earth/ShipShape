@@ -7,6 +7,8 @@ import { z } from "zod";
  * `unsupported_media_type`, `invalid_org_id`, `unknown_organization`, and
  * `internal_error`. Finding routes also use `asset_not_found`,
  * `too_many_photos`, `not_found`, `invalid_transition`, and `conflict`.
+ * Analysis routes also use `unauthenticated`, `forbidden`, `invalid_state`,
+ * and `invalid_assignee`.
  */
 export const apiErrorCodeSchema = z.enum([
   "validation_error",
@@ -16,8 +18,12 @@ export const apiErrorCodeSchema = z.enum([
   "too_many_photos",
   "payload_too_large",
   "unsupported_media_type",
+  "unauthenticated",
+  "forbidden",
   "not_found",
   "invalid_transition",
+  "invalid_state",
+  "invalid_assignee",
   "conflict",
   "internal_error",
 ]);
