@@ -138,6 +138,11 @@ jobs:
         env:
           RUN_DB_INTEGRATION: "1"
 
+      - name: Test tenant engineering writes
+        run: pnpm exec vitest run src/db/engineering.integration.test.ts
+        env:
+          RUN_DB_INTEGRATION: "1"
+
       - name: Prove concurrent issue codes are distinct
         run: pnpm exec vitest run src/db/issue-code.integration.test.ts
         env:
@@ -162,4 +167,4 @@ jobs:
           chunk_columns="$(psql "$DATABASE_URL" -tA -v ON_ERROR_STOP=1 -c "SELECT string_agg(column_name, ',' ORDER BY column_name) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'document_chunks' AND column_name IN ('index', 'text', 'start_offset', 'end_offset', 'page_start', 'page_end')")"
           test "$chunk_columns" = "end_offset,index,page_end,page_start,start_offset,text"
           table_count="$(psql "$DATABASE_URL" -tA -v ON_ERROR_STOP=1 -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE'")"
-          test "$table_count" = "17"
+          test "$table_count" = "21"
