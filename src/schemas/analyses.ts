@@ -87,6 +87,30 @@ export const analysisCreateBodySchema = analysisCreateSchema;
 /** Same record as `analysisSchema`. */
 export const createAnalysisResultSchema = analysisSchema;
 
+const analysisCountSchema = z.strictObject({
+  unassigned: z.number().int().nonnegative(),
+  assigned: z.number().int().nonnegative(),
+  in_progress: z.number().int().nonnegative(),
+  waiting_for_review: z.number().int().nonnegative(),
+  in_review: z.number().int().nonnegative(),
+  approved: z.number().int().nonnegative(),
+});
+
+/**
+ * Dashboard cards for one tenant.
+ * `counts` includes every status. `overdue` is a due date before today,
+ * excluding approved analyses. `dueSoon` is due today through three days
+ * from today, excluding approved and overdue analyses. `avgDaysToApproval`
+ * is the mean of `approvedAt - createdAt` in days, or null when none
+ * are approved.
+ */
+export const analysisSummarySchema = z.strictObject({
+  counts: analysisCountSchema,
+  overdue: z.number().int().nonnegative(),
+  dueSoon: z.number().int().nonnegative(),
+  avgDaysToApproval: z.number().finite().nullable(),
+});
+
 export type AnalysisTransition = {
   readonly from: z.infer<typeof analysisStatusSchema>;
   readonly to: z.infer<typeof analysisStatusSchema>;
@@ -237,6 +261,7 @@ export type Analysis = z.infer<typeof analysisSchema>;
 export type AnalysisCreate = z.infer<typeof analysisCreateSchema>;
 export type AnalysisCreateBody = z.infer<typeof analysisCreateBodySchema>;
 export type CreateAnalysisResult = z.infer<typeof createAnalysisResultSchema>;
+export type AnalysisSummary = z.infer<typeof analysisSummarySchema>;
 export type AnalysisTransitionBody = z.infer<
   typeof analysisTransitionBodySchema
 >;
