@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { AnalysisBoardCards } from "@/components/analyses/analysis-board-cards";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
+import { analysisBoardSummary } from "@/features/analyses/board-page";
 import { getDashboards } from "@/features/dashboard/data";
 
 export const metadata: Metadata = {
@@ -19,12 +21,18 @@ export default function DashboardPage() {
 }
 
 async function DashboardLoader() {
-  const periods = await getDashboards();
+  const [periods, board] = await Promise.all([
+    getDashboards(),
+    analysisBoardSummary(),
+  ]);
 
   return (
-    <DashboardView
-      periods={periods}
-      marginThreshold={periods["30D"].marginThreshold}
-    />
+    <div className="flex flex-col gap-6">
+      <AnalysisBoardCards summary={board.summary} />
+      <DashboardView
+        periods={periods}
+        marginThreshold={periods["30D"].marginThreshold}
+      />
+    </div>
   );
 }

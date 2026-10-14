@@ -1,0 +1,44 @@
+import type { Metadata } from "next";
+import { Suspense } from "react";
+
+import { AnalysisBoardList } from "@/components/analyses/analysis-board-list";
+import { AnalysisBoardLiveList } from "@/components/analyses/analysis-board-live";
+import { isDemoData } from "@/config/demo";
+import { listAnalysisBoard } from "@/features/analyses/board-page";
+import { analysisStatusSchema, type AnalysisStatus } from "@/schemas";
+
+export const metadata: Metadata = {
+  title: "Analyses",
+};
+
+export default function AnalysesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string | string[] }>;
+}) {
+  return (
+    <Suspense
+      fallback={<p className="text-body text-ink-muted">Loading analyses…</p>}
+    >
+      <AnalysesLoader searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function AnalysesLoader({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string | string[] }>;
+}) {
+  const params = await searchParams;
+  const raw = Array.isArray(params.status) ? params.status[0] : params.status;
+  const status = analysisStatusSchema.options.find((value) => value === raw);
+  if (!isDemoData()) {
+    return <AnalysisBoardLiveList status={status} />;
+  }
+  const { records, asOf } = await listAnalysisBoard(
+    status ? { status: status satisfies AnalysisStatus } : undefined,
+  );
+
+  return <AnalysisBoardList records={records} asOf={asOf} status={status} />;
+}

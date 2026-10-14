@@ -66,9 +66,7 @@ describe("repair asset label on the pages", () => {
     const list = renderToStaticMarkup(
       <RepairsList records={[named]} filters={{}} />,
     );
-    const detail = renderToStaticMarkup(
-      <RepairDetail record={named} marginThreshold={0.1} />,
-    );
+    const detail = renderToStaticMarkup(<RepairDetail record={named} />);
     const onFinding = renderToStaticMarkup(
       <FindingDetail record={finding} repairs={[named]} />,
     );
@@ -77,6 +75,7 @@ describe("repair asset label on the pages", () => {
       expect(html).toContain("Fitting");
       expect(html).not.toContain("A-0022 · Fitting");
     }
+    expect(detail).not.toContain("Create analysis");
     expect(onFinding).toContain("Fitting");
     expect(onFinding).toContain("Replace the seal");
     expect(list).toContain("ISS-1001");
@@ -88,9 +87,7 @@ describe("repair asset label on the pages", () => {
     const list = renderToStaticMarkup(
       <RepairsList records={[unnamed]} filters={{}} />,
     );
-    const detail = renderToStaticMarkup(
-      <RepairDetail record={unnamed} marginThreshold={0.1} />,
-    );
+    const detail = renderToStaticMarkup(<RepairDetail record={unnamed} />);
     const onFinding = renderToStaticMarkup(
       <FindingDetail record={finding} repairs={[unnamed]} />,
     );

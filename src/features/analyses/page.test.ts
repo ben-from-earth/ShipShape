@@ -43,22 +43,20 @@ describe("getAnalysisPage", () => {
 });
 
 describe("analysis page imports", () => {
-  it("reads the analysis with getAnalysis and passes the margin cutoff", () => {
+  it("reads the board record only through the demo gate", () => {
     const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
     const page = readFileSync(
       join(root, "app/(app)/analyses/[id]/page.tsx"),
       "utf8",
     );
     const reader = readFileSync(
-      join(root, "features/analyses/page.ts"),
+      join(root, "features/analyses/board-page.ts"),
       "utf8",
     );
 
-    expect(page).toContain(
-      'import { getLowMarginThreshold } from "@/features/dashboard/data"',
-    );
-    expect(page).toContain("marginThreshold={marginThreshold}");
-    expect(reader).toContain("getAnalysis(orgId, id, db)");
+    expect(page).toContain("getAnalysisBoard");
+    expect(page).not.toContain("marginThreshold");
     expect(reader).toContain("isDemoData()");
+    expect(reader).toContain("findDemoAnalysis");
   });
 });
