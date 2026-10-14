@@ -176,7 +176,7 @@ The control database is a separate Postgres database. `drizzle.control.config.ts
 
 `pnpm db:migrate` still migrates the tenant schema in `migrations/` against `DATABASE_URL`. `pnpm db:migrate:all` migrates the control database, then runs tenant migrations on every registered URL. With `CONTROL_DATABASE_URL` unset it migrates `DATABASE_URL` only, so CI can keep calling `pnpm db:migrate`.
 
-On-prem, the customer runs their own Postgres. Register that URL (encrypted) as a tenant, then run `pnpm db:migrate:all` so their database gets the tenant schema. We do not host that database.
+On-prem, the customer runs their own Postgres. Register that URL with `pnpm tenant:add`, then run tenant migrations. See [docs/on-prem.md](on-prem.md). We do not host that database.
 
 The engineering writers in `src/db/engineering.ts` take a tenant database handle. `transitionAnalysis` updates one row only when `status` is still the action's `from` status and the actor's stored role passes `canPerform`. `assign` also requires the new assignee to be an engineer whose `ENGINEER_ROLE_RANK` is at least `analyst`; a missing or lower-ranked assignee returns `invalid_assignee` and writes nothing. `approve` sets `approved_at`. A concurrent second move finds the new status and returns `invalid_state`.
 
