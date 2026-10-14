@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 
 import { AnalysisBoardList } from "@/components/analyses/analysis-board-list";
+import { AnalysisBoardLiveList } from "@/components/analyses/analysis-board-live";
+import { isDemoData } from "@/config/demo";
 import { listAnalysisBoard } from "@/features/analyses/board-page";
 import { analysisStatusSchema, type AnalysisStatus } from "@/schemas";
 
@@ -31,6 +33,9 @@ async function AnalysesLoader({
   const params = await searchParams;
   const raw = Array.isArray(params.status) ? params.status[0] : params.status;
   const status = analysisStatusSchema.options.find((value) => value === raw);
+  if (!isDemoData()) {
+    return <AnalysisBoardLiveList status={status} />;
+  }
   const { records, asOf } = await listAnalysisBoard(
     status ? { status: status satisfies AnalysisStatus } : undefined,
   );

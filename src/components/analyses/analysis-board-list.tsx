@@ -79,7 +79,7 @@ export function AnalysisBoardList({
                     </td>
                     <td className="px-3 py-3 text-body">{row.title}</td>
                     <td className="px-3 py-3 text-body">
-                      {record.assignee?.name ?? "—"}
+                      {record.assignee?.name ?? row.assigneeId ?? "—"}
                     </td>
                     <td className="px-3 py-3">
                       <StatusPill

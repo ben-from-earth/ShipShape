@@ -8,6 +8,13 @@ import { Card } from "@/components/ui/card";
 import { StatusPill } from "@/components/ui/status-pill";
 import { isDemoData } from "@/config/demo";
 import {
+  addAnalysisComment,
+  BoardApiError,
+  fetchAnalysis,
+  transitionAnalysis,
+  uploadAnalysisAttachment,
+} from "@/features/analyses/board-api";
+import {
   ANALYSIS_ACTION_LABEL,
   ANALYSIS_STATUS_LABEL,
   attachmentLabel,
@@ -19,6 +26,7 @@ import { ageDays } from "@/features/analyses/timing";
 import { formatFindingDate } from "@/features/findings/display";
 import {
   ANALYSIS_TRANSITIONS,
+  type AnalysisAction,
   type AnalysisStatus,
   type Engineer,
 } from "@/schemas";
@@ -40,8 +48,9 @@ const inputClass =
 const DEMO_ASSIGNEE_ID = "10000000-0000-4000-8000-000000000071";
 
 /**
- * Detail for one analysis. Actions, uploads, and comments stay local.
- * TODO: post with `x-engineer-id` once the routes exist.
+ * Detail for one analysis.
+ * Demo mode updates the page locally. Otherwise moves, comments, and
+ * uploads call the analyses routes with `x-engineer-id`.
  */
 export function AnalysisBoardDetail({
   record,
@@ -61,9 +70,15 @@ export function AnalysisBoardDetail({
   const [attachments, setAttachments] = useState([...record.attachments]);
   const [comments, setComments] = useState([...record.comments]);
   const [comment, setComment] = useState("");
+  const [assigneeDraft, setAssigneeDraft] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
 
-  const assignee =
-    directory.find((engineer) => engineer.id === assigneeId)?.name ?? "—";
+  const assigneeName =
+    directory.find((engineer) => engineer.id === assigneeId)?.name ??
+    assigneeId ??
+    "—";
+  const moves = movesFrom(status);
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -87,7 +102,7 @@ export function AnalysisBoardDetail({
           />
         </div>
         <dl className="grid gap-4 sm:grid-cols-2">
-          <Fact label="Assignee">{assignee}</Fact>
+          <Fact label="Assignee">{assigneeName}</Fact>
           <Fact label="Created">{formatFindingDate(row.createdAt)}</Fact>
           <Fact label="Due">
             <span className="flex flex-wrap items-center gap-2">
@@ -100,8 +115,31 @@ export function AnalysisBoardDetail({
           </Fact>
           <Fact label="Age">{ageDays(row.createdAt, asOf)}d</Fact>
         </dl>
+        {moves.includes("assign") && !isDemoData() ? (
+          <label
+            className="flex flex-col gap-1 text-ui font-medium"
+            htmlFor="analysis-assignee"
+          >
+            Assignee
+            <input
+              id="analysis-assignee"
+              value={assigneeDraft}
+              autoComplete="off"
+              spellCheck={false}
+              className={inputClass}
+              onChange={(event) => {
+                setAssigneeDraft(event.target.value);
+              }}
+            />
+          </label>
+        ) : null}
+        {notice ? (
+          <p className="text-body text-accent" role="status">
+            {notice}
+          </p>
+        ) : null}
         <div className="flex flex-wrap gap-2">
-          {movesFrom(status).map((action) => {
+          {moves.map((action) => {
             const allowed = canAttempt(
               actor.role,
               action,
@@ -114,18 +152,9 @@ export function AnalysisBoardDetail({
                 type="button"
                 variant={action === "approve" ? "dark" : "subtle"}
                 className="min-h-11"
-                disabled={!allowed}
+                disabled={!allowed || pending}
                 onClick={() => {
-                  if (!isDemoData() || !allowed) {
-                    return;
-                  }
-                  setStatus(ANALYSIS_TRANSITIONS[action].to);
-                  if (action === "assign") {
-                    setAssigneeId(DEMO_ASSIGNEE_ID);
-                  }
-                  if (action === "approve") {
-                    setApprovedAt(new Date().toISOString());
-                  }
+                  void runMove(action, allowed);
                 }}
               >
                 {ANALYSIS_ACTION_LABEL[action]}
@@ -156,22 +185,11 @@ export function AnalysisBoardDetail({
             className="mt-2 block text-body"
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (!file || !isDemoData()) {
+              event.target.value = "";
+              if (!file) {
                 return;
               }
-              setAttachments((current) => [
-                ...current,
-                {
-                  id: crypto.randomUUID(),
-                  analysisId: row.id,
-                  uploadedBy: actor.id,
-                  createdAt: new Date().toISOString(),
-                  fileName: file.name,
-                  url: "https://example.com/upload",
-                  contentType: file.type || "application/octet-stream",
-                  size: file.size,
-                },
-              ]);
+              void runUpload(file);
             }}
           />
         </label>
@@ -187,7 +205,9 @@ export function AnalysisBoardDetail({
               <li key={entry.id} className="flex flex-col gap-1">
                 <span className="text-ui font-medium">
                   {directory.find((engineer) => engineer.id === entry.authorId)
-                    ?.name ?? "—"}
+                    ?.name ??
+                    entry.authorId ??
+                    "—"}
                 </span>
                 <p className="text-body text-pretty">{entry.body}</p>
               </li>
@@ -199,20 +219,10 @@ export function AnalysisBoardDetail({
           onSubmit={(event: FormEvent) => {
             event.preventDefault();
             const body = comment.trim();
-            if (!body || !isDemoData()) {
+            if (!body) {
               return;
             }
-            setComments((current) => [
-              ...current,
-              {
-                id: crypto.randomUUID(),
-                analysisId: row.id,
-                authorId: actor.id,
-                body,
-                createdAt: new Date().toISOString(),
-              },
-            ]);
-            setComment("");
+            void runComment(body);
           }}
         >
           <label htmlFor="analysis-comment" className="text-ui font-medium">
@@ -234,6 +244,120 @@ export function AnalysisBoardDetail({
       </Card>
     </div>
   );
+
+  async function runMove(action: AnalysisAction, allowed: boolean) {
+    if (!allowed || pending) {
+      return;
+    }
+    setNotice(null);
+    if (isDemoData()) {
+      setStatus(ANALYSIS_TRANSITIONS[action].to);
+      if (action === "assign") {
+        setAssigneeId(DEMO_ASSIGNEE_ID);
+      }
+      if (action === "approve") {
+        setApprovedAt(new Date().toISOString());
+      }
+      return;
+    }
+
+    setPending(true);
+    try {
+      const next = await transitionAnalysis(row.id, actor.id, {
+        action,
+        ...(action === "assign" ? { assigneeId: assigneeDraft.trim() } : {}),
+      });
+      setStatus(next.status);
+      setAssigneeId(next.assigneeId);
+      setApprovedAt(next.approvedAt);
+    } catch (error) {
+      setNotice(noticeFrom(error));
+      if (
+        error instanceof BoardApiError &&
+        (error.status === 409 || error.status === 404)
+      ) {
+        await reloadAnalysis();
+      }
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function runComment(body: string) {
+    setNotice(null);
+    if (isDemoData()) {
+      setComments((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          analysisId: row.id,
+          authorId: actor.id,
+          body,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+      setComment("");
+      return;
+    }
+
+    setPending(true);
+    try {
+      const saved = await addAnalysisComment(row.id, actor.id, body);
+      setComments((current) => [...current, saved]);
+      setComment("");
+    } catch (error) {
+      setNotice(noticeFrom(error));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function runUpload(file: File) {
+    setNotice(null);
+    if (isDemoData()) {
+      setAttachments((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          analysisId: row.id,
+          uploadedBy: actor.id,
+          createdAt: new Date().toISOString(),
+          fileName: file.name,
+          url: "https://example.com/upload",
+          contentType: file.type || "application/octet-stream",
+          size: file.size,
+        },
+      ]);
+      return;
+    }
+
+    setPending(true);
+    try {
+      const saved = await uploadAnalysisAttachment(row.id, actor.id, file);
+      setAttachments((current) => [...current, saved]);
+    } catch (error) {
+      setNotice(noticeFrom(error));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function reloadAnalysis() {
+    try {
+      const fresh = await fetchAnalysis(row.id, actor.id);
+      setStatus(fresh.status);
+      setAssigneeId(fresh.assigneeId);
+      setApprovedAt(fresh.approvedAt);
+    } catch {
+      // The failed action already set the inline message.
+    }
+  }
+}
+
+function noticeFrom(error: unknown): string {
+  return error instanceof BoardApiError
+    ? error.message
+    : "Could not update the analysis.";
 }
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
