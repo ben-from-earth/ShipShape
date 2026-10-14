@@ -50,6 +50,13 @@
       "when": 1791995666183,
       "tag": "0006_analysis_attachment_storage",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792003632296,
+      "tag": "0007_engineer_sessions",
+      "breakpoints": true
     }
   ]
 }
