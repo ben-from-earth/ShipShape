@@ -38,7 +38,11 @@ export function useDevEngineer(): {
   role: EngineerRole;
   update: (next: { id: string; role: EngineerRole }) => void;
 } {
-  const id = useSyncExternalStore(subscribe, () => readItem(ID_KEY), () => "");
+  const id = useSyncExternalStore(
+    subscribe,
+    () => readItem(ID_KEY),
+    () => "",
+  );
   const storedRole = useSyncExternalStore(
     subscribe,
     () => readItem(ROLE_KEY),
