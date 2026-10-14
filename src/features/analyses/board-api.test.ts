@@ -94,6 +94,33 @@ describe("analysis board API", () => {
     }
   });
 
+  it("uses the shared organization error when x-org-id is missing or unknown", async () => {
+    for (const body of [
+      {
+        error: {
+          code: "invalid_org_id",
+          message: "x-org-id must be the organization UUID.",
+          details: [{ path: "x-org-id", message: "Invalid organization id" }],
+        },
+      },
+      {
+        error: {
+          code: "unknown_organization",
+          message: "No organization exists with that id.",
+        },
+      },
+    ]) {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => jsonResponse(body, 400)),
+      );
+      await expect(listBoardAnalyses(engineerId)).rejects.toMatchObject({
+        status: 400,
+        message: "Organization error.",
+      });
+    }
+  });
+
   it("does not call fetch while demo data is on", async () => {
     vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
     const fetchMock = vi.fn();

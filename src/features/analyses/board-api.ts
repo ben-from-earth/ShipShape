@@ -30,6 +30,7 @@ const STATUS_MESSAGE: Record<number, string> = {
 
 const LOAD_ERROR = "Could not load analyses.";
 const UPDATE_ERROR = "Could not update the analysis.";
+const ORG_ERROR = "Organization error.";
 
 export function analysisStatusMessage(status: number): string | null {
   return STATUS_MESSAGE[status] ?? null;
@@ -198,10 +199,11 @@ async function request<T>(options: {
   }
 
   if (!response.ok) {
-    await readApiError(response);
     throw new BoardApiError(
       response.status,
-      analysisStatusMessage(response.status) ?? options.fallback,
+      (await failureMessage(response)) ??
+        analysisStatusMessage(response.status) ??
+        options.fallback,
     );
   }
 
@@ -219,10 +221,26 @@ async function request<T>(options: {
   return parsed.data;
 }
 
-async function readApiError(response: Response): Promise<void> {
+/**
+ * A missing or unknown `x-org-id` is the same organization error the
+ * other clients show. The header is still sent on every request.
+ */
+async function failureMessage(response: Response): Promise<string | null> {
   try {
-    apiErrorSchema.safeParse(await response.json());
+    const parsed = apiErrorSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return null;
+    }
+    const paths = parsed.data.error.details?.map((detail) => detail.path) ?? [];
+    if (
+      parsed.data.error.code === "invalid_org_id" ||
+      parsed.data.error.code === "unknown_organization" ||
+      paths.includes(ORG_ID_HEADER)
+    ) {
+      return ORG_ERROR;
+    }
   } catch {
-    // The status line still chooses the inline message.
+    return null;
   }
+  return null;
 }
