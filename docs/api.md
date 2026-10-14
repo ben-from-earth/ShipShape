@@ -386,6 +386,28 @@ Opens one repair on a finding. `application/json` body. The handler does not acc
 
 Returns the tenant's analyses.
 
+### GET /api/analyses/summary
+
+Dashboard cards for the tenant. `x-engineer-id` is required. A missing header or an unknown engineer is `401` `unauthenticated`.
+
+`counts` includes every status, using `0` when none are in that status: `unassigned`, `assigned`, `in_progress`, `waiting_for_review`, `in_review`, and `approved`. `overdue` counts analyses whose `dueDate` is before today and whose status is not `approved`. `dueSoon` counts analyses due today through three days from today, excluding approved and overdue analyses. A missing `dueDate` is neither. `avgDaysToApproval` is the mean of `approvedAt - createdAt` in days for approved analyses, or `null` when none are approved. Today is the UTC calendar day.
+
+```json
+{
+  "counts": {
+    "unassigned": 1,
+    "assigned": 0,
+    "in_progress": 2,
+    "waiting_for_review": 0,
+    "in_review": 1,
+    "approved": 3
+  },
+  "overdue": 1,
+  "dueSoon": 2,
+  "avgDaysToApproval": 4.5
+}
+```
+
 ### GET /api/analyses/{id}
 
 Returns one analysis. A missing analysis is `404` `not_found`. `id` must be a UUID.

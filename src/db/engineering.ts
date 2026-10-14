@@ -10,6 +10,7 @@ import {
   analysisCreateSchema,
   analysisSchema,
   analysisStatusSchema,
+  analysisSummarySchema,
   canPerform,
   commentCreateBodySchema,
   ENGINEER_ROLE_RANK,
@@ -21,6 +22,7 @@ import {
   type AnalysisAttachment,
   type AnalysisComment,
   type AnalysisStatus,
+  type AnalysisSummary,
   type Engineer,
 } from "@/schemas";
 
@@ -151,6 +153,22 @@ export async function listAnalyses(db: EngineeringDb): Promise<Analysis[]> {
     ORDER BY created_at DESC, id DESC
   `);
   return rows(result).map((entry) => analysisSchema.parse(analysisFrom(entry)));
+}
+
+/** Counts, due-date cards, and mean days to approval. `today` is a UTC day. */
+export async function summarizeAnalyses(
+  db: EngineeringDb,
+  today = new Date().toISOString().slice(0, 10),
+): Promise<AnalysisSummary> {
+  const result = await db.execute<Record<string, unknown>>(sql`
+    SELECT
+      status,
+      due_date AS "dueDate",
+      created_at AS "createdAt",
+      approved_at AS "approvedAt"
+    FROM engineering_analyses
+  `);
+  return analysisSummarySchema.parse(summarizeRows(rows(result), today));
 }
 
 /**
@@ -396,6 +414,67 @@ function assigneeMeetsAnalystRank(role: unknown): boolean {
     return false;
   }
   return ENGINEER_ROLE_RANK[parsed.data] >= ENGINEER_ROLE_RANK.analyst;
+}
+
+function summarizeRows(
+  entries: Record<string, unknown>[],
+  today: string,
+): AnalysisSummary {
+  const soon = addUtcDays(today, 3);
+  const counts = {
+    unassigned: 0,
+    assigned: 0,
+    in_progress: 0,
+    waiting_for_review: 0,
+    in_review: 0,
+    approved: 0,
+  };
+  let overdue = 0;
+  let dueSoon = 0;
+  let approvalDays = 0;
+  let approvedCount = 0;
+
+  for (const entry of entries) {
+    const status = analysisStatusSchema.parse(entry.status);
+    counts[status] += 1;
+    const dueDate = asDay(entry.dueDate);
+    const isOverdue =
+      status !== "approved" && dueDate !== null && dueDate < today;
+    if (isOverdue) {
+      overdue += 1;
+    }
+    if (
+      status !== "approved" &&
+      !isOverdue &&
+      dueDate !== null &&
+      dueDate >= today &&
+      dueDate <= soon
+    ) {
+      dueSoon += 1;
+    }
+    if (status === "approved" && entry.approvedAt != null) {
+      approvalDays +=
+        (Date.parse(asTimestamp(entry.approvedAt)) -
+          Date.parse(asTimestamp(entry.createdAt))) /
+        86_400_000;
+      approvedCount += 1;
+    }
+  }
+
+  return {
+    counts,
+    overdue,
+    dueSoon,
+    avgDaysToApproval:
+      approvedCount === 0 ? null : approvalDays / approvedCount,
+  };
+}
+
+function addUtcDays(day: string, days: number): string {
+  const [year, month, date] = day.split("-").map(Number);
+  const next = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, date ?? 1));
+  next.setUTCDate(next.getUTCDate() + days);
+  return next.toISOString().slice(0, 10);
 }
 
 function analysisFrom(row: Record<string, unknown>): Record<string, unknown> {
