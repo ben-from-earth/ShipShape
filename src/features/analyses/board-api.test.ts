@@ -4,7 +4,6 @@ import { DEMO_ORGANIZATION_ID, ORG_ID_HEADER } from "@/config/org";
 
 import {
   BoardApiError,
-  ENGINEER_ID_HEADER,
   analysisStatusMessage,
   fetchAnalysisSummary,
   listBoardAnalyses,
@@ -34,16 +33,16 @@ afterEach(() => {
 });
 
 describe("analysis board API", () => {
-  it("lists analyses with the engineer header", async () => {
+  it("lists analyses with the organization header and the session cookie", async () => {
     const fetchMock = vi.fn(async () => jsonResponse([analysis]));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(listBoardAnalyses(engineerId)).resolves.toEqual([analysis]);
+    await expect(listBoardAnalyses()).resolves.toEqual([analysis]);
     expect(fetchMock).toHaveBeenCalledWith("/api/analyses", {
       method: "GET",
+      credentials: "same-origin",
       headers: {
         [ORG_ID_HEADER]: DEMO_ORGANIZATION_ID,
-        [ENGINEER_ID_HEADER]: engineerId,
       },
       body: undefined,
     });
@@ -66,12 +65,12 @@ describe("analysis board API", () => {
     const fetchMock = vi.fn(async () => jsonResponse(summary));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchAnalysisSummary(engineerId)).resolves.toEqual(summary);
+    await expect(fetchAnalysisSummary()).resolves.toEqual(summary);
     expect(fetchMock).toHaveBeenCalledWith("/api/analyses/summary", {
       method: "GET",
+      credentials: "same-origin",
       headers: {
         [ORG_ID_HEADER]: DEMO_ORGANIZATION_ID,
-        [ENGINEER_ID_HEADER]: engineerId,
       },
       body: undefined,
     });
@@ -85,7 +84,7 @@ describe("analysis board API", () => {
         ),
       ),
     );
-    await expect(fetchAnalysisSummary(engineerId)).rejects.toMatchObject({
+    await expect(fetchAnalysisSummary()).rejects.toMatchObject({
       status: 401,
       message: "Sign in as an engineer.",
     });
@@ -99,7 +98,7 @@ describe("analysis board API", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      transitionAnalysis(analysisId, engineerId, { action: "send_back" }),
+      transitionAnalysis(analysisId, { action: "send_back" }),
     ).resolves.toMatchObject({ status: "in_progress" });
     expect(fetchMock).toHaveBeenCalledWith(
       `/api/analyses/${analysisId}/transitions`,
@@ -128,7 +127,7 @@ describe("analysis board API", () => {
           ),
         ),
       );
-      await expect(listBoardAnalyses(engineerId)).rejects.toEqual(
+      await expect(listBoardAnalyses()).rejects.toEqual(
         expect.objectContaining({
           status,
           message: analysisStatusMessage(status),
@@ -157,7 +156,7 @@ describe("analysis board API", () => {
         "fetch",
         vi.fn(async () => jsonResponse(body, 400)),
       );
-      await expect(listBoardAnalyses(engineerId)).rejects.toMatchObject({
+      await expect(listBoardAnalyses()).rejects.toMatchObject({
         status: 400,
         message: "Organization error.",
       });
@@ -169,9 +168,7 @@ describe("analysis board API", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(listBoardAnalyses(engineerId)).rejects.toBeInstanceOf(
-      BoardApiError,
-    );
+    await expect(listBoardAnalyses()).rejects.toBeInstanceOf(BoardApiError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
