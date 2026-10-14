@@ -1,9 +1,7 @@
 import { Card } from "@/components/ui/card";
-import {
-  ANALYSIS_BOARD_STATUSES,
-  ANALYSIS_STATUS_LABEL,
-} from "@/features/analyses/board";
+import { ANALYSIS_STATUS_LABEL } from "@/features/analyses/board";
 import type { AnalysisBoardSummary } from "@/features/analyses/board";
+import { analysisStatusSchema } from "@/schemas";
 
 export function AnalysisBoardCards({
   summary,
@@ -14,7 +12,7 @@ export function AnalysisBoardCards({
     <section className="flex flex-col gap-3">
       <h2 className="text-card-title font-semibold">Analyses</h2>
       <div className="grid gap-3 sm:grid-cols-3">
-        {ANALYSIS_BOARD_STATUSES.map((status) => (
+        {analysisStatusSchema.options.map((status) => (
           <Card
             key={status}
             className="flex flex-col gap-1 bg-paper-raised p-4"

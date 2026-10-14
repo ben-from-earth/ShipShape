@@ -3,13 +3,12 @@ import Link from "next/link";
 import { PageHeading } from "@/components/shell/page-heading";
 import { StatusPill } from "@/components/ui/status-pill";
 import {
-  ANALYSIS_BOARD_STATUSES,
   ANALYSIS_STATUS_LABEL,
   type AnalysisBoardRecord,
 } from "@/features/analyses/board";
 import { ageDays } from "@/features/analyses/timing";
 import { formatFindingDate } from "@/features/findings/display";
-import type { AnalysisStatus } from "@/schemas";
+import { analysisStatusSchema, type AnalysisStatus } from "@/schemas";
 
 import { DueBadge } from "./due-badge";
 
@@ -40,7 +39,7 @@ export function AnalysisBoardList({
           label="All"
           active={status === undefined}
         />
-        {ANALYSIS_BOARD_STATUSES.map((value) => (
+        {analysisStatusSchema.options.map((value) => (
           <FilterLink
             key={value}
             href={`/analyses?status=${value}`}

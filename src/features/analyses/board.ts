@@ -1,7 +1,6 @@
 import {
   ANALYSIS_TRANSITIONS,
   analysisActionSchema,
-  analysisStatusSchema,
   canPerform,
   type Analysis,
   type AnalysisAction,
@@ -11,8 +10,6 @@ import {
   type Engineer,
   type EngineerRole,
 } from "@/schemas";
-
-export const ANALYSIS_BOARD_STATUSES = analysisStatusSchema.options;
 
 export const ANALYSIS_STATUS_LABEL = {
   unassigned: "Unassigned",

@@ -3,13 +3,14 @@ import "server-only";
 import { io } from "next/cache";
 
 import { isDemoData } from "@/config/demo";
-import { idSchema, type AnalysisStatus, type Engineer } from "@/schemas";
-
 import {
-  ANALYSIS_BOARD_STATUSES,
-  type AnalysisBoardRecord,
-  type AnalysisBoardSummary,
-} from "./board";
+  analysisStatusSchema,
+  idSchema,
+  type AnalysisStatus,
+  type Engineer,
+} from "@/schemas";
+
+import { type AnalysisBoardRecord, type AnalysisBoardSummary } from "./board";
 import {
   DEMO_ACTOR,
   DEMO_ANALYSIS_AS_OF,
@@ -68,7 +69,7 @@ export async function analysisBoardSummary(): Promise<{
 }> {
   const { records, asOf } = await listAnalysisBoard();
   const counts = Object.fromEntries(
-    ANALYSIS_BOARD_STATUSES.map((status) => [
+    analysisStatusSchema.options.map((status) => [
       status,
       records.filter((record) => record.analysis.status === status).length,
     ]),

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { ANALYSIS_TRANSITIONS, canPerform } from "@/schemas";
@@ -17,5 +19,14 @@ describe("analysis transitions", () => {
     expect(canAttempt("reviewer", "approve", ren, ada)).toBe(false);
     expect(canAttempt("reviewer", "send_back", ren, ada)).toBe(true);
     expect(movesFrom("in_review")).toEqual(["send_back", "approve"]);
+  });
+
+  it("imports the contract instead of copying it", () => {
+    const source = readFileSync(new URL("./board.ts", import.meta.url), "utf8");
+    expect(source).toContain('from "@/schemas"');
+    expect(source).not.toMatch(/export (const|function) canPerform/);
+    expect(source).not.toMatch(/export const ANALYSIS_TRANSITIONS/);
+    expect(source).not.toMatch(/ENGINEER_ROLE_RANK\s*=/);
+    expect(source).not.toContain("ANALYSIS_BOARD_STATUSES");
   });
 });
