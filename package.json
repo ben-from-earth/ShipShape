@@ -19,7 +19,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:all": "tsx src/db/migrate-all.ts",
     "db:check": "drizzle-kit check",
-    "db:seed": "tsx src/db/seed.ts",
+    "db:seed": "tsx --conditions=react-server src/db/seed.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
