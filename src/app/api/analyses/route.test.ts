@@ -18,7 +18,11 @@ import {
   apiErrorSchema,
   createAnalysisResultSchema,
 } from "@/schemas";
-import { ingestDocument } from "@/server/documents/ingest";
+import {
+  deleteAttachmentFile,
+  maxAttachmentBytes,
+  putAttachment,
+} from "@/storage";
 
 import {
   GET as getAttachment,
@@ -44,15 +48,17 @@ vi.mock("@/db/engineering", () => ({
   transitionAnalysis: vi.fn(),
 }));
 
-vi.mock("@/server/documents/ingest", () => ({
-  ingestDocument: vi.fn(),
+vi.mock("@/storage", () => ({
+  deleteAttachmentFile: vi.fn(),
+  maxAttachmentBytes: vi.fn(),
+  putAttachment: vi.fn(),
 }));
 
 const orgId = "550e8400-e29b-41d4-a716-446655440000";
 const engineerId = "550e8400-e29b-41d4-a716-446655440011";
 const analysisId = "550e8400-e29b-41d4-a716-446655440071";
 const assigneeId = "550e8400-e29b-41d4-a716-446655440012";
-const documentId = "550e8400-e29b-41d4-a716-446655440010";
+const storageKey = "attachments/550e8400-e29b-41d4-a716-446655440082/notes.txt";
 const createdAt = "2026-10-13T12:00:00.000Z";
 
 const execute = vi.fn();
@@ -66,7 +72,9 @@ const comment = vi.mocked(addComment);
 const comments = vi.mocked(listComments);
 const attachment = vi.mocked(addAttachment);
 const attachments = vi.mocked(listAttachments);
-const ingest = vi.mocked(ingestDocument);
+const put = vi.mocked(putAttachment);
+const removeFile = vi.mocked(deleteAttachmentFile);
+const maxBytes = vi.mocked(maxAttachmentBytes);
 
 const engineer = {
   id: engineerId,
@@ -100,7 +108,10 @@ const storedComment = {
 const storedAttachment = {
   id: "550e8400-e29b-41d4-a716-446655440091",
   analysisId,
-  documentId,
+  storageKey,
+  fileName: "notes.txt",
+  contentType: "text/plain",
+  size: 5,
   uploadedBy: engineerId,
   createdAt,
 };
@@ -118,7 +129,6 @@ beforeEach(() => {
   comments.mockReset();
   attachment.mockReset();
   attachments.mockReset();
-  ingest.mockReset();
   createRow.mockResolvedValue(analysis);
   listRows.mockResolvedValue([analysis]);
   getRow.mockResolvedValue(analysis);
@@ -127,15 +137,16 @@ beforeEach(() => {
   comments.mockResolvedValue([storedComment]);
   attachment.mockResolvedValue(storedAttachment);
   attachments.mockResolvedValue([storedAttachment]);
-  ingest.mockResolvedValue({
-    id: documentId,
-    orgId,
-    title: "notes.txt",
-    mediaType: "text/plain",
-    storageKey: `${orgId}/${documentId}`,
-    status: "indexed",
-    chunkCount: 1,
+  put.mockReset();
+  put.mockResolvedValue({
+    storageKey,
+    size: 5,
+    contentType: "text/plain",
   });
+  removeFile.mockReset();
+  removeFile.mockResolvedValue(undefined);
+  maxBytes.mockReset();
+  maxBytes.mockReturnValue(25 * 1024 * 1024);
 });
 
 function jsonRequest(
@@ -339,7 +350,7 @@ describe("analyses API", () => {
     ]);
   });
 
-  it("uploads a document and lists attachments", async () => {
+  it("stores an uploaded file and lists attachments", async () => {
     function upload() {
       const form = new FormData();
       form.set(
@@ -370,16 +381,20 @@ describe("analyses API", () => {
     expect(analysisAttachmentSchema.parse(await created.json())).toEqual(
       storedAttachment,
     );
-    expect(ingest).toHaveBeenCalledWith(
+    expect(put).toHaveBeenCalledWith(
+      orgId,
       expect.objectContaining({
-        orgId,
         fileName: "notes.txt",
-        mediaType: "text/plain",
+        contentType: "text/plain",
+        size: 5,
       }),
     );
     expect(attachment).toHaveBeenCalledWith(db, {
       analysisId,
-      documentId,
+      storageKey,
+      fileName: "notes.txt",
+      contentType: "text/plain",
+      size: 5,
       uploadedBy: engineerId,
     });
     expect(missing.status).toBe(404);
@@ -387,6 +402,44 @@ describe("analyses API", () => {
     expect(analysisAttachmentSchema.array().parse(await listed.json())).toEqual(
       [storedAttachment],
     );
+  });
+
+  it("returns 413 when the file is over the size limit", async () => {
+    maxBytes.mockReturnValue(4);
+    const form = new FormData();
+    form.set("file", new File(["hello"], "notes.txt", { type: "text/plain" }));
+    const response = await postAttachment(
+      new Request(`http://localhost/api/analyses/${analysisId}/attachments`, {
+        method: "POST",
+        headers: headers(),
+        body: form,
+      }),
+      { params: Promise.resolve({ id: analysisId }) },
+    );
+
+    expect(response.status).toBe(413);
+    expect(apiErrorSchema.parse(await response.json()).error.code).toBe(
+      "payload_too_large",
+    );
+    expect(put).not.toHaveBeenCalled();
+    expect(attachment).not.toHaveBeenCalled();
+  });
+
+  it("deletes the stored file when the analysis disappears", async () => {
+    attachment.mockResolvedValueOnce(null);
+    const form = new FormData();
+    form.set("file", new File(["hello"], "notes.txt", { type: "text/plain" }));
+    const response = await postAttachment(
+      new Request(`http://localhost/api/analyses/${analysisId}/attachments`, {
+        method: "POST",
+        headers: headers(),
+        body: form,
+      }),
+      { params: Promise.resolve({ id: analysisId }) },
+    );
+
+    expect(response.status).toBe(404);
+    expect(removeFile).toHaveBeenCalledWith(orgId, storageKey);
   });
 
   it("returns 401 when the engineer header is missing", async () => {

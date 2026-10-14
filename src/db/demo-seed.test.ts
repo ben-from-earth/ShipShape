@@ -8,6 +8,7 @@ import {
   demoAssetGroup,
   demoDocumentChunk,
   demoEmbedding,
+  DEMO_ENGINEER_PASSWORD,
   demoEngineers,
   demoIds,
   demoIssue,
@@ -39,6 +40,7 @@ describe("demo seed", () => {
       "reviewer",
       "approver",
     ]);
+    expect(DEMO_ENGINEER_PASSWORD).toBe("dev-password");
     expect(demoAnalysisPeople.map((person) => person.role).sort()).toEqual([
       "analyst",
       "approver",

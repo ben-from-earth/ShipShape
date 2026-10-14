@@ -11,11 +11,12 @@ import {
   requireAnalysisId,
 } from "@/server/analyses/request";
 import { DocumentRequestError } from "@/server/documents/errors";
+import { MULTIPART_OVERHEAD_BYTES } from "@/server/documents/file";
 import {
-  MAX_DOCUMENT_UPLOAD_BYTES,
-  MULTIPART_OVERHEAD_BYTES,
-} from "@/server/documents/file";
-import { ingestDocument } from "@/server/documents/ingest";
+  deleteAttachmentFile,
+  maxAttachmentBytes,
+  putAttachment,
+} from "@/storage";
 
 export async function GET(
   request: Request,
@@ -56,13 +57,22 @@ export async function POST(
       );
     }
     const upload = await readUpload(request);
-    const document = await ingestDocument({ orgId: tenantId, ...upload });
+    const stored = await putAttachment(tenantId, {
+      fileName: upload.fileName,
+      contentType: upload.contentType,
+      body: Buffer.from(upload.bytes),
+      size: upload.bytes.byteLength,
+    });
     const attachment = await addAttachment(db, {
       analysisId,
-      documentId: document.id,
+      storageKey: stored.storageKey,
+      fileName: upload.fileName,
+      contentType: stored.contentType,
+      size: stored.size,
       uploadedBy: engineer.id,
     });
     if (!attachment) {
+      await deleteAttachmentFile(tenantId, stored.storageKey);
       throw new AnalysisRequestError(
         "not_found",
         "That analysis was not found.",
@@ -73,15 +83,16 @@ export async function POST(
     });
   } catch (error) {
     unstable_rethrow(error);
-    return analysisErrorResponse(error);
+    return analysisErrorResponse(attachmentSizeError(error) ?? error);
   }
 }
 
 async function readUpload(request: Request): Promise<{
   fileName: string;
-  mediaType: string;
+  contentType: string;
   bytes: Uint8Array;
 }> {
+  const max = maxAttachmentBytes();
   const contentLength = request.headers.get("content-length");
   if (contentLength !== null) {
     const length = Number(contentLength);
@@ -91,10 +102,10 @@ async function readUpload(request: Request): Promise<{
         "Content-Length is invalid.",
       );
     }
-    if (length > MAX_DOCUMENT_UPLOAD_BYTES + MULTIPART_OVERHEAD_BYTES) {
+    if (length > max + MULTIPART_OVERHEAD_BYTES) {
       throw new DocumentRequestError(
         "payload_too_large",
-        "The file is larger than 10 MB.",
+        `The file is larger than ${max} bytes.`,
       );
     }
   }
@@ -123,16 +134,27 @@ async function readUpload(request: Request): Promise<{
       { path: "file", message: "A file is required." },
     ]);
   }
-  if (file.size > MAX_DOCUMENT_UPLOAD_BYTES) {
+  if (file.size > max) {
     throw new DocumentRequestError(
       "payload_too_large",
-      "The file is larger than 10 MB.",
+      `The file is larger than ${max} bytes.`,
     );
   }
 
+  const fileName = file.name.trim() || "file";
   return {
-    fileName: file.name,
-    mediaType: file.type,
+    fileName,
+    contentType: file.type.trim() || "application/octet-stream",
     bytes: new Uint8Array(await file.arrayBuffer()),
   };
+}
+
+function attachmentSizeError(error: unknown): DocumentRequestError | undefined {
+  if (
+    error instanceof Error &&
+    error.message.startsWith("Attachment is larger than ")
+  ) {
+    return new DocumentRequestError("payload_too_large", error.message);
+  }
+  return undefined;
 }

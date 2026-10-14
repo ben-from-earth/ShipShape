@@ -51,6 +51,9 @@ export {
 } from "./engineers";
 export type { Engineer, EngineerCreate, EngineerRole } from "./engineers";
 
+export { signInBodySchema } from "./auth";
+export type { SignInBody } from "./auth";
+
 export {
   ANALYSIS_TRANSITIONS,
   analysisActionSchema,

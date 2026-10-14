@@ -10,8 +10,10 @@ import {
   createEngineer,
   listAnalyses,
   listEngineers,
+  setEngineerPassword,
   transitionAnalysis,
 } from "@/db/engineering";
+import { hashPassword } from "@/server/auth/password";
 
 import {
   demoActivity,
@@ -23,6 +25,7 @@ import {
   demoDocument,
   demoDocumentChunk,
   demoEngineeringTitles,
+  DEMO_ENGINEER_PASSWORD,
   demoEngineers,
   demoIssue,
   demoIssueMedia,
@@ -103,10 +106,14 @@ async function seedEngineers(db: SeedDb): Promise<void> {
     directory.map((engineer) => [engineer.email.toLowerCase(), engineer]),
   );
   for (const input of demoEngineers) {
-    if (byEmail.has(input.email.toLowerCase())) {
-      continue;
-    }
-    byEmail.set(input.email.toLowerCase(), await createEngineer(db, input));
+    const existing = byEmail.get(input.email.toLowerCase());
+    const engineer = existing ?? (await createEngineer(db, input));
+    byEmail.set(input.email.toLowerCase(), engineer);
+    await setEngineerPassword(
+      db,
+      engineer.id,
+      await hashPassword(DEMO_ENGINEER_PASSWORD),
+    );
   }
 
   const analyst = byEmail.get("analyst@example.com");
