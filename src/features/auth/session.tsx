@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import {
   createContext,
   useContext,
@@ -21,18 +20,14 @@ export function useEngineer(): Engineer | null {
   return useContext(EngineerContext);
 }
 
-function isPublicPath(pathname: string): boolean {
-  return pathname === "/sign-in" || pathname.startsWith("/sign-in/");
-}
-
 /**
  * Loads the session engineer and sends an expired session to sign-in.
- * A missing cookie is redirected by the proxy before this renders.
+ * This only wraps the app shell. `/sign-in` is outside that shell, and a
+ * missing cookie is redirected by the proxy before this renders.
  * Demo mode stays on its fixture pages without a session.
  */
 export function SessionGate({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const skip = isDemoData() || isPublicPath(pathname);
+  const skip = isDemoData();
   const [engineer, setEngineer] = useState<Engineer | null>(null);
 
   useEffect(() => {
