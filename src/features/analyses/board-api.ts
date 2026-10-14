@@ -4,11 +4,13 @@ import {
   analysisAttachmentSchema,
   analysisCommentSchema,
   analysisSchema,
+  analysisSummarySchema,
   analysisTransitionBodySchema,
   analysisTransitionResultSchema,
   apiErrorSchema,
   commentCreateBodySchema,
   type Analysis,
+  type AnalysisSummary,
   type AnalysisAttachment,
   type AnalysisComment,
   type AnalysisTransitionBody,
@@ -60,6 +62,17 @@ export async function listBoardAnalyses(
     path: "/api/analyses",
     engineerId,
     schema: analysisSchema.array(),
+    fallback: LOAD_ERROR,
+  });
+}
+
+export async function fetchAnalysisSummary(
+  engineerId: string,
+): Promise<AnalysisSummary> {
+  return requestJson({
+    path: "/api/analyses/summary",
+    engineerId,
+    schema: analysisSummarySchema,
     fallback: LOAD_ERROR,
   });
 }

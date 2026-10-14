@@ -29,13 +29,6 @@ export const ANALYSIS_ACTION_LABEL = {
   approve: "Approve",
 } as const satisfies Record<AnalysisAction, string>;
 
-export type AnalysisBoardSummary = {
-  counts: Record<AnalysisStatus, number>;
-  overdue: number;
-  dueThisWeek: number;
-  averageApprovalDays: number | null;
-};
-
 /** One analysis plus the directory rows the page shows beside it. */
 export type AnalysisBoardRecord = {
   analysis: Analysis;

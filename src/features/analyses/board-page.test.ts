@@ -47,7 +47,7 @@ describe("analysis board pages", () => {
       approved: 1,
     });
     expect(summary.overdue).toBe(1);
-    expect(summary.dueThisWeek).toBe(3);
-    expect(summary.averageApprovalDays).toBe(10);
+    expect(summary.dueSoon).toBe(2);
+    expect(summary.avgDaysToApproval).toBe(10);
   });
 });
