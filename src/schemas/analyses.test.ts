@@ -334,6 +334,22 @@ describe("analyses schemas", () => {
       size: 1200,
     });
     expect(
+      analysisAttachmentSchema.parse({
+        ...shared,
+        storageKey:
+          " attachments/550e8400-e29b-41d4-a716-446655440082/calc.pdf ",
+        fileName: " calc.pdf ",
+        contentType: " application/pdf ",
+        size: 1200,
+      }),
+    ).toEqual({
+      ...shared,
+      storageKey: "attachments/550e8400-e29b-41d4-a716-446655440082/calc.pdf",
+      fileName: "calc.pdf",
+      contentType: "application/pdf",
+      size: 1200,
+    });
+    expect(
       analysisAttachmentSchema.safeParse({
         ...shared,
         documentId,

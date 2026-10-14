@@ -43,6 +43,13 @@
       "when": 1791991476218,
       "tag": "0005_engineering_tenant",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791995666183,
+      "tag": "0006_analysis_attachment_storage",
+      "breakpoints": true
     }
   ]
 }

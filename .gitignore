@@ -43,3 +43,6 @@ next-env.d.ts
 
 # local document bytes (see src/server/storage)
 .data/
+
+# per-tenant attachment bytes (see src/storage)
+/storage/

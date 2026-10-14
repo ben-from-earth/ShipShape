@@ -237,9 +237,14 @@ const attachmentRecord = {
   createdAt: timestampSchema,
 };
 
+const attachmentFileName = z.string().trim().min(1).max(255);
+const attachmentContentType = z.string().trim().min(1).max(200);
+const attachmentSize = z.number().int().nonnegative();
+
 /**
- * File hanging off an analysis. Either an existing document (`documentId`)
- * or an uploaded file (`fileName`, `url`, `contentType`, `size`).
+ * File hanging off an analysis. One of an existing document (`documentId`),
+ * an external file (`fileName`, `url`, `contentType`, `size`), or a stored
+ * file (`storageKey`, `fileName`, `contentType`, `size`).
  */
 export const analysisAttachmentSchema = z.union([
   z.strictObject({
@@ -248,10 +253,17 @@ export const analysisAttachmentSchema = z.union([
   }),
   z.strictObject({
     ...attachmentRecord,
-    fileName: z.string().trim().min(1).max(255),
+    fileName: attachmentFileName,
     url: z.url(),
-    contentType: z.string().trim().min(1).max(200),
-    size: z.number().int().nonnegative(),
+    contentType: attachmentContentType,
+    size: attachmentSize,
+  }),
+  z.strictObject({
+    ...attachmentRecord,
+    storageKey: z.string().trim().min(1).max(500),
+    fileName: attachmentFileName,
+    contentType: attachmentContentType,
+    size: attachmentSize,
   }),
 ]);
 

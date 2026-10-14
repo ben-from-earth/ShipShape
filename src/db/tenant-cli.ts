@@ -2,6 +2,7 @@ import { pathToFileURL } from "node:url";
 
 import pg from "pg";
 
+import { storageConfigFromEnv, storageConfigPayload } from "../storage/config";
 import {
   controlMigrationsFolder,
   migrateDatabase,
@@ -32,8 +33,18 @@ async function main(): Promise<void> {
     env: process.env,
     stdin: parsed.urlFlag === "-" ? await readStdin() : undefined,
   });
+  const storage = parsed.storage
+    ? {
+        storageKind: parsed.storage,
+        storageConfigEncrypted: encryptDatabaseUrl(
+          storageConfigPayload(
+            storageConfigFromEnv(parsed.storage, process.env),
+          ),
+        ),
+      }
+    : {};
   const registered = await registerTenant(
-    { slug: parsed.slug, name: parsed.name, databaseUrl },
+    { slug: parsed.slug, name: parsed.name, databaseUrl, ...storage },
     {
       migrateControl: () =>
         migrateDatabase(controlDatabaseUrl(), controlMigrationsFolder),
@@ -70,6 +81,8 @@ async function insertTenant(row: {
   slug: string;
   name: string;
   databaseUrlEncrypted: string;
+  storageKind: "local" | "s3";
+  storageConfigEncrypted: string | null;
 }): Promise<{ id: string } | "exists"> {
   const pool = new pg.Pool({ connectionString: controlDatabaseUrl() });
   try {
@@ -77,6 +90,8 @@ async function insertTenant(row: {
       row.slug,
       row.name,
       row.databaseUrlEncrypted,
+      row.storageKind,
+      row.storageConfigEncrypted,
     ]);
     const id = result.rows[0]?.id;
     if (!id) {
