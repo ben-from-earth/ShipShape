@@ -74,10 +74,18 @@ export function AnalysisBoardDetail({
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  const assigneeName =
-    directory.find((engineer) => engineer.id === assigneeId)?.name ??
-    assigneeId ??
-    "—";
+  function personName(id: string | null): string {
+    if (!id) {
+      return "—";
+    }
+    return (
+      directory.find((engineer) => engineer.id === id)?.name ??
+      (record.assignee?.id === id ? record.assignee.name : null) ??
+      "—"
+    );
+  }
+
+  const assigneeName = personName(assigneeId);
   const moves = movesFrom(status);
 
   return (
@@ -204,10 +212,7 @@ export function AnalysisBoardDetail({
             {comments.map((entry) => (
               <li key={entry.id} className="flex flex-col gap-1">
                 <span className="text-ui font-medium">
-                  {directory.find((engineer) => engineer.id === entry.authorId)
-                    ?.name ??
-                    entry.authorId ??
-                    "—"}
+                  {personName(entry.authorId)}
                 </span>
                 <p className="text-body text-pretty">{entry.body}</p>
               </li>

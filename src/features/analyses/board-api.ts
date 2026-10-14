@@ -6,6 +6,7 @@ import {
   analysisSchema,
   analysisSummarySchema,
   analysisTransitionBodySchema,
+  engineerSchema,
   analysisTransitionResultSchema,
   apiErrorSchema,
   commentCreateBodySchema,
@@ -14,6 +15,7 @@ import {
   type AnalysisAttachment,
   type AnalysisComment,
   type AnalysisTransitionBody,
+  type Engineer,
 } from "@/schemas";
 
 /**
@@ -73,6 +75,15 @@ export async function fetchAnalysisSummary(
     path: "/api/analyses/summary",
     engineerId,
     schema: analysisSummarySchema,
+    fallback: LOAD_ERROR,
+  });
+}
+
+export async function fetchEngineers(engineerId: string): Promise<Engineer[]> {
+  return requestJson({
+    path: "/api/engineers",
+    engineerId,
+    schema: engineerSchema.array(),
     fallback: LOAD_ERROR,
   });
 }
