@@ -50,7 +50,7 @@ const DEMO_ASSIGNEE_ID = "10000000-0000-4000-8000-000000000071";
 /**
  * Detail for one analysis.
  * Demo mode updates the page locally. Otherwise moves, comments, and
- * uploads call the analyses routes with `x-engineer-id`.
+ * uploads call the analyses routes with the session cookie.
  */
 export function AnalysisBoardDetail({
   record,
@@ -268,7 +268,7 @@ export function AnalysisBoardDetail({
 
     setPending(true);
     try {
-      const next = await transitionAnalysis(row.id, actor.id, {
+      const next = await transitionAnalysis(row.id, {
         action,
         ...(action === "assign" ? { assigneeId: assigneeDraft.trim() } : {}),
       });
@@ -307,7 +307,7 @@ export function AnalysisBoardDetail({
 
     setPending(true);
     try {
-      const saved = await addAnalysisComment(row.id, actor.id, body);
+      const saved = await addAnalysisComment(row.id, body);
       setComments((current) => [...current, saved]);
       setComment("");
     } catch (error) {
@@ -338,7 +338,7 @@ export function AnalysisBoardDetail({
 
     setPending(true);
     try {
-      const saved = await uploadAnalysisAttachment(row.id, actor.id, file);
+      const saved = await uploadAnalysisAttachment(row.id, file);
       setAttachments((current) => [...current, saved]);
     } catch (error) {
       setNotice(noticeFrom(error));
@@ -349,7 +349,7 @@ export function AnalysisBoardDetail({
 
   async function reloadAnalysis() {
     try {
-      const fresh = await fetchAnalysis(row.id, actor.id);
+      const fresh = await fetchAnalysis(row.id);
       setStatus(fresh.status);
       setAssigneeId(fresh.assigneeId);
       setApprovedAt(fresh.approvedAt);

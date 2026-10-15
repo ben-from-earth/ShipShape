@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+import { useEngineer } from "@/features/auth/session";
 import {
   BoardApiError,
-  analysisStatusMessage,
   fetchAnalysis,
   fetchAttachments,
   fetchComments,
@@ -12,22 +12,12 @@ import {
   listBoardAnalyses,
 } from "@/features/analyses/board-api";
 import type { AnalysisBoardRecord } from "@/features/analyses/board";
-import {
-  idSchema,
-  type Analysis,
-  type AnalysisStatus,
-  type Engineer,
-  type EngineerRole,
-} from "@/schemas";
+import type { Analysis, AnalysisStatus, Engineer } from "@/schemas";
 
 import { AnalysisBoardDetail } from "./analysis-board-detail";
 import { AnalysisBoardList } from "./analysis-board-list";
-import { EngineerPicker, useDevEngineer } from "./engineer-picker";
-
-const PLACEHOLDER_CREATED_AT = "2026-01-01T00:00:00.000Z";
 
 type ListResult = {
-  engineerId: string;
   status: AnalysisStatus | undefined;
   records: AnalysisBoardRecord[];
   asOf: string;
@@ -35,23 +25,16 @@ type ListResult = {
 };
 
 export function AnalysisBoardLiveList({ status }: { status?: AnalysisStatus }) {
-  const dev = useDevEngineer();
-  const engineerId = dev.id.trim();
-  const signedIn = idSchema.safeParse(engineerId).success;
   const [result, setResult] = useState<ListResult | null>(null);
 
   useEffect(() => {
-    if (!signedIn) {
-      return;
-    }
     let cancel = false;
-    void listBoardAnalyses(engineerId)
+    void listBoardAnalyses()
       .then((analyses) => {
         if (cancel) {
           return;
         }
         setResult({
-          engineerId,
           status,
           asOf: new Date().toISOString(),
           error: null,
@@ -67,7 +50,6 @@ export function AnalysisBoardLiveList({ status }: { status?: AnalysisStatus }) {
           return;
         }
         setResult({
-          engineerId,
           status,
           records: [],
           asOf: "",
@@ -77,35 +59,27 @@ export function AnalysisBoardLiveList({ status }: { status?: AnalysisStatus }) {
     return () => {
       cancel = true;
     };
-  }, [engineerId, signedIn, status]);
+  }, [status]);
 
-  const current =
-    result?.engineerId === engineerId && result.status === status
-      ? result
-      : null;
-  const notice = signedIn
-    ? (current?.error ?? null)
-    : analysisStatusMessage(401);
+  const current = result?.status === status ? result : null;
 
   return (
     <div className="flex flex-col gap-6">
-      <EngineerPicker id={dev.id} role={dev.role} onChange={dev.update} />
-      {notice ? <Notice>{notice}</Notice> : null}
-      {signedIn && !current ? (
-        <p className="text-body text-ink-muted">Loading analyses…</p>
-      ) : signedIn ? (
+      {current?.error ? <Notice>{current.error}</Notice> : null}
+      {current ? (
         <AnalysisBoardList
-          records={current?.records ?? []}
-          asOf={current?.asOf ?? ""}
+          records={current.records}
+          asOf={current.asOf}
           status={status}
         />
-      ) : null}
+      ) : (
+        <p className="text-body text-ink-muted">Loading analyses…</p>
+      )}
     </div>
   );
 }
 
 type DetailResult = {
-  engineerId: string;
   id: string;
   record: AnalysisBoardRecord | null;
   directory: readonly Engineer[];
@@ -114,28 +88,22 @@ type DetailResult = {
 };
 
 export function AnalysisBoardLiveDetail({ id }: { id: string }) {
-  const dev = useDevEngineer();
-  const engineerId = dev.id.trim();
-  const signedIn = idSchema.safeParse(engineerId).success;
+  const actor = useEngineer();
   const [result, setResult] = useState<DetailResult | null>(null);
 
   useEffect(() => {
-    if (!signedIn) {
-      return;
-    }
     let cancel = false;
     void Promise.all([
-      fetchAnalysis(id, engineerId),
-      fetchComments(id, engineerId),
-      fetchAttachments(id, engineerId),
-      fetchEngineers(engineerId),
+      fetchAnalysis(id),
+      fetchComments(id),
+      fetchAttachments(id),
+      fetchEngineers(),
     ])
       .then(([analysis, comments, attachments, engineers]) => {
         if (cancel) {
           return;
         }
         setResult({
-          engineerId,
           id,
           asOf: new Date().toISOString(),
           error: null,
@@ -156,7 +124,6 @@ export function AnalysisBoardLiveDetail({ id }: { id: string }) {
           return;
         }
         setResult({
-          engineerId,
           id,
           record: null,
           directory: [],
@@ -167,41 +134,30 @@ export function AnalysisBoardLiveDetail({ id }: { id: string }) {
     return () => {
       cancel = true;
     };
-  }, [engineerId, signedIn, id]);
+  }, [id]);
 
-  const current =
-    result?.engineerId === engineerId && result.id === id ? result : null;
-  const notice = signedIn
-    ? (current?.error ?? null)
-    : analysisStatusMessage(401);
+  const current = result?.id === id ? result : null;
+
+  if (!current || !actor) {
+    return current?.error ? (
+      <Notice>{current.error}</Notice>
+    ) : (
+      <p className="text-body text-ink-muted">Loading analysis…</p>
+    );
+  }
+  if (current.error || !current.record) {
+    return <Notice>{current.error ?? "Could not load analyses."}</Notice>;
+  }
 
   return (
-    <div className="flex flex-col gap-6">
-      <EngineerPicker id={dev.id} role={dev.role} onChange={dev.update} />
-      {notice ? <Notice>{notice}</Notice> : null}
-      {current?.record ? (
-        <AnalysisBoardDetail
-          key={`${engineerId}:${current.record.analysis.updatedAt}`}
-          record={current.record}
-          asOf={current.asOf}
-          actor={actorFrom(engineerId, dev.role)}
-          directory={current.directory}
-        />
-      ) : signedIn && !current ? (
-        <p className="text-body text-ink-muted">Loading analysis…</p>
-      ) : null}
-    </div>
+    <AnalysisBoardDetail
+      key={`${actor.id}:${current.record.analysis.updatedAt}`}
+      record={current.record}
+      asOf={current.asOf}
+      actor={actor}
+      directory={current.directory}
+    />
   );
-}
-
-function actorFrom(id: string, role: EngineerRole): Engineer {
-  return {
-    id,
-    name: "Engineer",
-    email: "engineer@example.com",
-    role,
-    createdAt: PLACEHOLDER_CREATED_AT,
-  };
 }
 
 function toRecord(analysis: Analysis): AnalysisBoardRecord {
