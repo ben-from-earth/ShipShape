@@ -36,7 +36,7 @@ export function AnalysisRecordView({
         eyebrow="Analysis"
         title={record.code}
         actions={
-          <Button href="/engineering" variant="subtle" size="sm">
+          <Button href="/analyses" variant="subtle" size="sm">
             All analyses
           </Button>
         }

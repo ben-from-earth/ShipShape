@@ -112,8 +112,8 @@ export function AnalysesView({
   return (
     <div className="flex flex-col gap-[18px]">
       <PageHeading
-        eyebrow="Step 03 · Analyze"
-        title="Stress analyses"
+        eyebrow="Analyze"
+        title="Analyses"
         actions={
           <>
             <SegmentedControl

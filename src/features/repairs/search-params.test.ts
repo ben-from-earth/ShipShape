@@ -51,13 +51,13 @@ describe("repairFiltersFromSearchParams", () => {
   it("drops blank values and reads the first entry of a repeated param", () => {
     expect(
       repairFiltersFromSearchParams({
-        status: ["", "open"],
+        status: ["", "draft"],
         findingId: ["not-a-uuid", FINDING_ID],
       }),
-    ).toEqual({ status: "open" });
+    ).toEqual({ status: "draft" });
     expect(
       repairFiltersFromSearchParams({
-        status: ["nope", "completed"],
+        status: ["nope", "complete"],
         findingId: "  ",
       }),
     ).toEqual({});

@@ -44,7 +44,7 @@ const repair = {
   findingId,
   title: "Replace the seal",
   type: "weld" as string | null,
-  status: "open" as const,
+  status: "draft" as const,
   createdBy: actorId as string | null,
   createdAt,
   updatedAt: createdAt,
@@ -95,7 +95,7 @@ describe("POST /api/findings/[id]/repairs", () => {
   it("returns the repair from createRepair", async () => {
     const response = await call(
       repairRequest({
-        body: { title: "Replace the seal", type: "weld", status: "open" },
+        body: { title: "Replace the seal", type: "weld", status: "draft" },
       }),
     );
     const body = createRepairResultSchema.parse(await response.json());
@@ -109,7 +109,7 @@ describe("POST /api/findings/[id]/repairs", () => {
       actorId,
       title: "Replace the seal",
       type: "weld",
-      status: "open",
+      status: "draft",
     });
   });
 

@@ -169,7 +169,7 @@ function demoCreated(
     findingId,
     title: fields.title,
     type: fields.type ?? null,
-    status: fields.status ?? "open",
+    status: fields.status ?? "draft",
     createdBy: null,
     createdAt,
     updatedAt: createdAt,

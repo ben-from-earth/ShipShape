@@ -12,8 +12,9 @@ import { ENGINEER_ROLE_RANK, type EngineerRole } from "./engineers";
  * Analyses Zod contract. This file is the only place those schemas are
  * defined. It imports no database module, so client code can use it.
  *
- * An analysis stands on its own. It is not opened from a repair, and it
- * does not carry a margin, load case, or method.
+ * Public board contract for the leftover standalone analysis API.
+ * Repair-scoped analyses (the product path) use `StoredAnalysis` in
+ * `src/features/analyses/stored.ts` and are created from a repair.
  */
 
 export const analysisStatusSchema = z.enum([

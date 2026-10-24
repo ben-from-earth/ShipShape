@@ -1,44 +1,33 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { AnalysisBoardList } from "@/components/analyses/analysis-board-list";
-import { AnalysisBoardLiveList } from "@/components/analyses/analysis-board-live";
-import { isDemoData } from "@/config/demo";
-import { listAnalysisBoard } from "@/features/analyses/board-page";
-import { analysisStatusSchema, type AnalysisStatus } from "@/schemas";
+import { AnalysesView } from "@/components/analyses/analyses-view";
+import { getAnalysesPage } from "@/features/analyses/data";
+import { DEFAULT_ANALYSIS_ID } from "@/features/analyses/fixtures";
 
 export const metadata: Metadata = {
   title: "Analyses",
 };
 
-export default function AnalysesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ status?: string | string[] }>;
-}) {
+export default function AnalysesPage() {
   return (
     <Suspense
       fallback={<p className="text-body text-ink-muted">Loading analyses…</p>}
     >
-      <AnalysesLoader searchParams={searchParams} />
+      <AnalysesLoader />
     </Suspense>
   );
 }
 
-async function AnalysesLoader({
-  searchParams,
-}: {
-  searchParams: Promise<{ status?: string | string[] }>;
-}) {
-  const params = await searchParams;
-  const raw = Array.isArray(params.status) ? params.status[0] : params.status;
-  const status = analysisStatusSchema.options.find((value) => value === raw);
-  if (!isDemoData()) {
-    return <AnalysisBoardLiveList status={status} />;
-  }
-  const { records, asOf } = await listAnalysisBoard(
-    status ? { status: status satisfies AnalysisStatus } : undefined,
-  );
+async function AnalysesLoader() {
+  const { records, asOf, marginThreshold } = await getAnalysesPage();
 
-  return <AnalysisBoardList records={records} asOf={asOf} status={status} />;
+  return (
+    <AnalysesView
+      records={records}
+      defaultSelectedId={DEFAULT_ANALYSIS_ID}
+      marginThreshold={marginThreshold}
+      asOf={asOf}
+    />
+  );
 }

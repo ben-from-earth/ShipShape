@@ -102,14 +102,14 @@ export function DashboardView({
         title="Dashboard"
         actions={
           <>
-            <Button href="/findings" variant="outline" size="sm">
-              Findings
+            <Button href="/issues" variant="outline" size="sm">
+              Issues
             </Button>
             <Button href="/repairs" variant="outline" size="sm">
               Repairs
             </Button>
-            <Button href="/findings/new" variant="dark" size="sm">
-              New finding
+            <Button href="/issues/new" variant="dark" size="sm">
+              New issue
             </Button>
             <SegmentedControl
               label="Reporting period"
@@ -288,7 +288,7 @@ export function DashboardView({
       <div className="grid gap-[18px] lg:grid-cols-3">
         <Card className="flex flex-col gap-3.5 px-5 py-[18px]">
           <PanelTitle
-            title="Findings by zone"
+            title="Issues by zone"
             action={
               <Link
                 href="/docs"
@@ -439,7 +439,7 @@ export function DashboardView({
             Overdue, negative margin, or asset down
           </p>
           <Link
-            href="/engineering"
+            href="/analyses"
             className="ml-auto text-[12.5px] whitespace-nowrap text-navy no-underline hover:text-accent"
           >
             All analyses
@@ -480,7 +480,7 @@ export function DashboardView({
                 >
                   <th scope="row" className="px-5 py-[11px] font-normal">
                     <Link
-                      href={`/engineering#${row.id}`}
+                      href={`/analyses/${row.id}`}
                       className="font-mono text-xs text-ink no-underline hover:text-accent"
                     >
                       {row.id}
@@ -488,7 +488,7 @@ export function DashboardView({
                   </th>
                   <td className="max-w-[280px] truncate px-3 py-[11px]">
                     <Link
-                      href={`/engineering#${row.id}`}
+                      href={`/analyses/${row.id}`}
                       className="text-ink no-underline hover:text-accent"
                     >
                       {row.title}

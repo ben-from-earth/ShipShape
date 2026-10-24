@@ -8,7 +8,7 @@ import { repairCreateSchema, repairSchema } from "./repair";
  * `title`, `type`, and `status` are the `createRepair` inputs a client
  * sends. `findingId` is the path `id`. `orgId` comes from `x-org-id`.
  * `actorId` is not a field. `type` and `status` may be omitted; `status`
- * defaults to `open` inside `createRepair`.
+ * defaults to `draft` inside `createRepair`.
  */
 export const createRepairFieldsSchema = z.strictObject({
   title: repairCreateSchema.shape.title,

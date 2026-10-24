@@ -11,24 +11,24 @@ import type { FindingSearchParams } from "@/features/findings/search-params";
 import type { FindingRecord } from "@/schemas";
 
 export const metadata: Metadata = {
-  title: "Findings",
+  title: "Issues",
 };
 
-export default function FindingsPage({
+export default function IssuesPage({
   searchParams,
 }: {
   searchParams: Promise<FindingSearchParams>;
 }) {
   return (
     <Suspense
-      fallback={<p className="text-body text-ink-muted">Loading findings…</p>}
+      fallback={<p className="text-body text-ink-muted">Loading issues…</p>}
     >
-      <FindingsLoader searchParams={searchParams} />
+      <IssuesLoader searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function FindingsLoader({
+async function IssuesLoader({
   searchParams,
 }: {
   searchParams: Promise<FindingSearchParams>;

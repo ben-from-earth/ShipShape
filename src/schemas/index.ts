@@ -11,21 +11,6 @@ export {
 } from "./common";
 
 export {
-  damagePhotoCreateSchema,
-  damagePhotoSchema,
-  damageReportCreateSchema,
-  damageReportSchema,
-  damageReportStatusSchema,
-} from "./damage-report";
-export type {
-  DamagePhoto,
-  DamagePhotoCreate,
-  DamageReport,
-  DamageReportCreate,
-  DamageReportStatus,
-} from "./damage-report";
-
-export {
   repairAssetSchema,
   repairCreateSchema,
   repairFindingSchema,

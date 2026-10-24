@@ -8,24 +8,24 @@ import { listRepairViews } from "@/features/repairs/read";
 import { idSchema } from "@/schemas";
 
 export const metadata: Metadata = {
-  title: "Finding",
+  title: "Issue",
 };
 
-export default function FindingPage({
+export default function IssuePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <Suspense
-      fallback={<p className="text-body text-ink-muted">Loading finding…</p>}
+      fallback={<p className="text-body text-ink-muted">Loading issue…</p>}
     >
-      <FindingLoader params={params} />
+      <IssueLoader params={params} />
     </Suspense>
   );
 }
 
-async function FindingLoader({ params }: { params: Promise<{ id: string }> }) {
+async function IssueLoader({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!idSchema.safeParse(id).success) {
     notFound();

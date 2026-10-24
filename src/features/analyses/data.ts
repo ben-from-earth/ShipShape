@@ -10,5 +10,5 @@ export { createAnalysis, getAnalysis } from "./write";
 export type {
   AnalysisStore,
   CreateAnalysisInput,
-  CreateAnalysisResult,
+  CreateStoredAnalysisResult,
 } from "./write";

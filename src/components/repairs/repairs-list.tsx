@@ -75,7 +75,7 @@ export function RepairsList({
         <ul className="flex flex-col border border-line bg-surface">
           <li className="hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.3fr)_auto_auto] gap-3 border-b border-line px-4 py-2 text-ui text-ink-muted sm:grid">
             <span>Code</span>
-            <span>Finding</span>
+            <span>Issue</span>
             <span>Asset</span>
             <span>Status</span>
             <span>Created</span>

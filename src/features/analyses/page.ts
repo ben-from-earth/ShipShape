@@ -13,7 +13,7 @@ import { findDemoAnalysis } from "./page-demo";
 import type { StoredAnalysis } from "./stored";
 
 /**
- * One analysis for `/analyses/[id]`.
+ * One repair-scoped analysis for `/analyses/[id]`.
  * Demo rows are used only when `isDemoData()` is on. With the flag off
  * this returns null, including when the database is unset.
  */

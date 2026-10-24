@@ -23,7 +23,7 @@ const repair = {
   findingId,
   title: "Replace the seal",
   type: "weld" as string | null,
-  status: "open" as const,
+  status: "draft" as const,
   createdBy: actorId as string | null,
   createdAt,
   updatedAt: createdAt,
@@ -42,7 +42,7 @@ describe("createFindingRepair", () => {
     const result = await createFindingRepair({
       orgId,
       findingId,
-      body: { title: "Replace the seal", type: "weld", status: "open" },
+      body: { title: "Replace the seal", type: "weld", status: "draft" },
       actorId,
     });
 
@@ -52,7 +52,7 @@ describe("createFindingRepair", () => {
       actorId,
       title: "Replace the seal",
       type: "weld",
-      status: "open",
+      status: "draft",
     });
     expect(result).toEqual(repair);
   });

@@ -3,9 +3,13 @@ import { REPAIR_STATUS_LABEL } from "@/features/repairs/display";
 import type { RepairStatus } from "@/schemas";
 
 const TONE = {
-  open: "outline",
+  draft: "outline",
+  written: "outline",
   in_review: "warn",
-  completed: "ok",
+  approved: "ok",
+  awaiting_analysis: "warn",
+  analysis_approved: "ok",
+  complete: "ok",
 } as const satisfies Record<RepairStatus, "outline" | "warn" | "ok">;
 
 export function RepairStatusPill({ status }: { status: RepairStatus }) {

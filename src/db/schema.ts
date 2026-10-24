@@ -218,7 +218,7 @@ export const issueCodeSeq = pgSequence("issue_code_seq", {
 });
 
 /**
- * Field report of damage. The product calls this a damage report; the row
+ * Field report of damage. The product calls this an issue; the row
  * stays one issue so stage history can follow it from discovery to close.
  * `code` is a global human id (`ISS-1001`). Allocate new values with
  * `nextIssueCode` in `src/db/issue-code.ts`, not by picking the next number
@@ -301,7 +301,7 @@ export const repairs = pgTable(
     title: text("title").notNull(),
     /** Free label for the kind of work, for example "patch" or "replacement". */
     type: text("type"),
-    status: repairStatus("status").notNull().default("open"),
+    status: repairStatus("status").notNull().default("draft"),
     createdBy: uuid("created_by").references(() => users.id),
     ...timestamps(),
   },

@@ -1,16 +1,26 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
+import { CreateAnalysis } from "@/components/analyses/create-analysis";
 import { PageHeading } from "@/components/shell/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { StatusPill } from "@/components/ui/status-pill";
+import type { AnalysisRecord } from "@/features/analyses/types";
+import { STATUS_LABEL } from "@/features/analyses/derive";
 import { formatFindingDate } from "@/features/findings/display";
 import { repairAssetLabel } from "@/features/repairs/display";
 import type { Repair } from "@/schemas";
 
 import { RepairStatusPill } from "./status-pill";
 
-export function RepairDetail({ record }: { record: Repair }) {
+export function RepairDetail({
+  record,
+  analyses,
+}: {
+  record: Repair;
+  analyses: readonly AnalysisRecord[];
+}) {
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeading
@@ -32,9 +42,9 @@ export function RepairDetail({ record }: { record: Repair }) {
           <Fact label="Type">
             <span className="text-body">{record.type ?? "—"}</span>
           </Fact>
-          <Fact label="Finding">
+          <Fact label="Issue">
             <Link
-              href={`/findings/${record.finding.id}`}
+              href={`/issues/${record.finding.id}`}
               className="font-mono text-ui text-ink no-underline hover:text-accent"
             >
               {record.finding.code}
@@ -59,6 +69,35 @@ export function RepairDetail({ record }: { record: Repair }) {
             </span>
           </Fact>
         </dl>
+      </Card>
+
+      <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">
+        <CreateAnalysis repairId={record.id} />
+        {analyses.length === 0 ? (
+          <p className="text-body text-ink-muted">No analyses yet.</p>
+        ) : (
+          <ul className="flex flex-col border border-line bg-surface">
+            {analyses.map((analysis) => (
+              <li
+                key={analysis.id}
+                className="border-b border-line-faint last:border-b-0"
+              >
+                <Link
+                  href={`/analyses/${analysis.id}`}
+                  className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-ink no-underline hover:bg-sunken"
+                >
+                  <span className="min-w-0 flex-1 truncate text-body">
+                    {analysis.title}
+                  </span>
+                  <StatusPill
+                    label={STATUS_LABEL[analysis.status]}
+                    tone="outline"
+                  />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
     </div>
   );

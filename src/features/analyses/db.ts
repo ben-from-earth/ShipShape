@@ -26,7 +26,7 @@ export type AnalysesPage = {
 };
 
 /**
- * One clock read and one tenant lookup for the engineering page.
+ * One clock read and one tenant lookup for the analyses page.
  * With no `DATABASE_URL` this returns the demo rows and the fixture day.
  */
 export async function getAnalysesPage(): Promise<AnalysesPage> {
