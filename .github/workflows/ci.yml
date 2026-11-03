@@ -24,32 +24,29 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-          cache: pnpm
+          cache: npm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Lint
-        run: pnpm lint
+        run: npm run lint
 
       - name: Check formatting
-        run: pnpm format:check
+        run: npm run format:check
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: npm run typecheck
 
       - name: Test
-        run: pnpm test
+        run: npm test
 
       - name: Build
-        run: pnpm build
+        run: npm run build
 
   migrations:
     name: Check and apply migrations
@@ -77,17 +74,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
-          cache: pnpm
+          cache: npm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Install psql
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -95,8 +89,8 @@ jobs:
       - name: Check migrations match the schema
         run: |
           set -euo pipefail
-          pnpm db:check
-          pnpm exec drizzle-kit generate --name ci_drift
+          npm run db:check
+          npx drizzle-kit generate --name ci_drift
           if [ -n "$(git status --porcelain)" ]; then
             echo "drizzle-kit generate produced a diff. Commit the updated migration."
             git status --porcelain
@@ -105,56 +99,56 @@ jobs:
           fi
 
       - name: Apply migrations
-        run: pnpm db:migrate
+        run: npm run db:migrate
 
       - name: Search documents against pgvector
-        run: pnpm test src/server/documents/search.integration.test.ts
+        run: npm test -- src/server/documents/search.integration.test.ts
         env:
           SHIPSHAPE_INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shipshape
           REQUIRE_PGVECTOR_INTEGRATION: "1"
 
       - name: Test database-backed readers
-        run: pnpm exec vitest run src/db/readers.integration.test.ts
+        run: npm test -- src/db/readers.integration.test.ts
         env:
           RUN_DB_INTEGRATION: "1"
 
       - name: Test finding readers
-        run: pnpm exec vitest run src/features/findings/readers.integration.test.ts
+        run: npm test -- src/features/findings/readers.integration.test.ts
         env:
           RUN_DB_INTEGRATION: "1"
 
       - name: Test stage advances
-        run: pnpm exec vitest run src/features/findings/advance-stage.integration.test.ts
+        run: npm test -- src/features/findings/advance-stage.integration.test.ts
         env:
           RUN_DB_INTEGRATION: "1"
 
       - name: Test repair writes
-        run: pnpm exec vitest run src/features/repairs/data.integration.test.ts
+        run: npm test -- src/features/repairs/data.integration.test.ts
         env:
           RUN_DB_INTEGRATION: "1"
 
       - name: Test analysis writes
-        run: pnpm exec vitest run src/features/analyses/write.integration.test.ts
+        run: npm test -- src/features/analyses/write.integration.test.ts
         env:
           RUN_DB_INTEGRATION: "1"
 
       - name: Test tenant engineering writes
-        run: pnpm exec vitest run src/db/engineering.integration.test.ts
+        run: npm test -- src/db/engineering.integration.test.ts
         env:
           RUN_DB_INTEGRATION: "1"
 
       - name: Test demo seed
-        run: pnpm exec vitest run src/db/seed.integration.test.ts
+        run: npm test -- src/db/seed.integration.test.ts
         env:
           RUN_DB_INTEGRATION: "1"
 
       - name: Prove concurrent issue codes are distinct
-        run: pnpm exec vitest run src/db/issue-code.integration.test.ts
+        run: npm test -- src/db/issue-code.integration.test.ts
         env:
           RUN_DB_INTEGRATION: "1"
 
       - name: Prove issue severity backfill
-        run: pnpm exec vitest run src/db/severity.integration.test.ts
+        run: npm test -- src/db/severity.integration.test.ts
         env:
           RUN_DB_INTEGRATION: "1"
 

@@ -321,7 +321,7 @@ export async function readFindingMedia(
 
 /**
  * Live finding list. With no `DATABASE_URL` this returns the demo
- * finding so `pnpm dev` and `pnpm build` still render. `io()` keeps
+ * finding so `npm run dev` and `npm run build` still render. `io()` keeps
  * either path out of the static shell.
  */
 export async function listFindings(

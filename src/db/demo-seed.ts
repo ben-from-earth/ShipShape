@@ -24,7 +24,7 @@ import {
 /**
  * Sample rows for local development. The T-45 group is demo data.
  * `asset_type` is a free label; nothing in the schema is aircraft-specific.
- * Fixed ids make `pnpm db:seed` safe to run again.
+ * Fixed ids make `npm run db:seed` safe to run again.
  */
 export const demoIds = {
   organization: "10000000-0000-4000-8000-000000000001",
@@ -246,7 +246,7 @@ const demoChunkText =
 /** Shared local password for every seeded engineer. Not for production. */
 export const DEMO_ENGINEER_PASSWORD = "dev-password";
 
-/** Directory rows created by `pnpm db:seed` through `createEngineer`. */
+/** Directory rows created by `npm run db:seed` through `createEngineer`. */
 export const demoEngineers = [
   { name: "Demo Analyst", email: "analyst@example.com", role: "analyst" },
   { name: "Demo Reviewer", email: "reviewer@example.com", role: "reviewer" },

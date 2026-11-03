@@ -121,7 +121,7 @@ Failures use `apiErrorSchema`:
 
 ## Tests
 
-`pnpm test` mocks `embed()` and the database. It does not read `DATABASE_URL` and does not connect to Neon.
+`npm run test` mocks `embed()` and the database. It does not read `DATABASE_URL` and does not connect to Neon.
 
 The pgvector integration test is skipped unless `SHIPSHAPE_INTEGRATION_DATABASE_URL` is set. That URL must be a normal Postgres connection string, not a `neon.tech` host. CI sets it to the `pgvector/pgvector:pg18` service after `0000_initial` is applied, and runs `src/server/documents/search.integration.test.ts` there. The test still mocks the embedding model and checks cosine order, organization scope, snippets, and a full page for a small organization beside a larger one against the real `vector(384)` column.
 
@@ -378,7 +378,7 @@ Opens one repair on a finding. `application/json` body. The handler does not acc
 
 Engineer sign-in. `x-org-id` selects the tenant database. Passwords are hashed with Node `scrypt`. The session cookie is `engineer_session`: `HttpOnly`, `Secure`, `SameSite=Lax`, and it expires in 30 days. The database stores the SHA-256 hash of the token, not the token.
 
-`pnpm db:seed` sets the password `dev-password` on `analyst@example.com`, `reviewer@example.com`, and `approver@example.com`. That password is for local development only.
+`npm run db:seed` sets the password `dev-password` on `analyst@example.com`, `reviewer@example.com`, and `approver@example.com`. That password is for local development only.
 
 Outside production (`NODE_ENV !== 'production'`), analysis routes still accept `x-engineer-id` when the session cookie is absent. Production ignores that header.
 

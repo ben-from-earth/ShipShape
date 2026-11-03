@@ -28,7 +28,7 @@ export async function readDashboard(
 
 /**
  * Live dashboard. With no `DATABASE_URL` this returns the demo model so
- * `pnpm dev` and `pnpm build` still render. `io()` keeps either path out
+ * `npm run dev` and `npm run build` still render. `io()` keeps either path out
  * of the static shell, so a configured database is read per request.
  */
 export async function getDashboard(
