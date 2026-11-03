@@ -7,20 +7,19 @@ export default function Home() {
       <Wordmark />
       <h1 className="text-h1 font-semibold">Damage repair workflows</h1>
       <p className="text-lead text-ink-3">
-        Field technicians report damage with photos. A repair is opened from
-        that report, engineering reviews stress and strength, and a reviewer
-        approves the result.
+        Field technicians report an issue with photos. A repair engineer picks
+        it up, and an analysis can be generated from that repair.
       </p>
       <div className="flex flex-wrap gap-3">
         <Button href="/dashboard">Dashboard</Button>
-        <Button href="/engineering" variant="outline">
-          Engineering
+        <Button href="/issues" variant="outline">
+          Issues
         </Button>
-        <Button href="/docs" variant="subtle">
-          Docs
+        <Button href="/repairs" variant="subtle">
+          Repairs
         </Button>
-        <Button href="/tools" variant="dark">
-          Tools
+        <Button href="/analyses" variant="dark">
+          Analyses
         </Button>
       </div>
     </main>

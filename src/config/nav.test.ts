@@ -17,7 +17,7 @@ describe("crumbsForPath", () => {
     expect(crumbsForPath("/engineering").map((crumb) => crumb.label)).toEqual([
       "Asset group",
       DEMO_ASSET_GROUP_NAME,
-      "Engineering",
+      "Analyses",
     ]);
     expect(crumbsForPath("/docs/search").map((crumb) => crumb.label)).toEqual([
       "Asset group",
@@ -27,22 +27,27 @@ describe("crumbsForPath", () => {
     expect(
       crumbsForPath("/tools/layer-loads").map((crumb) => crumb.label),
     ).toEqual(["Asset group", DEMO_ASSET_GROUP_NAME, "Tools"]);
+    expect(crumbsForPath("/issues").map((crumb) => crumb.label)).toEqual([
+      "Asset group",
+      DEMO_ASSET_GROUP_NAME,
+      "Issues",
+    ]);
+    expect(crumbsForPath("/issues/new").map((crumb) => crumb.label)).toEqual([
+      "Asset group",
+      DEMO_ASSET_GROUP_NAME,
+      "Issues",
+      "New issue",
+    ]);
+    expect(
+      crumbsForPath("/issues/10000000-0000-4000-8000-000000000031").map(
+        (crumb) => crumb.label,
+      ),
+    ).toEqual(["Asset group", DEMO_ASSET_GROUP_NAME, "Issues", "Issue"]);
     expect(crumbsForPath("/findings").map((crumb) => crumb.label)).toEqual([
       "Asset group",
       DEMO_ASSET_GROUP_NAME,
-      "Findings",
+      "Issues",
     ]);
-    expect(crumbsForPath("/findings/new").map((crumb) => crumb.label)).toEqual([
-      "Asset group",
-      DEMO_ASSET_GROUP_NAME,
-      "Findings",
-      "New finding",
-    ]);
-    expect(
-      crumbsForPath("/findings/10000000-0000-4000-8000-000000000031").map(
-        (crumb) => crumb.label,
-      ),
-    ).toEqual(["Asset group", DEMO_ASSET_GROUP_NAME, "Findings", "Finding"]);
     expect(crumbsForPath("/repairs").map((crumb) => crumb.label)).toEqual([
       "Asset group",
       DEMO_ASSET_GROUP_NAME,
@@ -73,9 +78,9 @@ describe("crumbsForPath", () => {
         "/engineering",
         "/docs",
         "/tools",
-        "/findings",
-        "/findings/new",
-        "/findings/10000000-0000-4000-8000-000000000031",
+        "/issues",
+        "/issues/new",
+        "/issues/10000000-0000-4000-8000-000000000031",
         "/repairs",
         "/repairs/10000000-0000-4000-8000-000000000041",
         "/analyses/10000000-0000-4000-8000-000000000051",
@@ -90,12 +95,13 @@ describe("crumbsForPath", () => {
 
 describe("isNavActive", () => {
   it("matches the section and its nested routes", () => {
-    expect(isNavActive("/engineering", "/engineering")).toBe(true);
-    expect(isNavActive("/engineering/analyses", "/engineering")).toBe(true);
-    expect(isNavActive("/docs", "/engineering")).toBe(false);
+    expect(isNavActive("/analyses", "/analyses")).toBe(true);
+    expect(isNavActive("/engineering", "/analyses")).toBe(true);
+    expect(isNavActive("/docs", "/analyses")).toBe(false);
     expect(isNavActive("/dashboard", "/docs")).toBe(false);
-    expect(isNavActive("/findings", "/findings")).toBe(true);
-    expect(isNavActive("/findings/new", "/findings")).toBe(true);
+    expect(isNavActive("/issues", "/issues")).toBe(true);
+    expect(isNavActive("/issues/new", "/issues")).toBe(true);
+    expect(isNavActive("/findings/new", "/issues")).toBe(true);
     expect(isNavActive("/repairs", "/repairs")).toBe(true);
     expect(
       isNavActive("/repairs/10000000-0000-4000-8000-000000000041", "/repairs"),
@@ -107,23 +113,11 @@ describe("isNavActive", () => {
       ),
     ).toBe(true);
     expect(
-      isNavActive(
-        "/analyses/10000000-0000-4000-8000-000000000051",
-        "/engineering",
-      ),
+      isNavActive("/analyses/10000000-0000-4000-8000-000000000051", "/issues"),
     ).toBe(false);
+    expect(isNavActive("/repairs", "/issues")).toBe(false);
     expect(
-      isNavActive(
-        "/analyses/10000000-0000-4000-8000-000000000051",
-        "/findings",
-      ),
-    ).toBe(false);
-    expect(isNavActive("/repairs", "/findings")).toBe(false);
-    expect(
-      isNavActive(
-        "/findings/10000000-0000-4000-8000-000000000031",
-        "/findings",
-      ),
+      isNavActive("/issues/10000000-0000-4000-8000-000000000031", "/issues"),
     ).toBe(true);
   });
 });

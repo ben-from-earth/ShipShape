@@ -82,7 +82,7 @@ describe.skipIf(!enabled)("repairs data", () => {
       findingId: finding,
       title: "Patch the cracked fitting",
       type: "patch",
-      status: "open",
+      status: "draft",
       createdBy: actor,
       finding: { id: finding, code: `FND-${finding.slice(-4)}` },
       asset: {
@@ -202,7 +202,7 @@ describe.skipIf(!enabled)("repairs data", () => {
         findingId: firstFinding,
         actorId: actor,
         title: "Open patch",
-        status: "open",
+        status: "draft",
       },
       db,
     );
@@ -213,7 +213,7 @@ describe.skipIf(!enabled)("repairs data", () => {
         actorId: actor,
         title: "Finished replacement",
         type: "replacement",
-        status: "completed",
+        status: "complete",
       },
       db,
     );
@@ -278,7 +278,7 @@ describe.skipIf(!enabled)("repairs data", () => {
       openRepair.repair.id,
     ]);
 
-    const byStatus = await listRepairs(org, { status: "completed" }, db);
+    const byStatus = await listRepairs(org, { status: "complete" }, db);
     expect(byStatus.map((repair) => repair.id)).toEqual([doneRepair.repair.id]);
 
     expect(await listRepairs(other, undefined, db)).toEqual([hidden.repair]);
@@ -339,7 +339,7 @@ describe.skipIf(!enabled)("repairs data", () => {
 
     expect(result).toMatchObject({
       kind: "ok",
-      repair: { findingId: finding, createdBy: null, status: "open" },
+      repair: { findingId: finding, createdBy: null, status: "draft" },
     });
     if (result.kind !== "ok") {
       return;

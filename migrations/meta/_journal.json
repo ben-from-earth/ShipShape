@@ -57,6 +57,13 @@
       "when": 1792003632296,
       "tag": "0007_engineer_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792870447424,
+      "tag": "0008_repair_statuses",
+      "breakpoints": true
     }
   ]
 }

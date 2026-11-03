@@ -38,8 +38,8 @@ export function AppHeader() {
       <NavPills />
       <Breadcrumb items={crumbs} />
       <div className="ml-auto flex items-center gap-2">
-        <Button href="/findings/new" variant="dark" size="sm">
-          New finding
+        <Button href="/issues/new" variant="dark" size="sm">
+          New issue
         </Button>
         {engineer ? (
           <>

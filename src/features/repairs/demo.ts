@@ -25,7 +25,7 @@ const DEMO_REPAIRS: readonly Repair[] = [
     findingId: DEMO_FINDING_ID,
     title: "Canopy sill doubler",
     type: "doubler",
-    status: "open",
+    status: "draft",
     createdBy: null,
     createdAt: DEMO_CREATED_AT,
     updatedAt: DEMO_CREATED_AT,

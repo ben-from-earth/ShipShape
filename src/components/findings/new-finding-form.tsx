@@ -156,7 +156,7 @@ export function NewFindingForm() {
         draft(),
         photos.map((photo) => photo.file),
       );
-      router.push(`/findings/${result.id}`);
+      router.push(`/issues/${result.id}`);
     } catch (caught) {
       setSubmitError(visibleError(caught));
       setPending(false);
@@ -245,7 +245,7 @@ export function NewFindingForm() {
       </Card>
 
       <Card className="flex flex-col gap-4 bg-paper-raised p-4 sm:p-6">
-        <Eyebrow>Finding</Eyebrow>
+        <Eyebrow>Issue</Eyebrow>
         <Field
           label="Description"
           htmlFor="finding-description"

@@ -106,7 +106,7 @@ export type CreateAnalysisInput = {
   revision?: string;
 };
 
-export type CreateAnalysisResult =
+export type CreateStoredAnalysisResult =
   { kind: "ok"; analysis: StoredAnalysis } | { kind: "not_found" };
 
 /**
@@ -131,7 +131,7 @@ export type CreateAnalysisResult =
 export async function createAnalysis(
   input: CreateAnalysisInput,
   db: AnalysisStore = getDb(),
-): Promise<CreateAnalysisResult> {
+): Promise<CreateStoredAnalysisResult> {
   if (
     !idSchema.safeParse(input.orgId).success ||
     !idSchema.safeParse(input.repairId).success

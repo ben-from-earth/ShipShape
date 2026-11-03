@@ -29,8 +29,8 @@ The scope is optional. Use a lowercase type and the imperative mood, the way the
 | `refactor` | A code change that keeps behavior the same |
 
 ```text
-feat(repairs): accept a repair opened from a damage report
-fix(schemas): reject a damage report with no photos
+feat(repairs): accept a repair opened from an issue
+fix(schemas): reject an issue with no photos
 docs: describe the local embedding contract
 ```
 
@@ -62,4 +62,4 @@ Put `DATABASE_URL` in `.env.local`. That file is gitignored. `.env.example` is t
 | A page's view model and demo fixtures | `src/features/<domain>` |
 | An app-wide constant                  | `src/config`            |
 
-Domains already in the tree: `damage-reports`, `repairs`, `analyses`, `reviews`, `documents`.
+Domains already in the tree: `findings` (issues), `repairs`, `analyses`, `documents`.

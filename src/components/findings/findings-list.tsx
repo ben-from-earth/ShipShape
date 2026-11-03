@@ -41,16 +41,16 @@ export function FindingsList({
     <div className="flex flex-col gap-6">
       <PageHeading
         eyebrow="Field reports"
-        title="Findings"
+        title="Issues"
         actions={
-          <Button href="/findings/new" variant="dark" size="sm">
-            New finding
+          <Button href="/issues/new" variant="dark" size="sm">
+            New issue
           </Button>
         }
       />
 
       <Card className="bg-paper-raised p-4 sm:p-6">
-        <form method="get" action="/findings" className="flex flex-col gap-4">
+        <form method="get" action="/issues" className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-3">
             <label
               className="flex flex-col gap-2"
@@ -116,7 +116,7 @@ export function FindingsList({
             <Button type="submit" variant="outline" size="sm">
               Apply
             </Button>
-            <Button href="/findings" variant="subtle" size="sm">
+            <Button href="/issues" variant="subtle" size="sm">
               Clear
             </Button>
           </div>
@@ -126,10 +126,10 @@ export function FindingsList({
       {records.length === 0 ? (
         <Card className="flex flex-col items-start gap-3 bg-paper-raised p-4 sm:p-6">
           <p className="text-body text-ink-muted">
-            {filtered ? "No findings match these filters." : "No findings yet."}
+            {filtered ? "No issues match these filters." : "No issues yet."}
           </p>
-          <Button href="/findings/new" variant="dark" size="sm">
-            New finding
+          <Button href="/issues/new" variant="dark" size="sm">
+            New issue
           </Button>
         </Card>
       ) : (
@@ -139,7 +139,7 @@ export function FindingsList({
             <span>Asset</span>
             <span>Severity</span>
             <span>Stage</span>
-            <span>Created</span>
+            <span>Submitted</span>
             <span>Photos</span>
           </li>
           {records.map((record) => (
@@ -148,7 +148,7 @@ export function FindingsList({
               className="border-b border-line-faint last:border-b-0"
             >
               <Link
-                href={`/findings/${record.id}`}
+                href={`/issues/${record.id}`}
                 className="grid grid-cols-2 gap-x-3 gap-y-2 px-4 py-3 text-ink no-underline hover:bg-sunken sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)_auto_auto_auto_auto] sm:items-center"
               >
                 <span className="font-mono text-ui font-medium">

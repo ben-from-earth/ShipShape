@@ -145,7 +145,7 @@ export const demoRepair: InferInsertModel<typeof repairs> = {
   issueId: demoIds.issue,
   title: "Canopy sill doubler",
   type: "doubler",
-  status: "open",
+  status: "draft",
 };
 
 export const demoRepairRevision: InferInsertModel<typeof repairRevisions> = {

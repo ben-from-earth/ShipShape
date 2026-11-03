@@ -62,7 +62,7 @@ export async function createRepair(
     type: input.type,
     status: input.status,
   });
-  const status = fields.status ?? "open";
+  const status = fields.status ?? "draft";
   const type = fields.type ?? null;
   const createdBy =
     input.actorId === null ? sql`null` : sql`${input.actorId}::uuid`;

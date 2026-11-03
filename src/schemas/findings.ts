@@ -63,8 +63,8 @@ export const findingSeveritySchema = z.enum(SEVERITIES);
  * client code and does not use `MAX(code) + 1`.
  *
  * `issues` has no title or summary column. Those keys are rejected. A
- * short title (what `damageReportCreateSchema` calls `summary`) would
- * need a new column such as `issues.summary` and a migration.
+ * short title would need a new column such as `issues.summary` and a
+ * migration.
  */
 export const createFindingFieldsSchema = z.strictObject({
   assetId: trimmed(idSchema),

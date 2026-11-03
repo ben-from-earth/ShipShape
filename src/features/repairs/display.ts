@@ -2,9 +2,13 @@ import { REPAIR_STATUSES, type RepairStatus } from "@/config/repairs";
 import type { Repair } from "@/schemas";
 
 export const REPAIR_STATUS_LABEL = {
-  open: "Open",
-  in_review: "In review",
-  completed: "Completed",
+  draft: "Draft",
+  written: "Repair written",
+  in_review: "Repair in review",
+  approved: "Repair approved",
+  awaiting_analysis: "Awaiting analysis",
+  analysis_approved: "Analysis approved",
+  complete: "Repair complete",
 } as const satisfies Record<RepairStatus, string>;
 
 export const REPAIR_STATUS_OPTIONS = REPAIR_STATUSES;

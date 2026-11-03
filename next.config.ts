@@ -8,6 +8,23 @@ const nextConfig: NextConfig = {
   experimental: {
     agentUpgrade: "security",
   },
+  async redirects() {
+    return [
+      { source: "/findings", destination: "/issues", permanent: false },
+      { source: "/findings/new", destination: "/issues/new", permanent: false },
+      {
+        source: "/findings/:id",
+        destination: "/issues/:id",
+        permanent: false,
+      },
+      { source: "/engineering", destination: "/analyses", permanent: false },
+      {
+        source: "/engineering/:path*",
+        destination: "/analyses",
+        permanent: false,
+      },
+    ];
+  },
   // Transformers.js and ONNX use native bindings and dynamic requires.
   // Next already externalizes both; listing them keeps document embedding
   // out of the server bundle if that default changes.

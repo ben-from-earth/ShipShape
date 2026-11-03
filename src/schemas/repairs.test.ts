@@ -20,7 +20,7 @@ const repair = {
   findingId,
   title: "Replace the seal",
   type: "weld",
-  status: "open" as const,
+  status: "draft" as const,
   createdBy: null,
   createdAt,
   updatedAt: createdAt,

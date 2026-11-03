@@ -43,20 +43,15 @@ describe("getAnalysisPage", () => {
 });
 
 describe("analysis page imports", () => {
-  it("reads the board record only through the demo gate", () => {
+  it("reads the repair-scoped analysis through getAnalysisPage", () => {
     const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
     const page = readFileSync(
       join(root, "app/(app)/analyses/[id]/page.tsx"),
       "utf8",
     );
-    const reader = readFileSync(
-      join(root, "features/analyses/board-page.ts"),
-      "utf8",
-    );
 
-    expect(page).toContain("getAnalysisBoard");
-    expect(page).not.toContain("marginThreshold");
-    expect(reader).toContain("isDemoData()");
-    expect(reader).toContain("findDemoAnalysis");
+    expect(page).toContain("getAnalysisPage");
+    expect(page).toContain("marginThreshold");
+    expect(page).not.toContain("getAnalysisBoard");
   });
 });

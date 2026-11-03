@@ -29,11 +29,11 @@ export function FindingDetail({
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <PageHeading
-        eyebrow="Finding"
+        eyebrow="Issue"
         title={record.code}
         actions={
-          <Button href="/findings" variant="subtle" size="sm">
-            All findings
+          <Button href="/issues" variant="subtle" size="sm">
+            All issues
           </Button>
         }
       />
@@ -53,7 +53,7 @@ export function FindingDetail({
               {record.asset.name ? ` · ${record.asset.name}` : ""}
             </span>
           </Fact>
-          <Fact label="Created">
+          <Fact label="Submitted">
             <time dateTime={record.createdAt} className="text-body">
               {formatFindingDate(record.createdAt)}
             </time>

@@ -81,7 +81,7 @@ describe("createRepair", () => {
       return jsonResponse({
         ...created,
         type: null,
-        status: "open",
+        status: "draft",
       });
     });
     vi.stubGlobal("fetch", fetchMock);

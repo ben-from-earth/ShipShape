@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 
 import { RepairDetail } from "@/components/repairs/repair-detail";
+import { getAnalysesPage } from "@/features/analyses/data";
 import { getRepairView } from "@/features/repairs/read";
 import { idSchema } from "@/schemas";
 
@@ -35,5 +36,10 @@ async function RepairLoader({ params }: { params: Promise<{ id: string }> }) {
     notFound();
   }
 
-  return <RepairDetail record={record} />;
+  const { records } = await getAnalysesPage();
+  const analyses = records.filter(
+    (analysis) => analysis.repair.id === record.id,
+  );
+
+  return <RepairDetail record={record} analyses={analyses} />;
 }

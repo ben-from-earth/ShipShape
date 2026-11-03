@@ -21,7 +21,7 @@ function repair(name: string | null, identifier = "A-0022"): Repair {
     findingId: "550e8400-e29b-41d4-a716-446655440031",
     title: "Replace the seal",
     type: "patch",
-    status: "open",
+    status: "draft",
     createdBy: null,
     createdAt,
     updatedAt: createdAt,
@@ -66,7 +66,9 @@ describe("repair asset label on the pages", () => {
     const list = renderToStaticMarkup(
       <RepairsList records={[named]} filters={{}} />,
     );
-    const detail = renderToStaticMarkup(<RepairDetail record={named} />);
+    const detail = renderToStaticMarkup(
+      <RepairDetail record={named} analyses={[]} />,
+    );
     const onFinding = renderToStaticMarkup(
       <FindingDetail record={finding} repairs={[named]} />,
     );
@@ -75,7 +77,7 @@ describe("repair asset label on the pages", () => {
       expect(html).toContain("Fitting");
       expect(html).not.toContain("A-0022 · Fitting");
     }
-    expect(detail).not.toContain("Create analysis");
+    expect(detail).toContain("Generate analysis");
     expect(onFinding).toContain("Fitting");
     expect(onFinding).toContain("Replace the seal");
     expect(list).toContain("ISS-1001");
@@ -87,7 +89,9 @@ describe("repair asset label on the pages", () => {
     const list = renderToStaticMarkup(
       <RepairsList records={[unnamed]} filters={{}} />,
     );
-    const detail = renderToStaticMarkup(<RepairDetail record={unnamed} />);
+    const detail = renderToStaticMarkup(
+      <RepairDetail record={unnamed} analyses={[]} />,
+    );
     const onFinding = renderToStaticMarkup(
       <FindingDetail record={finding} repairs={[unnamed]} />,
     );
