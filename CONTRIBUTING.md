@@ -6,7 +6,7 @@
 2. Create a branch with a short, descriptive name, such as `feat/repair-form`.
 3. Keep each commit focused on one change.
 4. Open a pull request into `main` and fill in the pull request template, including how you tested.
-5. Wait for CI. It runs `pnpm lint`, `pnpm format:check`, `pnpm typecheck`, `pnpm test`, and `pnpm build`, then checks that `migrations/` matches `src/db/schema.ts` and applies those migrations to a throwaway Postgres database. The workflow does not need secrets. Drops and renames belong in their own pull request; see [docs/database.md](docs/database.md).
+5. Wait for CI. It runs `npm run lint`, `npm run format:check`, `npm run typecheck`, `npm run test`, and `npm run build`, then checks that `migrations/` matches `src/db/schema.ts` and applies those migrations to a throwaway Postgres database. The workflow does not need secrets. Drops and renames belong in their own pull request; see [docs/database.md](docs/database.md).
 
 ## Commits
 
@@ -37,14 +37,14 @@ docs: describe the local embedding contract
 ## Before you push
 
 ```bash
-pnpm lint
-pnpm format:check
-pnpm typecheck
-pnpm test
-pnpm build
+npm run lint
+npm run format:check
+npm run typecheck
+npm run test
+npm run build
 ```
 
-`pnpm format` rewrites files that fail the format check.
+`npm run format` rewrites files that fail the format check.
 
 ## Secrets
 

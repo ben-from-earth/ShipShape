@@ -15,4 +15,4 @@ title: ""
 ## Environment
 
 - Node:
-- pnpm:
+- npm:

@@ -5,6 +5,9 @@ const nextConfig: NextConfig = {
   // a static shell with dynamic data as the UI grows.
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    agentUpgrade: "security",
+  },
   async redirects() {
     return [
       { source: "/findings", destination: "/issues", permanent: false },

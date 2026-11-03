@@ -174,9 +174,9 @@ The control database is a separate Postgres database. `drizzle.control.config.ts
 
 `getTenantDb(tenantId)` in `src/db/tenant-db.ts` returns a cached Neon HTTP Drizzle client. When `CONTROL_DATABASE_URL` is unset, every id uses `DATABASE_URL`. That is local development, CI, and today's Neon database, which is the first tenant. Set `CONTROL_DATABASE_URL` to look the id up in `tenants` and connect to the decrypted URL.
 
-`pnpm db:migrate` still migrates the tenant schema in `migrations/` against `DATABASE_URL`. `pnpm db:migrate:all` migrates the control database, then runs tenant migrations on every registered URL. With `CONTROL_DATABASE_URL` unset it migrates `DATABASE_URL` only, so CI can keep calling `pnpm db:migrate`.
+`npm run db:migrate` still migrates the tenant schema in `migrations/` against `DATABASE_URL`. `npm run db:migrate:all` migrates the control database, then runs tenant migrations on every registered URL. With `CONTROL_DATABASE_URL` unset it migrates `DATABASE_URL` only, so CI can keep calling `npm run db:migrate`.
 
-On-prem, the customer runs their own Postgres. Register that URL with `pnpm tenant:add`, then run tenant migrations. See [docs/on-prem.md](on-prem.md). We do not host that database.
+On-prem, the customer runs their own Postgres. Register that URL with `npm run tenant:add`, then run tenant migrations. See [docs/on-prem.md](on-prem.md). We do not host that database.
 
 The engineering writers in `src/db/engineering.ts` take a tenant database handle. `transitionAnalysis` updates one row only when `status` is still the action's `from` status and the actor's stored role passes `canPerform`. `assign` also requires the new assignee to be an engineer whose `ENGINEER_ROLE_RANK` is at least `analyst`; a missing or lower-ranked assignee returns `invalid_assignee` and writes nothing. `approve` sets `approved_at`. A concurrent second move finds the new status and returns `invalid_state`.
 
@@ -184,16 +184,16 @@ The engineering writers in `src/db/engineering.ts` take a tenant database handle
 
 Schema lives in `src/db/schema.ts`. SQL lives in `migrations/`. `drizzle.config.ts` reads `DATABASE_URL` from the Next.js env files.
 
-`pnpm db:generate` and `pnpm db:check` need `DATABASE_URL` to be set because the config file requires it. They do not connect. `pnpm db:migrate` does connect, and it needs the **direct** Neon connection string (host without `-pooler`). `pg` is installed so Drizzle Kit uses a Postgres session for that command. `getDb()` and `pnpm db:seed` use the Neon HTTP driver and accept the pooled string.
+`npm run db:generate` and `npm run db:check` need `DATABASE_URL` to be set because the config file requires it. They do not connect. `npm run db:migrate` does connect, and it needs the **direct** Neon connection string (host without `-pooler`). `pg` is installed so Drizzle Kit uses a Postgres session for that command. `getDb()` and `npm run db:seed` use the Neon HTTP driver and accept the pooled string.
 
 1. Edit `src/db/schema.ts`.
-2. Run `pnpm db:generate` and read the new SQL. The first migration already starts with `CREATE EXTENSION IF NOT EXISTS vector`. Drizzle Kit does not emit that statement; if you regenerate from an empty `migrations/` folder, put it back at the top of the first file, with a statement breakpoint after it.
-3. Run `pnpm db:check`.
+2. Run `npm run db:generate` and read the new SQL. The first migration already starts with `CREATE EXTENSION IF NOT EXISTS vector`. Drizzle Kit does not emit that statement; if you regenerate from an empty `migrations/` folder, put it back at the top of the first file, with a statement breakpoint after it.
+3. Run `npm run db:check`.
 4. Open a pull request. CI applies the migrations to a throwaway `pgvector/pgvector:pg18` database and fails if `drizzle-kit generate` would write a new diff. Pull requests do not get Neon credentials.
 
-After the pull request merges to `main`, `.github/workflows/migrate.yml` runs when `migrations/` changes (and on manual dispatch). It dumps the Neon database with `pg_dump` from the `postgres:18` image, uploads that dump as an artifact kept for 30 days, and only then runs `pnpm db:migrate`. The GitHub secret `DATABASE_URL` must be the direct connection string. The workflow uses a single concurrency group so two migrations never run at once. It does not wait on a manual approval environment.
+After the pull request merges to `main`, `.github/workflows/migrate.yml` runs when `migrations/` changes (and on manual dispatch). It dumps the Neon database with `pg_dump` from the `postgres:18` image, uploads that dump as an artifact kept for 30 days, and only then runs `npm run db:migrate`. The GitHub secret `DATABASE_URL` must be the direct connection string. The workflow uses a single concurrency group so two migrations never run at once. It does not wait on a manual approval environment.
 
-`pnpm db:seed` loads one demo organization, a T-45 asset group, and a short issue-to-review chain. It also creates three engineers through `createEngineer` — `analyst@example.com`, `reviewer@example.com`, and `approver@example.com` — skipping an email that already exists when compared with `lower(email)`. Each of those engineers gets the local password `dev-password`, stored as a scrypt hash, including when the row already exists. It adds three sample analyses: unassigned, assigned to that analyst, and an overdue analysis in progress (`due_date` `2020-01-01`). Running it again does not duplicate those rows. Engineer sessions live in `sessions` (`token_hash`, `engineer_id`, `expires_at`).
+`npm run db:seed` loads one demo organization, a T-45 asset group, and a short issue-to-review chain. It also creates three engineers through `createEngineer` — `analyst@example.com`, `reviewer@example.com`, and `approver@example.com` — skipping an email that already exists when compared with `lower(email)`. Each of those engineers gets the local password `dev-password`, stored as a scrypt hash, including when the row already exists. It adds three sample analyses: unassigned, assigned to that analyst, and an overdue analysis in progress (`due_date` `2020-01-01`). Running it again does not duplicate those rows. Engineer sessions live in `sessions` (`token_hash`, `engineer_id`, `expires_at`).
 
 ## Destructive changes
 
